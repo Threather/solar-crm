@@ -371,8 +371,9 @@ async function openLead(id){
   const canEdit = ME.role==='admin' || (ME.role==='sales' && l.assigned_to===ME.id);
   const canAssign = ME.role==='admin'||ME.role==='manager';
   const stgOpts = STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===l.stage_code?'selected':''}>${esc(s.stage_name)}</option>`).join('');
-  const salesOpts = `<option value="">— pool (unassigned) —</option>`+STAFF.filter(s=>s.role==='sales'&&s.is_active)
-      .map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
+  const assignables = STAFF.filter(s=>(s.role==='sales'&&s.is_active)||s.id===l.assigned_to);
+  const salesOpts = `<option value="">— pool (unassigned) —</option>`+assignables
+      .map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}${s.role!=='sales'?` (${esc(s.role)})`:''}</option>`).join('');
 
   $('lead-modal').innerHTML = `
     <h2>${esc(l.customer_name)}</h2>
@@ -381,7 +382,7 @@ async function openLead(id){
 
     <div class="grid2">
       <div><label>Stage</label><select id="d-stage" ${canEdit?'':'disabled'}>${stgOpts}</select></div>
-      <div><label>Assigned to</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
+      <div><label>Assigned to</label><select id="d-assign" data-orig="${l.assigned_to||''}" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
       <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canEdit?'':'disabled'}></div>
       <div><label>Quoted price (USD)</label><input id="d-quote" type="number" step="0.01" value="${l.quoted_price_usd??''}" ${canEdit?'':'disabled'}></div>
       <div id="d-salewrap" style="display:${l.stage_code==='won'||l.stage_code==='installation_done'?'block':'none'}">
@@ -429,7 +430,7 @@ async function saveLead(id, oldStage){
   if(newStage==='won' && !upd.final_sale_usd){ toast('Enter the final sale value before marking Won'); return; }
 
   const assignSel=$('d-assign');
-  if(assignSel && !assignSel.disabled){
+  if(assignSel && !assignSel.disabled && assignSel.value!==assignSel.dataset.orig){
     upd.assigned_to = assignSel.value||null;
     upd.assigned_at = assignSel.value? new Date().toISOString():null;
   }
