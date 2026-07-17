@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+:root{
+  --ink:#16233b; --ink-soft:#4a5a75; --line:#dbe2ee;
+  --paper:#f5f7fb; --card:#ffffff;
+  --sun:#f5a623; --sun-deep:#d98200; --sky:#1f5fa8;
+  --ok:#1e8e5a; --bad:#c0392b; --warn:#b26a00;
+  --pool:#7b5cd6;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);font-size:15px}
+h1,h2,h3,.brand{font-family:'Sora',sans-serif}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-size:14px}
+input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--sun);outline-offset:1px;border-color:var(--sun)}
+label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+
+/* ---------- login ---------- */
+#login-view{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,#16233b 0%,#1f3a63 60%,#2c5a8f 100%)}
+.login-card{background:var(--card);padding:36px 32px;border-radius:16px;width:360px;max-width:92vw;
+  box-shadow:0 18px 50px rgba(10,20,40,.45)}
+.sunmark{width:46px;height:46px;border-radius:50%;margin-bottom:14px;
+  background:radial-gradient(circle at 35% 35%, #ffd77a, var(--sun) 55%, var(--sun-deep));
+  box-shadow:0 0 0 6px rgba(245,166,35,.18), 0 0 24px rgba(245,166,35,.5)}
+.login-card h1{font-size:22px;margin-bottom:2px}
+.login-card p{color:var(--ink-soft);font-size:13px;margin-bottom:12px}
+.btn-primary{background:var(--sun);color:#241a00;font-weight:700;padding:11px 16px;width:100%;margin-top:16px}
+.btn-primary:hover{background:var(--sun-deep);color:#fff}
+.err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+
+/* ---------- shell ---------- */
+#app-view{display:none;min-height:100vh}
+header{background:var(--ink);color:#fff;padding:0 18px;display:flex;align-items:center;gap:18px;height:54px;position:sticky;top:0;z-index:20}
+.brand{font-weight:700;font-size:16px;display:flex;align-items:center;gap:9px}
+.brand .dot{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffd77a,var(--sun))}
+nav{display:flex;gap:4px;flex:1}
+nav button{background:transparent;color:#c6d2e6;padding:8px 12px;border-radius:8px;font-weight:600}
+nav button.active{background:rgba(245,166,35,.18);color:var(--sun)}
+nav button:hover{color:#fff}
+.who{font-size:12px;color:#9fb1cc;text-align:right;line-height:1.3}
+.who b{color:#fff;display:block;font-size:13px}
+.btn-ghost{background:transparent;color:#c6d2e6;border:1px solid #3a4d70;padding:7px 12px}
+.btn-ghost:hover{color:#fff;border-color:#fff}
+main{max-width:1180px;margin:0 auto;padding:22px 18px 60px}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.toolbar input,.toolbar select{width:auto;min-width:150px}
+.spacer{flex:1}
+.btn-sun{background:var(--sun);color:#241a00;font-weight:700;padding:10px 16px}
+.btn-sun:hover{background:var(--sun-deep);color:#fff}
+
+/* ---------- table ---------- */
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:760px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);text-align:left;padding:10px 12px;border-bottom:2px solid var(--line);background:#fbfcfe;position:sticky;top:0}
+td{padding:11px 12px;border-bottom:1px solid #eef1f7;font-size:14px;vertical-align:middle}
+tr.rowlink{cursor:pointer}
+tr.rowlink:hover{background:#fdf7ea}
+.stagepill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.days{font-size:11px;color:var(--ink-soft);display:block;margin-top:2px}
+.pooltag{color:var(--pool);font-weight:700;font-size:12px}
+.overdue{color:var(--bad);font-weight:700}
+.empty{padding:40px;text-align:center;color:var(--ink-soft)}
+
+/* ---------- modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,25,45,.55);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
+.overlay.open{display:flex}
+.modal{background:var(--card);border-radius:14px;width:820px;max-width:100%;padding:24px;box-shadow:0 24px 70px rgba(10,20,40,.5)}
+.modal h2{font-size:19px;margin-bottom:4px}
+.modal .sub{color:var(--ink-soft);font-size:13px;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
+.modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.btn-line{background:#fff;border:1px solid var(--line);color:var(--ink);padding:10px 14px;font-weight:600}
+.btn-line:hover{border-color:var(--ink)}
+.btn-danger{background:#fff;border:1px solid var(--bad);color:var(--bad);padding:10px 14px;font-weight:600}
+.btn-danger:hover{background:var(--bad);color:#fff}
+
+/* ---------- timeline ---------- */
+.timeline{border-left:2px solid var(--line);margin:14px 0 0 8px;padding-left:18px}
+.tl-item{position:relative;padding-bottom:14px}
+.tl-item::before{content:"";position:absolute;left:-24px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--sun);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.tl-item .t-head{font-size:13px;font-weight:600}
+.tl-item .t-meta{font-size:11px;color:var(--ink-soft)}
+.tl-item .t-note{font-size:13px;margin-top:3px;white-space:pre-wrap}
+
+/* ---------- cards / stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.stat .n{font-family:'Sora';font-size:26px;font-weight:700}
+.stat .l{font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
+.stat.gold{border-top:3px solid var(--sun)}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:99px;font-size:14px;display:none;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
+.b-on{background:#e2f5ea;color:var(--ok)} .b-off{background:#fdeaea;color:var(--bad)}
+.hint{background:#fff8e8;border:1px solid #f0dfae;border-radius:var(--r);padding:12px 14px;font-size:13px;color:#6b5310;margin-bottom:14px}
+@media(max-width:700px){ nav{overflow-x:auto} .who{display:none} }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="sunmark"></div>
+    <h1>Solar CRM</h1>
+    <p>Sign in with your staff account</p>
+    <label>Email</label>
+    <input id="li-email" type="email" autocomplete="username">
+    <label>Password</label>
+    <input id="li-pass" type="password" autocomplete="current-password">
+    <button class="btn-primary" id="li-btn" onclick="doLogin()">Sign in</button>
+    <div class="err" id="li-err"></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app-view">
+  <header>
+    <div class="brand"><span class="dot"></span>Solar CRM</div>
+    <nav id="nav"></nav>
+    <div class="who" id="who"></div>
+    <button class="btn-ghost" onclick="doLogout()">Sign out</button>
+  </header>
+  <main id="main"></main>
+</div>
+
+<!-- ================= LEAD MODAL ================= -->
+<div class="overlay" id="lead-overlay"><div class="modal" id="lead-modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   SOLAR CRM — frontend v1
+   ============================================================ */
+const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
+
+let ME = null;          // my profile row
+let STAGES = [];        // lead_stages
+let STAFF = [];         // profiles (for names / assignment)
+let LEADS = [];         // current lead list
+let VIEW = 'leads';
+let FILTER = { scope:'default', stage:'', q:'' };
+
+const $ = id => document.getElementById(id);
+const esc = s => (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtMoney = v => v==null||v===''?'—':'$'+Number(v).toLocaleString(undefined,{maximumFractionDigits:2});
+const fmtDate = d => d? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+const fmtDT = d => d? new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+const daysIn = d => Math.floor((Date.now()-new Date(d).getTime())/86400000);
+const staffName = id => (STAFF.find(s=>s.id===id)||{}).full_name || '—';
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
+
+const STAGE_COLORS = {
+  new:'#e8eefc|#1f5fa8', contacted:'#e6f4fb|#0f7ea8', survey_scheduled:'#f3ecfd|#7b5cd6',
+  survey_done:'#efe8fb|#5b3fb8', proposal_sent:'#fff3dd|#b26a00', negotiation:'#ffe9d1|#c05600',
+  won:'#e2f5ea|#1e8e5a', installation_done:'#dcf2e4|#136b42', lost:'#fdeaea|#c0392b'
+};
+function stagePill(code){
+  const st = STAGES.find(s=>s.stage_code===code)||{stage_name:code};
+  const [bg,fg]=(STAGE_COLORS[code]||'#eee|#555').split('|');
+  return `<span class="stagepill" style="background:${bg};color:${fg}">${esc(st.stage_name)}</span>`;
+}
+
+/* ---------------- auth ---------------- */
+async function doLogin(){
+  const btn=$('li-btn'); btn.disabled=true; $('li-err').textContent='';
+  const {error} = await sb.auth.signInWithPassword({email:$('li-email').value.trim(), password:$('li-pass').value});
+  btn.disabled=false;
+  if(error){ $('li-err').textContent='Sign in failed. Check your email and password.'; return; }
+  boot();
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){ $('login-view').style.display='flex'; $('app-view').style.display='none'; return; }
+
+  const {data:prof,error} = await sb.from('profiles').select('*').eq('id',session.user.id).single();
+  if(error||!prof||!prof.is_active){
+    $('li-err').textContent='Your account has no active CRM profile. Contact your admin.';
+    await sb.auth.signOut(); return;
+  }
+  ME = prof;
+  const [stg, stf] = await Promise.all([
+    sb.from('lead_stages').select('*').eq('is_active',true).order('sort_order'),
+    sb.from('profiles').select('id,full_name,staff_id,role,is_active').order('full_name')
+  ]);
+  STAGES = stg.data||[]; STAFF = stf.data||[];
+
+  $('login-view').style.display='none'; $('app-view').style.display='block';
+  $('who').innerHTML = `<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
+  buildNav(); go('leads');
+}
+
+function buildNav(){
+  const tabs=[['leads','Leads']];
+  if(ME.role!=='marketing') tabs.push(['pool','Pool']);
+  if(ME.role==='marketing'||ME.role==='sales'||ME.role==='admin') tabs.push(['new','New lead']);
+  tabs.push(['comm','Commissions']);
+  if(ME.role==='admin') tabs.push(['users','Users']);
+  $('nav').innerHTML = tabs.map(([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">${l}</button>`).join('');
+}
+function go(v){
+  VIEW=v;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  const nb=$('nav-'+v); if(nb) nb.classList.add('active');
+  ({leads:renderLeads, pool:renderPool, new:renderNew, comm:renderComm, users:renderUsers}[v])();
+}
+
+/* ---------------- data ---------------- */
+async function fetchLeads(extra){
+  let q = sb.from('leads').select('*').eq('is_deleted',false).order('created_at',{ascending:false});
+  if(extra) q = extra(q);
+  const {data,error} = await q;
+  if(error){ toast('Could not load leads'); console.error(error); return []; }
+  return data||[];
+}
+
+/* ---------------- LEADS LIST ---------------- */
+async function renderLeads(){
+  $('main').innerHTML = `<div class="empty">Loading…</div>`;
+  LEADS = await fetchLeads(q=>{
+    if(ME.role==='sales') return q.eq('assigned_to',ME.id);
+    if(ME.role==='marketing') return q.eq('created_by',ME.id);
+    return q; // admin, manager: all
+  });
+  const stg = STAGES.map(s=>`<option value="${s.stage_code}">${esc(s.stage_name)}</option>`).join('');
+  const title = ME.role==='sales'?'My leads': ME.role==='marketing'?'Leads I created':'All leads';
+
+  const active = LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
+  const won = LEADS.filter(l=>['won','installation_done'].includes(l.stage_code));
+  const overdue = LEADS.filter(l=>l.next_follow_up && new Date(l.next_follow_up) < new Date().setHours(0,0,0,0) && !STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
+
+  $('main').innerHTML = `
+    <div class="stats">
+      <div class="stat gold"><div class="n">${LEADS.length}</div><div class="l">${title}</div></div>
+      <div class="stat"><div class="n">${active.length}</div><div class="l">In pipeline</div></div>
+      <div class="stat"><div class="n">${won.length}</div><div class="l">Won</div></div>
+      <div class="stat"><div class="n" style="color:${overdue.length?'var(--bad)':'inherit'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
+    </div>
+    <div class="toolbar">
+      <input placeholder="Search name or phone…" oninput="FILTER.q=this.value;drawTable()">
+      <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
+      <div class="spacer"></div>
+      ${ME.role!=='manager' && ME.role!=='sales' ? `` : ``}
+    </div>
+    <div class="tablewrap" id="tablewrap"></div>`;
+  drawTable();
+}
+function drawTable(){
+  let rows = LEADS;
+  if(FILTER.stage) rows = rows.filter(l=>l.stage_code===FILTER.stage);
+  if(FILTER.q){ const q=FILTER.q.toLowerCase(); rows=rows.filter(l=>(l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)); }
+  if(!rows.length){ $('tablewrap').innerHTML=`<div class="empty">No leads match. Create one from “New lead”.</div>`; return; }
+  $('tablewrap').innerHTML = `<table><thead><tr>
+    <th>Customer</th><th>Phone</th><th>Stage</th><th>Assigned</th><th>Follow-up</th><th>Quoted</th><th>Created</th>
+  </tr></thead><tbody>` + rows.map(l=>{
+    const od = l.next_follow_up && new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
+    return `<tr class="rowlink" onclick="openLead('${l.id}')">
+      <td><b>${esc(l.customer_name)}</b></td>
+      <td>${esc(l.phone)}</td>
+      <td>${stagePill(l.stage_code)}<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
+      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">POOL</span>'}</td>
+      <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
+      <td>${fmtMoney(l.quoted_price_usd)}</td>
+      <td>${fmtDate(l.created_at)}</td></tr>`;
+  }).join('')+`</tbody></table>`;
+}
+
+/* ---------------- POOL ---------------- */
+async function renderPool(){
+  $('main').innerHTML = `<div class="empty">Loading…</div>`;
+  const pool = await fetchLeads(q=>q.is('assigned_to',null));
+  const canAssign = ME.role==='manager'||ME.role==='admin';
+  const canClaim = ME.role==='sales';
+  const salesOpts = STAFF.filter(s=>['sales'].includes(s.role)&&s.is_active)
+      .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
+  $('main').innerHTML = `
+    <h2 style="margin-bottom:6px">Unassigned pool</h2>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">
+      New leads from marketing wait here until a salesperson takes them.</p>
+    ${pool.length?'':'<div class="empty">Pool is empty. Nice.</div>'}
+    ${pool.length?`<div class="tablewrap"><table><thead><tr>
+      <th>Customer</th><th>Phone</th><th>Source</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
+    </tr></thead><tbody>`+pool.map(l=>`
+      <tr><td><b class="rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">${esc(l.customer_name)}</b></td>
+      <td>${esc(l.phone)}</td><td>${esc(l.lead_source||'—')}</td>
+      <td>${daysIn(l.created_at)}d</td><td>${esc(staffName(l.created_by))}</td>
+      <td>${canAssign?`<div style="display:flex;gap:6px"><select id="as-${l.id}">${salesOpts}</select>
+            <button class="btn-sun" onclick="assignLead('${l.id}', document.getElementById('as-${l.id}').value)">Assign</button></div>`
+          : canClaim?`<button class="btn-sun" onclick="assignLead('${l.id}','${ME.id}')">Take this lead</button>`:'—'}</td>
+      </tr>`).join('')+`</tbody></table></div>`:''}`;
+}
+async function assignLead(leadId, staffId){
+  if(!staffId) return;
+  const {error} = await sb.from('leads').update({assigned_to:staffId, assigned_at:new Date().toISOString()}).eq('id',leadId);
+  if(error){ toast('Assign failed'); console.error(error); return; }
+  await logActivity(leadId,'assigned',null,null,'Assigned to '+staffName(staffId));
+  toast('Lead assigned to '+staffName(staffId));
+  renderPool();
+}
+
+/* ---------------- NEW LEAD ---------------- */
+function renderNew(){
+  const isAdmin = ME.role==='admin';
+  const srcs = ['facebook','referral','walk-in','phone','website','other'];
+  $('main').innerHTML = `
+    <h2 style="margin-bottom:12px">New lead</h2>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:760px">
+      <div class="grid2">
+        <div><label>Customer name *</label><input id="f-name"></div>
+        <div><label>Phone *</label><input id="f-phone"></div>
+        <div style="grid-column:1/-1"><label>Site address</label><input id="f-addr"></div>
+        <div><label>Property type</label><select id="f-prop">
+          <option value="">—</option><option>residential</option><option>commercial</option>
+          <option>industrial</option><option>farm</option><option>other</option></select></div>
+        <div><label>Monthly electricity bill (USD)</label><input id="f-bill" type="number" min="0" step="0.01"></div>
+        <div><label>Estimated system size (kW)</label><input id="f-kw" type="number" min="0" step="0.1"></div>
+        <div><label>Lead source</label><select id="f-src">${srcs.map(s=>`<option>${s}</option>`).join('')}</select></div>
+        <div><label>Referrer name (external, optional)</label><input id="f-refname"></div>
+        <div><label>Referrer phone</label><input id="f-refphone"></div>
+        <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-sun" onclick="createLead()">Create lead</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">
+        ${isAdmin?'As admin you can assign it right after creating, from the Pool.':'The lead will enter the unassigned pool for a manager to assign.'}</p>
+    </div>`;
+}
+async function createLead(){
+  const name=$('f-name').value.trim(), phone=$('f-phone').value.trim();
+  if(!name||!phone){ toast('Name and phone are required'); return; }
+  const row = {
+    customer_name:name, phone,
+    site_address:$('f-addr').value.trim()||null,
+    property_type:$('f-prop').value||null,
+    monthly_bill_usd:$('f-bill').value||null,
+    est_system_kw:$('f-kw').value||null,
+    lead_source:$('f-src').value,
+    referrer_name:$('f-refname').value.trim()||null,
+    referrer_phone:$('f-refphone').value.trim()||null,
+    created_by: ME.id
+  };
+  const {data,error} = await sb.from('leads').insert(row).select().single();
+  if(error){ toast('Create failed'); console.error(error); return; }
+  await logActivity(data.id,'created',null,'new',$('f-note').value.trim()||'Lead created');
+  toast('Lead created — it is now in the pool');
+  go('leads');
+}
+
+/* ---------------- LEAD DETAIL ---------------- */
+async function openLead(id){
+  const {data:l,error} = await sb.from('leads').select('*').eq('id',id).single();
+  if(error||!l){ toast('Could not open lead'); return; }
+  const {data:acts} = await sb.from('lead_activities').select('*').eq('lead_id',id).order('created_at',{ascending:false});
+  const canEdit = ME.role==='admin' || (ME.role==='sales' && l.assigned_to===ME.id);
+  const canAssign = ME.role==='admin'||ME.role==='manager';
+  const stgOpts = STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===l.stage_code?'selected':''}>${esc(s.stage_name)}</option>`).join('');
+  const salesOpts = `<option value="">— pool (unassigned) —</option>`+STAFF.filter(s=>s.role==='sales'&&s.is_active)
+      .map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
+
+  $('lead-modal').innerHTML = `
+    <h2>${esc(l.customer_name)}</h2>
+    <div class="sub">${esc(l.phone)} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))}
+      · ${stagePill(l.stage_code)} <span class="days" style="display:inline">${daysIn(l.stage_entered_at)}d in stage</span></div>
+
+    <div class="grid2">
+      <div><label>Stage</label><select id="d-stage" ${canEdit?'':'disabled'}>${stgOpts}</select></div>
+      <div><label>Assigned to</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
+      <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canEdit?'':'disabled'}></div>
+      <div><label>Quoted price (USD)</label><input id="d-quote" type="number" step="0.01" value="${l.quoted_price_usd??''}" ${canEdit?'':'disabled'}></div>
+      <div id="d-salewrap" style="display:${l.stage_code==='won'||l.stage_code==='installation_done'?'block':'none'}">
+        <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${l.final_sale_usd??''}" ${canEdit?'':'disabled'}></div>
+      <div><label>Site address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canEdit?'':'disabled'}></div>
+      <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canEdit?'':'disabled'}></div>
+      <div><label>System size (kW)</label><input id="d-kw" type="number" step="0.1" value="${l.est_system_kw??''}" ${canEdit?'':'disabled'}></div>
+      ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
+    </div>
+
+    ${canEdit?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
+
+    <div class="modal-actions">
+      ${canEdit?`<button class="btn-sun" onclick="saveLead('${l.id}','${l.stage_code}')">Save</button>`:''}
+      ${canEdit?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
+      <button class="btn-line" onclick="closeLead()">Close</button>
+    </div>
+
+    <h3 style="margin-top:22px;font-size:15px">History</h3>
+    <div class="timeline">${(acts||[]).map(a=>`
+      <div class="tl-item">
+        <div class="t-head">${esc(a.activity_type==='stage_change'
+            ? `Stage: ${a.from_stage||'—'} → ${a.to_stage}` : a.activity_type)}</div>
+        <div class="t-meta">${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
+        ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
+      </div>`).join('')||'<div class="empty">No history yet.</div>'}
+    </div>`;
+  $('lead-overlay').classList.add('open');
+  const stSel=$('d-stage');
+  if(stSel) stSel.onchange=()=>{ $('d-salewrap').style.display = ['won','installation_done'].includes(stSel.value)?'block':'none'; };
+}
+function closeLead(){ $('lead-overlay').classList.remove('open'); }
+
+async function saveLead(id, oldStage){
+  const newStage = $('d-stage').value;
+  const upd = {
+    stage_code:newStage,
+    next_follow_up: $('d-follow').value||null,
+    quoted_price_usd: $('d-quote').value||null,
+    site_address: $('d-addr').value.trim()||null,
+    monthly_bill_usd: $('d-bill').value||null,
+    est_system_kw: $('d-kw').value||null
+  };
+  const saleEl=$('d-sale'); if(saleEl) upd.final_sale_usd = saleEl.value||null;
+  if(newStage==='won' && !upd.final_sale_usd){ toast('Enter the final sale value before marking Won'); return; }
+
+  const assignSel=$('d-assign');
+  if(assignSel && !assignSel.disabled){
+    upd.assigned_to = assignSel.value||null;
+    upd.assigned_at = assignSel.value? new Date().toISOString():null;
+  }
+  const {error} = await sb.from('leads').update(upd).eq('id',id);
+  if(error){ toast('Save failed'); console.error(error); return; }
+
+  const note=$('d-note')?$('d-note').value.trim():'';
+  if(newStage!==oldStage) await logActivity(id,'stage_change',oldStage,newStage,note||null);
+  else if(note) await logActivity(id,'note',null,null,note);
+  else await logActivity(id,'edit',null,null,null);
+
+  toast(newStage==='won'&&oldStage!=='won' ? 'Saved — commissions created for this deal' : 'Saved');
+  closeLead(); go(VIEW==='pool'?'pool':'leads');
+}
+async function softDelete(id){
+  if(!confirm('Delete this lead? It disappears from the CRM but stays in the database.')) return;
+  const {error} = await sb.from('leads').update({is_deleted:true,deleted_at:new Date().toISOString(),deleted_by:ME.id}).eq('id',id);
+  if(error){ toast('Delete failed'); return; }
+  await logActivity(id,'soft_delete',null,null,null);
+  toast('Lead deleted'); closeLead(); go('leads');
+}
+async function logActivity(leadId,type,from,to,note){
+  await sb.from('lead_activities').insert({lead_id:leadId,actor_id:ME.id,activity_type:type,from_stage:from,to_stage:to,note});
+}
+
+/* ---------------- COMMISSIONS ---------------- */
+async function renderComm(){
+  $('main').innerHTML = `<div class="empty">Loading…</div>`;
+  const {data:comms,error} = await sb.from('commissions').select('*, leads(customer_name, final_sale_usd, stage_code)').order('created_at',{ascending:false});
+  if(error){ $('main').innerHTML=`<div class="empty">Could not load commissions.</div>`; return; }
+  const isAdmin = ME.role==='admin';
+  const mine = c => c.profile_id===ME.id;
+  const unpaid = (comms||[]).filter(c=>!c.is_paid);
+  $('main').innerHTML = `
+    <h2 style="margin-bottom:6px">Commissions</h2>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">
+      Created automatically when a deal is marked Won. ${isAdmin?'Fill in amounts and mark paid.':'You see only your own.'}</p>
+    ${!comms||!comms.length?'<div class="empty">No commissions yet. Win a deal first.</div>':`
+    <div class="tablewrap"><table><thead><tr>
+      <th>Deal</th><th>Sale value</th><th>Who</th><th>Type</th><th>Amount</th><th>Status</th>${isAdmin?'<th></th>':''}
+    </tr></thead><tbody>`+comms.map(c=>`
+      <tr>
+        <td><b>${esc(c.leads?.customer_name||'?')}</b></td>
+        <td>${fmtMoney(c.leads?.final_sale_usd)}</td>
+        <td>${c.beneficiary_type==='referrer'?esc(c.referrer_name||'External referrer'):esc(staffName(c.profile_id))}${mine(c)?' <span class="badge b-on">you</span>':''}</td>
+        <td>${esc(c.beneficiary_type)}</td>
+        <td>${isAdmin?`<input style="width:110px" type="number" step="0.01" value="${c.amount_usd??''}" onchange="setCommAmount('${c.id}',this.value)">`:fmtMoney(c.amount_usd)}</td>
+        <td>${c.is_paid?`<span class="badge b-on">paid ${fmtDate(c.paid_at)}</span>`:`<span class="badge b-off">unpaid</span>`}</td>
+        ${isAdmin?`<td>${c.is_paid?'':`<button class="btn-line" onclick="markPaid('${c.id}')">Mark paid</button>`}</td>`:''}
+      </tr>`).join('')+`</tbody></table></div>`}`;
+}
+async function setCommAmount(id,val){
+  const {error}=await sb.from('commissions').update({amount_usd:val||null}).eq('id',id);
+  toast(error?'Update failed':'Amount saved');
+}
+async function markPaid(id){
+  const {error}=await sb.from('commissions').update({is_paid:true,paid_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Failed');return;} toast('Marked paid'); renderComm();
+}
+
+/* ---------------- USERS (admin) ---------------- */
+async function renderUsers(){
+  const {data:users} = await sb.from('profiles').select('*').order('created_at');
+  $('main').innerHTML = `
+    <h2 style="margin-bottom:10px">Users</h2>
+    <div class="hint"><b>Adding a new user is a two-step job (you do it once per person):</b><br>
+      1. In the Supabase dashboard: Authentication → Users → Add user → set their email + a temporary password.<br>
+      2. Back here, fill this form to give them a CRM profile. Then send them the temp password privately and ask them to change it after first login (Supabase dashboard → user → they can use "Reset password" flows later).</div>
+    <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;max-width:720px;margin-bottom:18px">
+      <div class="grid2">
+        <div><label>Email (must exactly match the auth user)</label><input id="u-email"></div>
+        <div><label>Staff ID</label><input id="u-staff" placeholder="e.g. SAL003"></div>
+        <div><label>Full name</label><input id="u-name"></div>
+        <div><label>Role</label><select id="u-role">
+          <option value="marketing">marketing</option><option value="sales">sales</option>
+          <option value="manager">manager</option><option value="admin">admin</option></select></div>
+      </div>
+      <div class="modal-actions"><button class="btn-sun" onclick="createProfile()">Create profile</button></div>
+    </div>
+    <div class="tablewrap"><table><thead><tr>
+      <th>Name</th><th>Email</th><th>Staff ID</th><th>Role</th><th>Status</th><th></th>
+    </tr></thead><tbody>`+(users||[]).map(u=>`
+      <tr><td><b>${esc(u.full_name)}</b></td><td>${esc(u.email)}</td><td>${esc(u.staff_id)}</td><td>${esc(u.role)}</td>
+      <td>${u.is_active?'<span class="badge b-on">active</span>':'<span class="badge b-off">inactive</span>'}</td>
+      <td>${u.id===ME.id?'':`<button class="btn-line" onclick="toggleUser('${u.id}',${!u.is_active})">${u.is_active?'Deactivate':'Reactivate'}</button>`}</td>
+      </tr>`).join('')+`</tbody></table></div>`;
+}
+async function createProfile(){
+  const email=$('u-email').value.trim().toLowerCase();
+  const staff=$('u-staff').value.trim(), name=$('u-name').value.trim(), role=$('u-role').value;
+  if(!email||!staff||!name){ toast('All fields are required'); return; }
+  // find the auth user id via RPC-free trick: profiles insert needs the auth id, admin runs a helper:
+  const {data,error} = await sb.rpc('admin_create_profile',{p_email:email,p_staff_id:staff,p_full_name:name,p_role:role});
+  if(error){ toast(error.message.includes('not found')?'No auth user with that email — do step 1 first':'Create failed'); console.error(error); return; }
+  toast('Profile created'); renderUsers();
+}
+async function toggleUser(id,active){
+  const {error}=await sb.from('profiles').update({is_active:active}).eq('id',id);
+  if(error){toast('Failed');return;} toast(active?'User reactivated':'User deactivated'); renderUsers();
+}
+
+/* ---------------- start ---------------- */
+$('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+boot();
+</script>
+</body>
+</html>
