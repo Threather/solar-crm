@@ -1,8 +1,3 @@
-// ============================================================
-// SOLAR CRM CONFIG
-// Paste your own values from:
-// Supabase dashboard → Project Settings → API
-// ============================================================
 
 const CRM_CONFIG = {
   SUPABASE_URL: "https://ovexgpkrljrbfhtsuxyg.supabase.co",      // looks like https://xxxx.supabase.co
