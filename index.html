@@ -151,6 +151,7 @@ let ME=null, STAGES=[], STAFF=[], LEADS=[], VIEW='leads';
 let FILTER={stage:'',q:'',month:'',date:''};
 /* local YYYY-MM-DD, so a late-evening lead in Cambodia isn't filed under tomorrow */
 const localDay=d=>d?new Date(d).toLocaleDateString('sv'):'';
+const monthName=m=>{const[y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'});};
 
 /* Vocabularies from the client's Excel (Drop Down List sheet) */
 const CHANNELS = {
@@ -279,6 +280,9 @@ async function renderLeads(){
     return q;
   });
   const stg=STAGES.map(s=>`<option value="${s.stage_code}">${esc(s.stage_name)}</option>`).join('');
+  /* only offer months that actually have leads, newest first */
+  const monthOpts=[...new Set(LEADS.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean)
+    .sort().reverse().map(m=>`<option value="${m}" ${m===FILTER.month?'selected':''}>${monthName(m)}</option>`).join('');
   const title=ME.role==='sales'?'My leads':ME.role==='marketing'?'Leads I created':ME.role==='engineer'?'My engineering jobs':'All leads';
   const active=LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
   const won=LEADS.filter(l=>l.stage_code===WON);
@@ -293,8 +297,9 @@ async function renderLeads(){
     <div class="toolbar">
       <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;drawTable()">
       <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
-      <input type="month" title="Created in month" value="${esc(FILTER.month||'')}" onchange="FILTER.month=this.value;FILTER.date='';drawTable()">
-      <input type="date" title="Created on date" value="${esc(FILTER.date||'')}" onchange="FILTER.date=this.value;FILTER.month='';drawTable()">
+      <select title="Created in month" onchange="FILTER.month=this.value;FILTER.date='';drawTable()">
+        <option value="">All months</option>${monthOpts}</select>
+      <input type="date" title="Created on this exact date" value="${esc(FILTER.date||'')}" onchange="FILTER.date=this.value;FILTER.month='';drawTable()">
       <button class="btn-line" onclick="FILTER={stage:'',q:'',month:'',date:''};renderLeads()">Clear</button>
     </div>
     <div class="tablewrap" id="tablewrap"></div>`;
