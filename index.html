@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="geo.js"></script>
 <style>
 :root{
   --ink:#16233b; --ink-soft:#4a5a75; --line:#dbe2ee;
@@ -166,32 +167,10 @@ const PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other
 const INVERTER_BRANDS = ['Deye','Growatt','Huawei','Sungrow','Solis','Other'];
 const BATTERY_BRANDS = ['Deye','BYD','Pylontech','Growatt','Other'];
 
-/* Cambodia geography. Phnom Penh is mapped down to sangkat; the other
-   provinces list khan/srok only where confident, otherwise commune is typed.
-   Edit freely — these are plain arrays. */
-const PROVINCES = ['Phnom Penh','Banteay Meanchey','Battambang','Kampong Cham','Kampong Chhnang',
-  'Kampong Speu','Kampong Thom','Kampot','Kandal','Kep','Koh Kong','Kratie','Mondulkiri',
-  'Oddar Meanchey','Pailin','Preah Sihanouk','Preah Vihear','Prey Veng','Pursat','Ratanakiri',
-  'Siem Reap','Stung Treng','Svay Rieng','Takeo','Tbong Khmum'];
-
-const GEO = {
-  'Phnom Penh': {
-    'Chamkar Mon': ['Tonle Bassac','Boeng Trabaek','Phsar Daeum Thkov','Tuol Tumpung Ti Muoy','Tuol Tumpung Ti Pir','Phsar Doeum Kor'],
-    'Boeng Keng Kang': ['Boeng Keng Kang Ti Muoy','Boeng Keng Kang Ti Pir','Boeng Keng Kang Ti Bei','Olympic','Tuol Svay Prey Ti Muoy','Tuol Svay Prey Ti Pir','Tumnob Tuek'],
-    'Doun Penh': ['Phsar Thmei Ti Muoy','Phsar Thmei Ti Pir','Phsar Thmei Ti Bei','Phsar Kandal Ti Muoy','Phsar Kandal Ti Pir','Chey Chumneas','Chakto Mukh','Phsar Chas','Srah Chak','Voat Phnum','Boeng Reang'],
-    'Prampir Makara': ['Ou Ruessei Ti Muoy','Ou Ruessei Ti Pir','Ou Ruessei Ti Bei','Ou Ruessei Ti Buon','Monourom','Mittapheap','Veal Vong','Boeng Prolit'],
-    'Tuol Kouk': ['Boeng Kak Ti Muoy','Boeng Kak Ti Pir','Boeng Salang','Phsar Daeum Kor','Phsar Depou Ti Muoy','Phsar Depou Ti Pir','Phsar Depou Ti Bei','Tuek L\'ak Ti Muoy','Tuek L\'ak Ti Pir','Tuek L\'ak Ti Bei'],
-    'Sen Sok': ['Phnom Penh Thmei','Tuek Thla','Khmuonh','Ou Baek K\'am','Kouk Khleang','Krang Thnong'],
-    'Russey Keo': ['Tuol Sangkae Ti Muoy','Tuol Sangkae Ti Pir','Russey Keo','Kilomaetr Lekh Prammuoy','Svay Pak','Chrang Chamreh Ti Muoy','Chrang Chamreh Ti Pir'],
-    'Mean Chey': ['Stueng Mean Chey Ti Muoy','Stueng Mean Chey Ti Pir','Stueng Mean Chey Ti Bei','Boeng Tumpun Ti Muoy','Boeng Tumpun Ti Pir','Chak Angrae Leu','Chak Angrae Kraom'],
-    'Chbar Ampov': ['Chbar Ampov Ti Muoy','Chbar Ampov Ti Pir','Nirouth','Prek Pra','Veal Sbov','Preaek Aeng','Kbal Kaoh','Boeng Tumpun'],
-    'Pou Senchey': ['Chaom Chau Ti Muoy','Chaom Chau Ti Pir','Chaom Chau Ti Bei','Kakab Ti Muoy','Kakab Ti Pir','Trapeang Krasang','Samraong Kraom','Phleung Chheh Roteh'],
-    'Dangkao': ['Dangkao','Prey Sa','Cheung Aek','Kong Noy','Pong Tuek','Preaek Kampues','Roluos','Sak Sampov','Krang Pongro','Tien'],
-    'Kamboul': ['Kamboul','Kantaok','Boeng Thum','Krang Pongro','Ovlaok','Snao','Preaek Kampues'],
-    'Chroy Changvar': ['Chroy Changvar','Preaek Lieb','Preaek Ta Sek','Kaoh Dach','Bak Kaeng'],
-    'Prek Pnov': ['Preaek Phnov','Ponhea Pon','Samraong','Kouk Roka','Ph\'aav']
-  }
-};
+/* Cambodia geography comes from geo.js (NCDD official gazetteer):
+   25 provinces, every district, every commune. */
+const GEO = CRM_GEO;
+const PROVINCES = Object.keys(GEO);
 
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
