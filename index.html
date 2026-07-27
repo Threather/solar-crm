@@ -147,7 +147,9 @@ tr.rowlink:hover{background:#fdf7ea}
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
 let ME=null, STAGES=[], STAFF=[], LEADS=[], VIEW='leads';
-let FILTER={stage:'',q:''};
+let FILTER={stage:'',q:'',month:'',date:''};
+/* local YYYY-MM-DD, so a late-evening lead in Cambodia isn't filed under tomorrow */
+const localDay=d=>d?new Date(d).toLocaleDateString('sv'):'';
 
 /* Vocabularies from the client's Excel (Drop Down List sheet) */
 const CHANNELS = {
@@ -310,8 +312,11 @@ async function renderLeads(){
       <div class="stat"><div class="n" style="color:${overdue.length?'var(--bad)':'inherit'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
     </div>
     <div class="toolbar">
-      <input placeholder="Search name, phone or ref ID…" oninput="FILTER.q=this.value;drawTable()">
+      <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;drawTable()">
       <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
+      <input type="month" title="Created in month" value="${esc(FILTER.month||'')}" onchange="FILTER.month=this.value;FILTER.date='';drawTable()">
+      <input type="date" title="Created on date" value="${esc(FILTER.date||'')}" onchange="FILTER.date=this.value;FILTER.month='';drawTable()">
+      <button class="btn-line" onclick="FILTER={stage:'',q:'',month:'',date:''};renderLeads()">Clear</button>
     </div>
     <div class="tablewrap" id="tablewrap"></div>`;
   drawTable();
@@ -319,6 +324,8 @@ async function renderLeads(){
 function drawTable(){
   let rows=LEADS;
   if(FILTER.stage)rows=rows.filter(l=>l.stage_code===FILTER.stage);
+  if(FILTER.month)rows=rows.filter(l=>localDay(l.created_at).slice(0,7)===FILTER.month);
+  if(FILTER.date)rows=rows.filter(l=>localDay(l.created_at)===FILTER.date);
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
   if(!rows.length){$('tablewrap').innerHTML=`<div class="empty">No leads match.</div>`;return;}
@@ -349,7 +356,7 @@ async function renderPool(){
     .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Unassigned pool</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">New leads wait here until a salesperson takes them.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">New leads are auto-assigned in rotation, so this should normally be empty. Anything here needs assigning by hand.</p>
     ${pool.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
     </tr></thead><tbody>`+pool.map(l=>`
@@ -508,10 +515,14 @@ async function openLead(id){
       <div class="grid3">
         <div><label>Roof type</label><select id="d-roof" ${canEng?'':'disabled'}>${optList(ROOF_TYPES,l.roof_type)}</select></div>
         <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
-        <div><label>Phase type</label><select id="d-phase" ${canEng?'':'disabled'}>${optList(PHASE_TYPES,l.phase_type)}</select></div>
-        <div><label>Panel (kWp)</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" ${canEng?'':'disabled'}></div>
-        <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Ampere &amp; phase</label><select id="d-phase" ${canEng?'':'disabled'}>${optList(PHASE_TYPES,l.phase_type)}</select></div>
+        <div><label>Panel brand</label><select id="d-pbrand" ${canEng?'':'disabled'}>${optList(PANEL_BRANDS,l.panel_brand)}</select></div>
+        <div><label>Panel watt (W)</label><input id="d-pwatt" type="number" step="1" value="${l.panel_watt??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
+        <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
+        <div><label>Panel (kWp) — auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
+        <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
         <div><label>Inverter (kW)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
         <div><label>Battery (kWh)</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" ${canEng?'':'disabled'}></div>
       </div>
     </div>
@@ -543,6 +554,10 @@ async function openLead(id){
   if(stSel&&!stSel.disabled)stSel.onchange=()=>{$('d-salewrap').style.display=stSel.value===WON?'block':'none';};
 }
 function closeLead(){$('lead-overlay').classList.remove('open');}
+/* panel kWp = watt × pcs ÷ 1000 */
+function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(2):'';}
+function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
+function qKwp(){$('q-kwp').value=kwp($('q-pwatt').value,$('q-pcs').value);}
 function dProv(){
   const d=GEO[$('d-prov').value]||{};
   $('d-district').innerHTML=optList(Object.keys(d),'');
@@ -574,8 +589,12 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     const s=val('d-sale'); if(s!==undefined)upd.final_sale_usd=s||null;
   }
   if(canEng){
-    const m={roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_kwp:'d-kwp',panel_pcs:'d-pcs',inverter_kw:'d-inv',battery_kwh:'d-batt'};
+    const m={roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
+             panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_brand:'d-ibrand',
+             battery_kwh:'d-batt',battery_brand:'d-bbrand'};
     for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v||null;}
+    /* kWp is derived, and its input is readonly so val() skips it */
+    const kw=$('d-kwp'); if(kw)upd.panel_kwp=kw.value||null;
   }
   /* assignment: only write if actually changed (bug fix) */
   if(canAssign){
@@ -613,18 +632,25 @@ async function logActivity(leadId,type,from,to,note){
 }
 
 /* ---------------- QUOTATION FORM ---------------- */
+/* Pre-filled from the Sale Engineer key-in above, so a quotation is
+   usually just a price. Edit here to quote something different without
+   changing the lead's working spec. */
 function quotForm(leadId){
+  const g=id=>{const e=$(id);return e?e.value:'';};
   $('quot-form').innerHTML=`
     <div class="grid3" style="margin-top:8px">
-      <div><label>System type</label><select id="q-sys">${optList(SYSTEM_TYPES,'')}</select></div>
-      <div><label>Ampere &amp; phase</label><input id="q-amp" placeholder="e.g. 63A x 1P"></div>
-      <div><label>Price (USD) *</label><input id="q-price" type="number" step="0.01"></div>
-      <div><label>Panel pcs</label><input id="q-pcs" type="number" step="1"></div>
-      <div><label>Panel brand</label><input id="q-pbrand" placeholder="e.g. Jinko"></div>
-      <div><label>Inverter (kW)</label><input id="q-inv" type="number" step="0.01"></div>
-      <div><label>Inverter brand</label><input id="q-ibrand" placeholder="e.g. Deye"></div>
-      <div><label>Battery (kWh)</label><input id="q-batt" placeholder="e.g. 15.36 x 2"></div>
-      <div><label>Battery brand</label><input id="q-bbrand"></div>
+      <div><label>Roof type</label><select id="q-roof">${optList(ROOF_TYPES,g('d-roof'))}</select></div>
+      <div><label>System type</label><select id="q-sys">${optList(SYSTEM_TYPES,g('d-sys'))}</select></div>
+      <div><label>Ampere &amp; phase</label><select id="q-amp">${optList(PHASE_TYPES,g('d-phase'))}</select></div>
+      <div><label>Panel brand</label><select id="q-pbrand">${optList(PANEL_BRANDS,g('d-pbrand'))}</select></div>
+      <div><label>Panel watt (W)</label><input id="q-pwatt" type="number" step="1" value="${esc(g('d-pwatt'))}" oninput="qKwp()"></div>
+      <div><label>Panel pcs</label><input id="q-pcs" type="number" step="1" value="${esc(g('d-pcs'))}" oninput="qKwp()"></div>
+      <div><label>Panel (kWp) — auto</label><input id="q-kwp" type="number" step="0.01" value="${esc(g('d-kwp'))}" readonly></div>
+      <div><label>Inverter brand</label><select id="q-ibrand">${optList(INVERTER_BRANDS,g('d-ibrand'))}</select></div>
+      <div><label>Inverter (kW)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}"></div>
+      <div><label>Battery brand</label><select id="q-bbrand">${optList(BATTERY_BRANDS,g('d-bbrand'))}</select></div>
+      <div><label>Battery (kWh)</label><input id="q-batt" value="${esc(g('d-batt'))}"></div>
+      <div><label>Price (USD) *</label><input id="q-price" type="number" step="0.01" autofocus></div>
     </div>
     <div class="modal-actions"><button class="btn-sun" onclick="addQuot('${leadId}')">Save quotation</button></div>`;
 }
@@ -633,10 +659,12 @@ async function addQuot(leadId){
   if(!price){toast('Price is required');return;}
   const {error}=await sb.from('quotations').insert({
     lead_id:leadId,provided_by:ME.id,
-    system_type:$('q-sys').value||null,ampere_phase:$('q-amp').value.trim()||null,
-    price_usd:price,panel_pcs:$('q-pcs').value||null,panel_brand:$('q-pbrand').value.trim()||null,
-    inverter_kw:$('q-inv').value||null,inverter_brand:$('q-ibrand').value.trim()||null,
-    battery_kwh:$('q-batt').value.trim()||null,battery_brand:$('q-bbrand').value.trim()||null
+    roof_type:$('q-roof').value||null,
+    system_type:$('q-sys').value||null,ampere_phase:$('q-amp').value||null,
+    price_usd:price,panel_pcs:$('q-pcs').value||null,panel_brand:$('q-pbrand').value||null,
+    panel_watt:$('q-pwatt').value||null,panel_kwp:$('q-kwp').value||null,
+    inverter_kw:$('q-inv').value||null,inverter_brand:$('q-ibrand').value||null,
+    battery_kwh:$('q-batt').value.trim()||null,battery_brand:$('q-bbrand').value||null
   });
   if(error){toast('Could not save quotation');console.error(error);return;}
   await logActivity(leadId,'note',null,null,'Quotation released: $'+price);
@@ -657,7 +685,7 @@ async function renderQuots(){
       <tr><td class="refid">${esc(q.leads?.ref_id||'—')}</td>
       <td><b>${esc(q.leads?.customer_name||'?')}</b></td>
       <td>${esc(q.system_type||'—')}<span class="days">${esc(q.ampere_phase||'')}</span></td>
-      <td>${q.panel_pcs??'—'} ${esc(q.panel_brand||'')}</td>
+      <td>${q.panel_pcs??'—'} ${esc(q.panel_brand||'')}<span class="days">${q.panel_kwp?q.panel_kwp+' kWp':''}</span></td>
       <td>${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')}</td>
       <td>${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}</td>
       <td><b>${fmtMoney(q.price_usd)}</b></td>
