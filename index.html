@@ -157,7 +157,7 @@ tr.rowlink:hover{background:#f3ede4}
    ============================================================ */
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
-let ME=null, STAGES=[], STAFF=[], LEADS=[], VIEW='leads';
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads';
 let FILTER={stage:'',q:'',month:'',date:''};
 /* local YYYY-MM-DD, so a late-evening lead in Cambodia isn't filed under tomorrow */
 const localDay=d=>d?new Date(d).toLocaleDateString('sv'):'';
@@ -314,17 +314,23 @@ async function renderLeads(){
         <option value="">All months</option>${monthOpts}</select>
       <input type="date" title="Created on this exact date" value="${esc(FILTER.date||'')}" onchange="FILTER.date=this.value;FILTER.month='';drawTable()">
       <button class="btn-line" onclick="FILTER={stage:'',q:'',month:'',date:''};renderLeads()">Clear</button>
+      <span class="spacer"></span>
+      <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
     <div class="tablewrap" id="tablewrap"></div>`;
   drawTable();
 }
-function drawTable(){
+function filteredLeads(){
   let rows=LEADS;
   if(FILTER.stage)rows=rows.filter(l=>l.stage_code===FILTER.stage);
   if(FILTER.month)rows=rows.filter(l=>localDay(l.created_at).slice(0,7)===FILTER.month);
   if(FILTER.date)rows=rows.filter(l=>localDay(l.created_at)===FILTER.date);
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
+  return rows;
+}
+function drawTable(){
+  const rows=filteredLeads();
   if(!rows.length){$('tablewrap').innerHTML=`<div class="empty">No leads match.</div>`;return;}
   $('tablewrap').innerHTML=`<table><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Type</th><th>Stage</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Quoted</th><th>Created</th>
@@ -667,6 +673,65 @@ async function addQuot(leadId){
   toast('Quotation saved');openLead(leadId);
 }
 
+/* ---------------- CSV EXPORT ----------------
+   Everyone exports, but only what RLS already lets them read, so a sales
+   export contains that salesperson's leads and nothing else. */
+function csvCell(v){
+  let s=v==null?'':String(v);
+  /* Excel executes a cell starting with these, so defuse it */
+  if(/^[=+\-@\t\r]/.test(s)) s="'"+s;
+  return '"'+s.replace(/"/g,'""')+'"';
+}
+function downloadCSV(name,headers,rows){
+  if(!rows.length){toast('Nothing to export');return;}
+  const csv=[headers,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
+  /* the BOM is what stops Excel mangling Khmer text and accented names */
+  const url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'}));
+  const a=document.createElement('a');
+  a.href=url; a.download=`${name}-${localDay(new Date())}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast(`Exported ${rows.length} row${rows.length>1?'s':''}`);
+}
+const stageName=c=>(STAGES.find(s=>s.stage_code===c)||{}).stage_name||c||'';
+
+function exportLeads(){
+  const rows=filteredLeads().map(l=>[
+    l.ref_id,l.customer_name,l.phone,l.customer_type,stageName(l.stage_code),
+    l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
+    l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
+    l.monthly_bill_usd,staffName(l.assigned_to),staffName(l.current_engineer_id),
+    l.next_follow_up,l.quoted_price_usd,l.final_sale_usd,
+    l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
+    l.inverter_brand,l.inverter_kw,l.battery_brand,l.battery_kwh,
+    staffName(l.created_by),localDay(l.created_at)]);
+  downloadCSV('leads',['Ref ID','Customer','Phone','Customer type','Stage',
+    'Channel','Sub-channel','Event name','Event date',
+    'Address','Commune','District','Province','Type of site',
+    'Monthly bill (USD)','Salesperson','Engineer',
+    'Next follow-up','Quoted (USD)','Final sale (USD)',
+    'Roof type','System type','Ampere & phase','Panel brand','Panel watt','Panel pcs','Panel kWp',
+    'Inverter brand','Inverter kW','Battery brand','Battery kWh',
+    'Created by','Created'],rows);
+}
+function exportQuots(){
+  downloadCSV('quotations',['Ref ID','Customer','System type','Ampere & phase',
+    'Roof type','Panel brand','Panel watt','Panel pcs','Panel kWp',
+    'Inverter brand','Inverter kW','Battery brand','Battery kWh','Price (USD)','Released','By'],
+    (QUOTS||[]).map(q=>[q.leads?.ref_id,q.leads?.customer_name,q.system_type,q.ampere_phase,
+      q.roof_type,q.panel_brand,q.panel_watt,q.panel_pcs,q.panel_kwp,
+      q.inverter_brand,q.inverter_kw,q.battery_brand,q.battery_kwh,
+      q.price_usd,q.released_date?localDay(q.released_date):'',staffName(q.provided_by)]));
+}
+function exportComms(){
+  downloadCSV('commissions',['Ref ID','Customer','Beneficiary','Type','Deal value (USD)',
+    'Amount (USD)','Paid','Paid on'],
+    (COMMS||[]).map(c=>[c.leads?.ref_id,c.leads?.customer_name,
+      c.beneficiary_type==='referrer'?(c.referrer_name||'External referrer'):staffName(c.profile_id),
+      c.beneficiary_type,c.leads?.final_sale_usd,c.amount_usd,
+      c.is_paid?'yes':'no',c.paid_at?localDay(c.paid_at):'']));
+}
+
 /* ---------------- REPORTS ----------------
    Categorical hues are the validated slots 1-4, assigned to a fixed channel
    (never by rank), so filtering never repaints a series. Legacy leads with no
@@ -781,9 +846,11 @@ async function renderQuots(){
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   const {data:quots,error}=await sb.from('quotations').select('*, leads(ref_id, customer_name)').order('created_at',{ascending:false});
   if(error){$('main').innerHTML=`<div class="empty">Could not load quotations.</div>`;return;}
+  QUOTS=quots||[];
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Quotation log</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every quotation released, newest first. Add quotations from inside a lead.</p>
+    <div class="toolbar"><button class="btn-line" onclick="exportQuots()">Export CSV</button></div>
     ${quots&&quots.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th>
     </tr></thead><tbody>`+quots.map(q=>`
@@ -804,11 +871,13 @@ async function renderComm(){
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   const {data:comms,error}=await sb.from('commissions').select('*, leads(ref_id, customer_name, final_sale_usd)').order('created_at',{ascending:false});
   if(error){$('main').innerHTML=`<div class="empty">Could not load commissions.</div>`;return;}
+  COMMS=comms||[];
   const isAdmin=ME.role==='admin';
   const mine=c=>c.profile_id===ME.id;
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Commissions</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Created automatically when a deal is marked Won. ${isAdmin?'Fill in amounts and mark paid.':'You see only your own.'}</p>
+    <div class="toolbar"><button class="btn-line" onclick="exportComms()">Export CSV</button></div>
     ${!comms||!comms.length?'<div class="empty">No commissions yet.</div>':`
     <div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Deal</th><th>Sale value</th><th>Who</th><th>Type</th><th>Amount</th><th>Status</th>${isAdmin?'<th></th>':''}
