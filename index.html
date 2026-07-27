@@ -153,14 +153,43 @@ let FILTER={stage:'',q:''};
 const CHANNELS = {
   'Digital_Marketing': ['Facebook','Telegram','Tik Tok','Call','Walk-In'],
   'Third_Party':       ['Staff','Non-Staff'],
-  'Direct_Sales':      ['Person Name'],
+  'Direct_Sales':      [],   /* filled from the active sales staff at render time */
   'Offline_Marketing': ['Ground Activation']
 };
-const DISTRICTS = ['Chamkar Mon','Doun Penh','Prampir Makara','Tuol Kouk','Dangkao','Mean Chey','Russey Keo','Sen Sok','Pou Senchey','Chroy Changvar','Prek Pnov','Chbar Ampov','Boeng Keng Kang','Kamboul'];
 const ROOF_TYPES = ['RC Roof/Awning','Zinc Roof','Tile Roof','Ground Mount','Other'];
 const SYSTEM_TYPES = ['On-Grid','Hybrid','Off-Grid'];
-const PHASE_TYPES = ['1-Phase','3-Phase'];
+const PHASE_TYPES = ['10A x 1P','20A x 1P','32A x 1P','63A x 1P','32A x 3P','40A x 3P','63A x 3P','100A x 3P'];
 const CUSTOMER_TYPES = ['Residential','C & I'];
+const PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other'];
+const INVERTER_BRANDS = ['Deye','Growatt','Huawei','Sungrow','Solis','Other'];
+const BATTERY_BRANDS = ['Deye','BYD','Pylontech','Growatt','Other'];
+
+/* Cambodia geography. Phnom Penh is mapped down to sangkat; the other
+   provinces list khan/srok only where confident, otherwise commune is typed.
+   Edit freely — these are plain arrays. */
+const PROVINCES = ['Phnom Penh','Banteay Meanchey','Battambang','Kampong Cham','Kampong Chhnang',
+  'Kampong Speu','Kampong Thom','Kampot','Kandal','Kep','Koh Kong','Kratie','Mondulkiri',
+  'Oddar Meanchey','Pailin','Preah Sihanouk','Preah Vihear','Prey Veng','Pursat','Ratanakiri',
+  'Siem Reap','Stung Treng','Svay Rieng','Takeo','Tbong Khmum'];
+
+const GEO = {
+  'Phnom Penh': {
+    'Chamkar Mon': ['Tonle Bassac','Boeng Trabaek','Phsar Daeum Thkov','Tuol Tumpung Ti Muoy','Tuol Tumpung Ti Pir','Phsar Doeum Kor'],
+    'Boeng Keng Kang': ['Boeng Keng Kang Ti Muoy','Boeng Keng Kang Ti Pir','Boeng Keng Kang Ti Bei','Olympic','Tuol Svay Prey Ti Muoy','Tuol Svay Prey Ti Pir','Tumnob Tuek'],
+    'Doun Penh': ['Phsar Thmei Ti Muoy','Phsar Thmei Ti Pir','Phsar Thmei Ti Bei','Phsar Kandal Ti Muoy','Phsar Kandal Ti Pir','Chey Chumneas','Chakto Mukh','Phsar Chas','Srah Chak','Voat Phnum','Boeng Reang'],
+    'Prampir Makara': ['Ou Ruessei Ti Muoy','Ou Ruessei Ti Pir','Ou Ruessei Ti Bei','Ou Ruessei Ti Buon','Monourom','Mittapheap','Veal Vong','Boeng Prolit'],
+    'Tuol Kouk': ['Boeng Kak Ti Muoy','Boeng Kak Ti Pir','Boeng Salang','Phsar Daeum Kor','Phsar Depou Ti Muoy','Phsar Depou Ti Pir','Phsar Depou Ti Bei','Tuek L\'ak Ti Muoy','Tuek L\'ak Ti Pir','Tuek L\'ak Ti Bei'],
+    'Sen Sok': ['Phnom Penh Thmei','Tuek Thla','Khmuonh','Ou Baek K\'am','Kouk Khleang','Krang Thnong'],
+    'Russey Keo': ['Tuol Sangkae Ti Muoy','Tuol Sangkae Ti Pir','Russey Keo','Kilomaetr Lekh Prammuoy','Svay Pak','Chrang Chamreh Ti Muoy','Chrang Chamreh Ti Pir'],
+    'Mean Chey': ['Stueng Mean Chey Ti Muoy','Stueng Mean Chey Ti Pir','Stueng Mean Chey Ti Bei','Boeng Tumpun Ti Muoy','Boeng Tumpun Ti Pir','Chak Angrae Leu','Chak Angrae Kraom'],
+    'Chbar Ampov': ['Chbar Ampov Ti Muoy','Chbar Ampov Ti Pir','Nirouth','Prek Pra','Veal Sbov','Preaek Aeng','Kbal Kaoh','Boeng Tumpun'],
+    'Pou Senchey': ['Chaom Chau Ti Muoy','Chaom Chau Ti Pir','Chaom Chau Ti Bei','Kakab Ti Muoy','Kakab Ti Pir','Trapeang Krasang','Samraong Kraom','Phleung Chheh Roteh'],
+    'Dangkao': ['Dangkao','Prey Sa','Cheung Aek','Kong Noy','Pong Tuek','Preaek Kampues','Roluos','Sak Sampov','Krang Pongro','Tien'],
+    'Kamboul': ['Kamboul','Kantaok','Boeng Thum','Krang Pongro','Ovlaok','Snao','Preaek Kampues'],
+    'Chroy Changvar': ['Chroy Changvar','Preaek Lieb','Preaek Ta Sek','Kaoh Dach','Bak Kaeng'],
+    'Prek Pnov': ['Preaek Phnov','Ponhea Pon','Samraong','Kouk Roka','Ph\'aav']
+  }
+};
 
 const $=id=>document.getElementById(id);
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -173,9 +202,11 @@ const opt=(v,cur)=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}
 const optList=(arr,cur,blank=true)=>(blank?`<option value="">—</option>`:'')+arr.map(v=>opt(v,cur)).join('');
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
 
-const STAGE_COLORS={new:'#e8eefc|#1f5fa8',contacted:'#e6f4fb|#0f7ea8',survey_scheduled:'#f3ecfd|#7b5cd6',
-survey_done:'#efe8fb|#5b3fb8',proposal_sent:'#fff3dd|#b26a00',negotiation:'#ffe9d1|#c05600',on_hold:'#eef1f5|#5a6a82',
-won:'#e2f5ea|#1e8e5a',installation_done:'#dcf2e4|#136b42',lost:'#fdeaea|#c0392b'};
+const STAGE_COLORS={info_gathering:'#e8eefc|#1f5fa8',telling_price:'#e6f4fb|#0f7ea8',
+pending_quotation:'#f3ecfd|#7b5cd6',quotation_sent:'#fff3dd|#b26a00',follow_up:'#ffe9d1|#c05600',
+agreement_signoff:'#e8f0ff|#2b4fb8',closed_won:'#e2f5ea|#1e8e5a',closed_lost:'#fdeaea|#c0392b'};
+const TERMINAL=['closed_won','closed_lost'];
+const WON='closed_won';
 function stagePill(code){
   const st=STAGES.find(s=>s.stage_code===code)||{stage_name:code};
   const [bg,fg]=(STAGE_COLORS[code]||'#eee|#555').split('|');
@@ -208,7 +239,28 @@ async function boot(){
   STAGES=stg.data||[];STAFF=stf.data||[];
   $('login-view').style.display='none';$('app-view').style.display='block';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
-  buildNav();go('leads');
+  buildNav();go('leads');followUpToday();
+}
+
+/* Leads whose follow-up date is today. Shown once, at login. */
+async function followUpToday(){
+  if(!['sales','manager','admin'].includes(ME.role))return;
+  const today=new Date().toISOString().slice(0,10);
+  let q=sb.from('leads').select('id,ref_id,customer_name,phone,stage_code')
+    .eq('is_deleted',false).eq('next_follow_up',today);
+  if(ME.role==='sales')q=q.eq('assigned_to',ME.id);
+  const {data}=await q;
+  if(!data||!data.length)return;
+  $('lead-modal').innerHTML=`
+    <h2>Follow up today</h2>
+    <div class="sub">${data.length} lead${data.length>1?'s':''} due today. Click one to open it.</div>
+    <div class="timeline">${data.map(l=>`
+      <div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
+        <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
+        <div class="t-meta">${esc(l.phone)} · ${stagePill(l.stage_code)}</div>
+      </div>`).join('')}</div>
+    <div class="modal-actions"><button class="btn-sun" onclick="closeLead()">Got it</button></div>`;
+  $('lead-overlay').classList.add('open');
 }
 
 function buildNav(){
@@ -248,7 +300,7 @@ async function renderLeads(){
   const stg=STAGES.map(s=>`<option value="${s.stage_code}">${esc(s.stage_name)}</option>`).join('');
   const title=ME.role==='sales'?'My leads':ME.role==='marketing'?'Leads I created':ME.role==='engineer'?'My engineering jobs':'All leads';
   const active=LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
-  const won=LEADS.filter(l=>['won','installation_done'].includes(l.stage_code));
+  const won=LEADS.filter(l=>l.stage_code===WON);
   const overdue=LEADS.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0)&&!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
   $('main').innerHTML=`
     <div class="stats">
@@ -335,23 +387,39 @@ function renderNew(){
         <div><label>Referrer name</label><input id="f-refname"></div>
         <div><label>Referrer phone</label><input id="f-refphone"></div>
       </div>
+      <div id="f-eventwrap" style="display:none" class="grid2">
+        <div><label>Event name</label><input id="f-eventname" placeholder="e.g. Aeon Mall roadshow"></div>
+        <div><label>Event date</label><input id="f-eventdate" type="date"></div>
+      </div>
       <div class="grid2">
         <div style="grid-column:1/-1"><label>Site address (home no. &amp; street)</label><input id="f-addr"></div>
-        <div><label>Commune</label><input id="f-commune"></div>
-        <div><label>District</label><select id="f-district">${optList(DISTRICTS,'')}</select></div>
-        <div><label>City / Province</label><input id="f-city" value="Phnom Penh"></div>
+        <div><label>Province / City</label><select id="f-prov" onchange="geoProv()">${optList(PROVINCES,'Phnom Penh',false)}</select></div>
+        <div><label>District</label><select id="f-district" onchange="geoDist()"></select></div>
+        <div><label>Commune</label><input id="f-commune" list="f-communes" placeholder="pick or type"><datalist id="f-communes"></datalist></div>
         <div><label>Type of site</label><input id="f-sitetype" placeholder="e.g. 3-Storey House"></div>
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">The lead enters the unassigned pool. Technical fields (roof, system, panels) are filled by the engineer later.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">The lead is auto-assigned to the salesperson who has waited longest. Technical fields (roof, system, panels) are filled by the engineer later.</p>
     </div>`;
-  subChan();
+  subChan(); geoProv();
 }
 function subChan(){
   const ch=$('f-chan').value;
-  $('f-sub').innerHTML=optList(CHANNELS[ch]||[], '');
-  $('f-refwrap').style.display = ch==='Third_Party' ? 'grid' : 'none';
+  let subs=CHANNELS[ch]||[];
+  if(ch==='Direct_Sales') subs=STAFF.filter(s=>s.role==='sales'&&s.is_active).map(s=>s.full_name);
+  $('f-sub').innerHTML=optList(subs,'');
+  $('f-refwrap').style.display  = ch==='Third_Party'      ? 'grid' : 'none';
+  $('f-eventwrap').style.display= ch==='Offline_Marketing'? 'grid' : 'none';
+}
+function geoProv(){
+  const d=GEO[$('f-prov').value]||{};
+  $('f-district').innerHTML=optList(Object.keys(d),'');
+  geoDist();
+}
+function geoDist(){
+  const list=(GEO[$('f-prov').value]||{})[$('f-district').value]||[];
+  $('f-communes').innerHTML=list.map(c=>`<option value="${esc(c)}"></option>`).join('');
 }
 async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
@@ -367,16 +435,19 @@ async function createLead(){
     site_address:$('f-addr').value.trim()||null,
     commune:$('f-commune').value.trim()||null,
     district:$('f-district').value||null,
-    city_province:$('f-city').value.trim()||null,
-    property_type:null,
+    province:$('f-prov').value||null,
+    city_province:$('f-prov').value||null,
+    site_type:$('f-sitetype').value.trim()||null,
     created_by:ME.id
   };
-  const st=$('f-sitetype').value.trim(); if(st) row.roof_type=null, row.property_type=null; // site type stored in remark below
+  if($('f-chan').value==='Offline_Marketing'){
+    row.event_name=$('f-eventname').value.trim()||null;
+    row.event_date=$('f-eventdate').value||null;
+  }
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){toast('Create failed');console.error(error);return;}
-  const noteBits=[$('f-note').value.trim(),st?('Type of site: '+st):''].filter(Boolean).join(' | ');
-  await logActivity(data.id,'created',null,'new',noteBits||'Lead created');
-  toast('Lead '+(data.ref_id||'')+' created — now in the pool');
+  await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
+  toast('Lead '+(data.ref_id||'')+' created — '+(data.assigned_to?('assigned to '+staffName(data.assigned_to)):'in the pool'));
   go('leads');
 }
 
@@ -398,6 +469,7 @@ async function openLead(id){
   /* assignment dropdowns: always include current assignee even if role changed (bug fix) */
   const salesPeople=STAFF.filter(s=>(s.role==='sales'&&s.is_active)||s.id===l.assigned_to);
   const salesOpts=`<option value="">— pool (unassigned) —</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
+  const PV=l.province||l.city_province||'Phnom Penh';
   const engPeople=STAFF.filter(s=>(s.role==='engineer'&&s.is_active)||s.id===l.current_engineer_id);
   const engOpts=`<option value="">— none —</option>`+engPeople.map(s=>`<option value="${s.id}" ${s.id===l.current_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('');
 
@@ -413,7 +485,7 @@ async function openLead(id){
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
         <div><label>Quoted price (USD)</label><input id="d-quote" type="number" step="0.01" value="${l.quoted_price_usd??''}" ${canSales?'':'disabled'}></div>
-        <div id="d-salewrap" style="display:${['won','installation_done'].includes(l.stage_code)?'block':'none'}">
+        <div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
           <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${l.final_sale_usd??''}" ${canSales?'':'disabled'}></div>
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
         ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
@@ -423,14 +495,16 @@ async function openLead(id){
     <div class="section sec-addr"><h4>Site</h4>
       <div class="grid2">
         <div style="grid-column:1/-1"><label>Address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canSales?'':'disabled'}></div>
-        <div><label>Commune</label><input id="d-commune" value="${esc(l.commune||'')}" ${canSales?'':'disabled'}></div>
-        <div><label>District</label><select id="d-district" ${canSales?'':'disabled'}>${optList(DISTRICTS,l.district)}</select></div>
-        <div><label>City / Province</label><input id="d-city" value="${esc(l.city_province||'')}" ${canSales?'':'disabled'}></div>
+        <div><label>Province / City</label><select id="d-prov" onchange="dProv()" ${canSales?'':'disabled'}>${optList(PROVINCES,PV,false)}</select></div>
+        <div><label>District</label><select id="d-district" onchange="dDist()" ${canSales?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
+        <div><label>Commune</label><input id="d-commune" list="d-communes" value="${esc(l.commune||'')}" ${canSales?'':'disabled'}>
+          <datalist id="d-communes">${(((GEO[PV]||{})[l.district])||[]).map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></div>
+        <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canSales?'':'disabled'}></div>
         <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canSales?'':'disabled'}></div>
       </div>
     </div>
 
-    <div class="section sec-eng"><h4>Engineer key-in ${l.current_engineer_id?('· '+esc(staffName(l.current_engineer_id))):''}${l.original_engineer_id&&l.original_engineer_id!==l.current_engineer_id?(' (original: '+esc(staffName(l.original_engineer_id))+')'):''}</h4>
+    <div class="section sec-eng"><h4>Sale Engineer key-in ${l.current_engineer_id?('· '+esc(staffName(l.current_engineer_id))):''}${l.original_engineer_id&&l.original_engineer_id!==l.current_engineer_id?(' (original: '+esc(staffName(l.original_engineer_id))+')'):''}</h4>
       <div class="grid3">
         <div><label>Roof type</label><select id="d-roof" ${canEng?'':'disabled'}>${optList(ROOF_TYPES,l.roof_type)}</select></div>
         <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
@@ -466,9 +540,18 @@ async function openLead(id){
     </div>`;
   $('lead-overlay').classList.add('open');
   const stSel=$('d-stage');
-  if(stSel&&!stSel.disabled)stSel.onchange=()=>{$('d-salewrap').style.display=['won','installation_done'].includes(stSel.value)?'block':'none';};
+  if(stSel&&!stSel.disabled)stSel.onchange=()=>{$('d-salewrap').style.display=stSel.value===WON?'block':'none';};
 }
 function closeLead(){$('lead-overlay').classList.remove('open');}
+function dProv(){
+  const d=GEO[$('d-prov').value]||{};
+  $('d-district').innerHTML=optList(Object.keys(d),'');
+  dDist();
+}
+function dDist(){
+  const list=(GEO[$('d-prov').value]||{})[$('d-district').value]||[];
+  $('d-communes').innerHTML=list.map(c=>`<option value="${esc(c)}"></option>`).join('');
+}
 
 async function saveLead(id,oldStage,oldAssign,oldEng){
   const isAdmin=ME.role==='admin';
@@ -485,7 +568,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     const a=val('d-addr'); if(a!==undefined)upd.site_address=a.trim()||null;
     const c=val('d-commune'); if(c!==undefined)upd.commune=c.trim()||null;
     const d=val('d-district'); if(d!==undefined)upd.district=d||null;
-    const ct=val('d-city'); if(ct!==undefined)upd.city_province=ct.trim()||null;
+    const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
+    const stp=val('d-sitetype'); if(stp!==undefined)upd.site_type=stp.trim()||null;
     const b=val('d-bill'); if(b!==undefined)upd.monthly_bill_usd=b||null;
     const s=val('d-sale'); if(s!==undefined)upd.final_sale_usd=s||null;
   }
@@ -501,7 +585,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     if(e!==undefined&&e!==(oldEng||''))upd.current_engineer_id=e||null;
   }
   const newStage=upd.stage_code??oldStage;
-  if(newStage==='won'&&oldStage!=='won'&&!upd.final_sale_usd){toast('Enter the final sale value before marking Won');return;}
+  if(newStage===WON&&oldStage!==WON&&!upd.final_sale_usd){toast('Enter the final sale value before marking Closed-Won');return;}
   if(!Object.keys(upd).length&&!($('d-note')&&$('d-note').value.trim())){toast('Nothing to save');return;}
 
   if(Object.keys(upd).length){
@@ -514,7 +598,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
   else await logActivity(id,'edit',null,null,null);
   if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
 
-  toast(newStage==='won'&&oldStage!=='won'?'Saved — commissions created for this deal':'Saved');
+  toast(newStage===WON&&oldStage!==WON?'Saved — commissions created for this deal':'Saved');
   closeLead();go(VIEW);
 }
 async function softDelete(id){
