@@ -381,7 +381,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Site address (home no. &amp; street)</label><input id="f-addr"></div>
         <div><label>Province / City</label><select id="f-prov" onchange="geoProv()">${optList(PROVINCES,'Phnom Penh',false)}</select></div>
         <div><label>District</label><select id="f-district" onchange="geoDist()"></select></div>
-        <div><label>Commune</label><input id="f-commune" list="f-communes" placeholder="pick or type"><datalist id="f-communes"></datalist></div>
+        <div><label>Commune</label><select id="f-commune"></select></div>
         <div><label>Type of site</label><input id="f-sitetype" placeholder="e.g. 3-Storey House"></div>
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
@@ -405,7 +405,7 @@ function geoProv(){
 }
 function geoDist(){
   const list=(GEO[$('f-prov').value]||{})[$('f-district').value]||[];
-  $('f-communes').innerHTML=list.map(c=>`<option value="${esc(c)}"></option>`).join('');
+  $('f-commune').innerHTML=optList(list,'');
 }
 async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
@@ -483,8 +483,7 @@ async function openLead(id){
         <div style="grid-column:1/-1"><label>Address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canSales?'':'disabled'}></div>
         <div><label>Province / City</label><select id="d-prov" onchange="dProv()" ${canSales?'':'disabled'}>${optList(PROVINCES,PV,false)}</select></div>
         <div><label>District</label><select id="d-district" onchange="dDist()" ${canSales?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
-        <div><label>Commune</label><input id="d-commune" list="d-communes" value="${esc(l.commune||'')}" ${canSales?'':'disabled'}>
-          <datalist id="d-communes">${(((GEO[PV]||{})[l.district])||[]).map(c=>`<option value="${esc(c)}"></option>`).join('')}</datalist></div>
+        <div><label>Commune</label><select id="d-commune" ${canSales?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
         <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canSales?'':'disabled'}></div>
         <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canSales?'':'disabled'}></div>
       </div>
@@ -544,7 +543,7 @@ function dProv(){
 }
 function dDist(){
   const list=(GEO[$('d-prov').value]||{})[$('d-district').value]||[];
-  $('d-communes').innerHTML=list.map(c=>`<option value="${esc(c)}"></option>`).join('');
+  $('d-commune').innerHTML=optList(list,'');
 }
 
 async function saveLead(id,oldStage,oldAssign,oldEng){
