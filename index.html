@@ -247,7 +247,7 @@ async function followUpToday(){
   if(!data||!data.length)return;
   $('lead-modal').innerHTML=`
     <h2>Follow up today</h2>
-    <div class="sub">${data.length} lead${data.length>1?'s':''} due today. Click one to open it.</div>
+    <div class="sub">${data.length} lead${data.length>1?'s':''} due for follow-up today.</div>
     <div class="timeline">${data.map(l=>`
       <div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
         <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
@@ -353,7 +353,7 @@ async function renderPool(){
     .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Unassigned pool</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">New leads are auto-assigned in rotation, so this should normally be empty. Anything here needs assigning by hand.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">New leads are assigned automatically in rotation, so this list is normally empty. Leads shown here need assigning by hand.</p>
     ${pool.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
     </tr></thead><tbody>`+pool.map(l=>`
@@ -404,7 +404,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">The lead is auto-assigned to the salesperson who has waited longest. Technical fields (roof, system, panels) are filled by the engineer later.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">The lead is assigned automatically to the salesperson who has waited longest. Technical fields (roof, system, panels) are filled by the engineer later.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -753,7 +753,7 @@ function barChart(months,counts,used){
   return `
   <div class="chartcard">
     <h3>Leads per month by channel</h3>
-    <div class="cap">Where your leads actually come from. Use it to decide where marketing money goes.</div>
+    <div class="cap">Leads grouped by the month they were created and the channel they came from.</div>
     <div class="legend">${legend}</div>
     <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Leads per month by channel">
       ${grid}${bars}${xlab}
