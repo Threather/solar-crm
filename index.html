@@ -108,6 +108,15 @@ tr.rowlink:hover{background:#f3ede4}
 .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
 .b-on{background:#dde8de;color:var(--ok)} .b-off{background:#f0ddd9;color:var(--bad)}
 .hint{background:#f7efe3;border:1px solid #e0cfb4;border-radius:var(--r);padding:12px 14px;font-size:13px;color:#6b5537;margin-bottom:14px}
+.chartcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 10px;margin-bottom:18px}
+.chartcard h3{font-size:15px;margin-bottom:2px}
+.chartcard .cap{font-size:12px;color:var(--ink-soft);margin-bottom:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--ink-soft)}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:-1px}
+.chartsvg{width:100%;height:auto;display:block}
+.chartsvg text{font-family:'Inter',sans-serif}
+.tick{font-size:10px;fill:var(--ink-soft);font-variant-numeric:tabular-nums}
+.seglabel{font-size:10px;font-weight:600;fill:#fff;font-variant-numeric:tabular-nums}
 .qcard{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:13px;background:var(--card-alt)}
 .qcard b{font-family:'Source Serif 4',Georgia,serif}
 @media(max-width:700px){ nav{overflow-x:auto} .who{display:none} }
@@ -253,6 +262,7 @@ function buildNav(){
   if(['sales','manager','admin'].includes(ME.role)) tabs.push(['pool','Pool']);
   if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
   if(['engineer','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
+  if(['marketing','manager','admin'].includes(ME.role)) tabs.push(['reports','Reports']);
   tabs.push(['comm','Commissions']);
   if(ME.role==='admin') tabs.push(['users','Users']);
   $('nav').innerHTML=tabs.map(([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">${l}</button>`).join('');
@@ -261,7 +271,7 @@ function go(v){
   VIEW=v;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
-  ({leads:renderLeads,pool:renderPool,new:renderNew,quots:renderQuots,comm:renderComm,users:renderUsers}[v])();
+  ({leads:renderLeads,pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,comm:renderComm,users:renderUsers}[v])();
 }
 
 /* ---------------- data ---------------- */
@@ -655,6 +665,115 @@ async function addQuot(leadId){
   if(error){toast('Could not save quotation');console.error(error);return;}
   await logActivity(leadId,'note',null,null,'Quotation released: $'+price);
   toast('Quotation saved');openLead(leadId);
+}
+
+/* ---------------- REPORTS ----------------
+   Categorical hues are the validated slots 1-4, assigned to a fixed channel
+   (never by rank), so filtering never repaints a series. Legacy leads with no
+   channel fold into a gray "Other" rather than earning a 5th hue.
+   Aqua and gold sit under 3:1 on this surface, so the relief rule applies:
+   segment values are labelled and the full table sits under the chart. */
+const CH_ORDER=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Other'];
+const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'#1baf7a',
+                Offline_Marketing:'#eda100',Other:'#898781'};
+const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
+
+async function renderReports(){
+  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  LEADS=await fetchLeads(q=>ME.role==='manager'||ME.role==='admin'?q:q.eq('created_by',ME.id));
+  const won=LEADS.filter(l=>l.stage_code===WON);
+  const lost=LEADS.filter(l=>l.stage_code==='closed_lost');
+  const open=LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
+  const decided=won.length+lost.length;
+  const winRate=decided?Math.round(won.length/decided*100):null;
+  const wonValue=won.reduce((a,l)=>a+Number(l.final_sale_usd||0),0);
+
+  const months=[...new Set(LEADS.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean).sort().slice(-12);
+  const counts={};
+  months.forEach(m=>{counts[m]={};CH_ORDER.forEach(c=>counts[m][c]=0);});
+  LEADS.forEach(l=>{const m=localDay(l.created_at).slice(0,7);if(counts[m])counts[m][chOf(l)]++;});
+  const used=CH_ORDER.filter(c=>months.some(m=>counts[m][c]>0));
+
+  $('main').innerHTML=`
+    <h2 style="margin-bottom:14px">Reports</h2>
+    <div class="stats">
+      <div class="stat gold"><div class="n">${LEADS.length}</div><div class="l">Total leads</div></div>
+      <div class="stat"><div class="n">${open.length}</div><div class="l">In pipeline</div></div>
+      <div class="stat"><div class="n">${won.length}</div><div class="l">Closed-Won</div></div>
+      <div class="stat"><div class="n">${winRate===null?'—':winRate+'%'}</div><div class="l">Win rate</div></div>
+      <div class="stat"><div class="n">${fmtMoney(wonValue)}</div><div class="l">Won value</div></div>
+    </div>
+    ${months.length?barChart(months,counts,used):'<div class="empty">No leads yet — the chart appears once leads are created.</div>'}
+    ${stageTable()}`;
+}
+
+/* Stacked column chart, hand-rolled SVG: no chart library, no build step. */
+function barChart(months,counts,used){
+  const W=760,PL=42,PR=12,PT=12,PH=210,AX=34,H=PT+PH+AX;
+  const plotW=W-PL-PR;
+  const max=Math.max(1,...months.map(m=>used.reduce((a,c)=>a+counts[m][c],0)));
+  const step=Math.max(1,Math.ceil(max/4));
+  const top=step*4;
+  const y=v=>PT+PH-(v/top)*PH;
+  const band=plotW/months.length;
+  const bw=Math.min(46,band*0.58);
+  const GAP=2, R=4;
+  const topPath=(x,yy,w,h,r)=>`M${x},${yy+h}V${yy+r}a${r},${r} 0 0 1 ${r},-${r}h${w-2*r}a${r},${r} 0 0 1 ${r},${r}V${yy+h}Z`;
+
+  let grid='',bars='',xlab='';
+  for(let i=0;i<=4;i++){
+    const v=step*i, yy=y(v);
+    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
+        + `<text class="tick" x="${PL-8}" y="${yy+3}" text-anchor="end">${v}</text>`;
+  }
+  months.forEach((m,mi)=>{
+    const cx=PL+band*mi+band/2, x=cx-bw/2;
+    let acc=0;
+    const stack=used.filter(c=>counts[m][c]>0);
+    stack.forEach((c,si)=>{
+      const v=counts[m][c];
+      const y0=y(acc), y1=y(acc+v);
+      let h=y0-y1; const isTop=si===stack.length-1;
+      if(si>0){h-=GAP;}
+      const yy=y1;
+      bars+= (isTop&&h>R*2 ? `<path d="${topPath(x,yy,bw,h,R)}" fill="${CH_COLOR[c]}">`
+                           : `<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${CH_COLOR[c]}">`)
+           + `<title>${esc(monthName(m))} · ${esc(c.replace(/_/g,' '))}: ${v}</title>`
+           + (isTop&&h>R*2?'</path>':'</rect>');
+      if(h>=14&&bw>=22) bars+=`<text class="seglabel" x="${cx}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
+      acc+=v;
+    });
+    xlab+=`<text class="tick" x="${cx}" y="${PT+PH+18}" text-anchor="middle">${esc(monthName(m))}</text>`;
+  });
+
+  const legend=used.map(c=>`<span><i style="background:${CH_COLOR[c]}"></i>${esc(c.replace(/_/g,' '))}</span>`).join('');
+  const rows=months.map(m=>`<tr><td>${esc(monthName(m))}</td>${used.map(c=>`<td>${counts[m][c]||0}</td>`).join('')}
+      <td><b>${used.reduce((a,c)=>a+counts[m][c],0)}</b></td></tr>`).join('');
+
+  return `
+  <div class="chartcard">
+    <h3>Leads per month by channel</h3>
+    <div class="cap">Where your leads actually come from. Use it to decide where marketing money goes.</div>
+    <div class="legend">${legend}</div>
+    <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Leads per month by channel">
+      ${grid}${bars}${xlab}
+      <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
+    </svg>
+  </div>
+  <div class="tablewrap" style="margin-bottom:18px"><table style="min-width:520px"><thead><tr>
+    <th>Month</th>${used.map(c=>`<th>${esc(c.replace(/_/g,' '))}</th>`).join('')}<th>Total</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function stageTable(){
+  const n=LEADS.length||1;
+  const rows=STAGES.map(s=>{
+    const c=LEADS.filter(l=>l.stage_code===s.stage_code).length;
+    return `<tr><td>${stagePill(s.stage_code)}</td><td>${c}</td><td>${Math.round(c/n*100)}%</td></tr>`;
+  }).join('');
+  return `<h3 style="font-size:15px;margin-bottom:8px">Pipeline by stage</h3>
+    <div class="tablewrap"><table style="min-width:380px"><thead><tr>
+      <th>Stage</th><th>Leads</th><th>Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 /* ---------------- QUOTATIONS TAB ---------------- */
