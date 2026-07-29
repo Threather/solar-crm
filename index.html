@@ -271,11 +271,11 @@ async function followUpToday(){
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=`<button id="nav-won" onclick="go('won')">Projects</button>`;
+    $('nav').innerHTML=`<button id="nav-won" onclick="go('won')">Won</button>`;
     return;
   }
   const tabs=[['leads', ME.role==='engineer'?'My jobs':'Leads']];
-  tabs.push(['won','Projects']);
+  tabs.push(['won','Won']);
   tabs.push(['lost','Lost']);
   if(['manager','admin'].includes(ME.role)) tabs.push(['pool','Unassigned']);
   if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
@@ -355,7 +355,7 @@ function wonStats(rows){
   const booked=rows.filter(l=>l.construction_start);
   const done=rows.filter(l=>l.construction_end);
   return `<div class="stats">
-      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won projects</div></div>
+      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total sale value</div></div>
       <div class="stat"><div class="n">${booked.length}</div><div class="l">Construction booked</div></div>
       <div class="stat"><div class="n">${done.length}</div><div class="l">Completed</div></div>
