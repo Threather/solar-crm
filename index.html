@@ -158,7 +158,10 @@ tr.rowlink:hover{background:#f3ede4}
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
 let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads';
-let FILTER={stage:'',q:'',month:'',date:''};
+/* the Leads tab shows only live work; won and lost have their own tabs */
+let LEADSCOPE='active';
+let FILTER={stage:'',q:'',qual:''};
+let QFILTER={q:'',month:'',date:''};
 /* local YYYY-MM-DD, so a late-evening lead in Cambodia isn't filed under tomorrow */
 const localDay=d=>d?new Date(d).toLocaleDateString('sv'):'';
 const monthName=m=>{const[y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'});};
@@ -201,6 +204,14 @@ pending_quotation:'#e8dfea|#6c4f7b',quotation_sent:'#f5e7c4|#7d6015',follow_up:'
 agreement_signoff:'#dde4da|#4a6b4f',closed_won:'#d9e8dc|#2f6b41',closed_lost:'#f0ddd9|#a8412f'};
 const TERMINAL=['closed_won','closed_lost'];
 const WON='closed_won';
+const LOST='closed_lost';
+/* Marketing marks this by hand before a lead goes to an engineer. Only
+   qualified leads ever reach the sales team. */
+function qualPill(q){
+  if(q==='qualified')return '<span class="badge b-on">qualified</span>';
+  if(q==='disqualified')return '<span class="badge b-off">disqualified</span>';
+  return '<span class="days" style="display:inline">not yet</span>';
+}
 function stagePill(code){
   const st=STAGES.find(s=>s.stage_code===code)||{stage_name:code};
   const [bg,fg]=(STAGE_COLORS[code]||'#eee|#555').split('|');
@@ -233,7 +244,7 @@ async function boot(){
   STAGES=stg.data||[];STAFF=stf.data||[];
   $('login-view').style.display='none';$('app-view').style.display='block';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
-  buildNav();go('leads');followUpToday();
+  buildNav();go(ME.role==='site_engineer'?'won':'leads');followUpToday();
 }
 
 /* Leads whose follow-up date is today. Shown once, at login. */
@@ -251,15 +262,22 @@ async function followUpToday(){
     <div class="timeline">${data.map(l=>`
       <div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
         <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
-        <div class="t-meta">${esc(l.phone)} · ${stagePill(l.stage_code)}</div>
+        <div class="t-meta">${esc(l.phone||'no phone')} · ${stagePill(l.stage_code)}</div>
       </div>`).join('')}</div>
     <div class="modal-actions"><button class="btn-sun" onclick="closeLead()">Got it</button></div>`;
   $('lead-overlay').classList.add('open');
 }
 
 function buildNav(){
+  /* the site engineer only ever works won deals, so that is all they get */
+  if(ME.role==='site_engineer'){
+    $('nav').innerHTML=`<button id="nav-won" onclick="go('won')">Projects</button>`;
+    return;
+  }
   const tabs=[['leads', ME.role==='engineer'?'My jobs':'Leads']];
-  if(['sales','manager','admin'].includes(ME.role)) tabs.push(['pool','Pool']);
+  tabs.push(['won','Projects']);
+  tabs.push(['lost','Lost']);
+  if(['manager','admin'].includes(ME.role)) tabs.push(['pool','Unassigned']);
   if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
   if(['engineer','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
   if(['marketing','manager','admin'].includes(ME.role)) tabs.push(['reports','Reports']);
@@ -271,7 +289,9 @@ function go(v){
   VIEW=v;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
-  ({leads:renderLeads,pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,comm:renderComm,users:renderUsers}[v])();
+  ({leads:()=>renderLeads('active'),won:()=>renderLeads('won'),lost:()=>renderLeads('lost'),
+    pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
+    comm:renderComm,users:renderUsers}[v])();
 }
 
 /* ---------------- data ---------------- */
@@ -284,69 +304,133 @@ async function fetchLeads(extra){
 }
 
 /* ---------------- LEADS ---------------- */
-async function renderLeads(){
+/* One renderer, three tabs. "active" is the live pipeline, "won" is the
+   construction hand-over, "lost" is the archive. Keeping won and lost out
+   of the main list is the point: Leads should only show work in play. */
+async function renderLeads(scope){
+  LEADSCOPE=scope||'active';
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   LEADS=await fetchLeads(q=>{
     if(ME.role==='sales')return q.eq('assigned_to',ME.id);
-    if(ME.role==='marketing')return q.eq('created_by',ME.id);
     if(ME.role==='engineer')return q.eq('current_engineer_id',ME.id);
+    if(ME.role==='site_engineer')return q.eq('site_engineer_id',ME.id);
+    /* marketing is left to RLS, which gives them their own leads plus every
+       lead not yet handed to sales — the ones they are meant to be working */
     return q;
   });
-  const stg=STAGES.map(s=>`<option value="${s.stage_code}">${esc(s.stage_name)}</option>`).join('');
-  /* only offer months that actually have leads, newest first */
-  const monthOpts=[...new Set(LEADS.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean)
-    .sort().reverse().map(m=>`<option value="${m}" ${m===FILTER.month?'selected':''}>${monthName(m)}</option>`).join('');
-  const title=ME.role==='sales'?'My leads':ME.role==='marketing'?'Leads I created':ME.role==='engineer'?'My engineering jobs':'All leads';
-  const active=LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
-  const won=LEADS.filter(l=>l.stage_code===WON);
-  const overdue=LEADS.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0)&&!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
-  $('main').innerHTML=`
-    <div class="stats">
-      <div class="stat gold"><div class="n">${LEADS.length}</div><div class="l">${title}</div></div>
-      <div class="stat"><div class="n">${active.length}</div><div class="l">In pipeline</div></div>
-      <div class="stat"><div class="n">${won.length}</div><div class="l">Won</div></div>
-      <div class="stat"><div class="n" style="color:${overdue.length?'var(--bad)':'inherit'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
-    </div>
+  const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
+  const rows=scopeLeads();
+  $('main').innerHTML=(LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
     <div class="toolbar">
       <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;drawTable()">
+      ${LEADSCOPE==='active'?`
       <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
-      <select title="Created in month" onchange="FILTER.month=this.value;FILTER.date='';drawTable()">
-        <option value="">All months</option>${monthOpts}</select>
-      <input type="date" title="Created on this exact date" value="${esc(FILTER.date||'')}" onchange="FILTER.date=this.value;FILTER.month='';drawTable()">
-      <button class="btn-line" onclick="FILTER={stage:'',q:'',month:'',date:''};renderLeads()">Clear</button>
+      <select onchange="FILTER.qual=this.value;drawTable()">
+        <option value="">All leads</option>
+        <option value="qualified" ${FILTER.qual==='qualified'?'selected':''}>Qualified only</option>
+        <option value="disqualified" ${FILTER.qual==='disqualified'?'selected':''}>Disqualified only</option>
+        <option value="none" ${FILTER.qual==='none'?'selected':''}>Not decided yet</option>
+      </select>`:''}
+      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};renderLeads(LEADSCOPE)">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
     <div class="tablewrap" id="tablewrap"></div>`;
   drawTable();
 }
+function activeStats(){
+  const rows=scopeLeads();
+  const qual=rows.filter(l=>l.qualification==='qualified');
+  const waiting=rows.filter(l=>!l.qualification);
+  const overdue=rows.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0));
+  return `<div class="stats">
+      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">In pipeline</div></div>
+      <div class="stat"><div class="n">${qual.length}</div><div class="l">Qualified</div></div>
+      <div class="stat"><div class="n">${waiting.length}</div><div class="l">Awaiting decision</div></div>
+      <div class="stat"><div class="n" style="color:${overdue.length?'var(--bad)':'inherit'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
+    </div>`;
+}
+function wonStats(rows){
+  const value=rows.reduce((a,l)=>a+Number(l.final_sale_usd||0),0);
+  const booked=rows.filter(l=>l.construction_start);
+  const done=rows.filter(l=>l.construction_end);
+  return `<div class="stats">
+      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won projects</div></div>
+      <div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total sale value</div></div>
+      <div class="stat"><div class="n">${booked.length}</div><div class="l">Construction booked</div></div>
+      <div class="stat"><div class="n">${done.length}</div><div class="l">Completed</div></div>
+    </div>`;
+}
+function lostStats(rows){
+  return `<div class="stats">
+      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Lost leads</div></div>
+    </div>`;
+}
+/* rows for the current tab, before the toolbar filters */
+function scopeLeads(){
+  if(LEADSCOPE==='won')return LEADS.filter(l=>l.stage_code===WON);
+  if(LEADSCOPE==='lost')return LEADS.filter(l=>l.stage_code===LOST);
+  return LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
+}
 function filteredLeads(){
-  let rows=LEADS;
-  if(FILTER.stage)rows=rows.filter(l=>l.stage_code===FILTER.stage);
-  if(FILTER.month)rows=rows.filter(l=>localDay(l.created_at).slice(0,7)===FILTER.month);
-  if(FILTER.date)rows=rows.filter(l=>localDay(l.created_at)===FILTER.date);
+  let rows=scopeLeads();
+  if(LEADSCOPE==='active'){
+    if(FILTER.stage)rows=rows.filter(l=>l.stage_code===FILTER.stage);
+    if(FILTER.qual==='none')rows=rows.filter(l=>!l.qualification);
+    else if(FILTER.qual)rows=rows.filter(l=>l.qualification===FILTER.qual);
+  }
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
   return rows;
 }
 function drawTable(){
   const rows=filteredLeads();
-  if(!rows.length){$('tablewrap').innerHTML=`<div class="empty">No leads match.</div>`;return;}
+  if(!rows.length){$('tablewrap').innerHTML=`<div class="empty">Nothing here.</div>`;return;}
+  if(LEADSCOPE==='won')return drawWonTable(rows);
+  if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Type</th><th>Stage</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Quoted</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Type</th><th>Stage</th><th>Qualified</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Created</th>
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
-      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone)}</span></td>
+      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'no phone yet')}</span></td>
       <td>${esc(l.customer_type||'—')}</td>
       <td>${stagePill(l.stage_code)}<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
-      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">POOL</span>'}</td>
+      <td>${qualPill(l.qualification)}</td>
+      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
       <td>${l.current_engineer_id?esc(staffName(l.current_engineer_id)):'—'}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
-      <td>${fmtMoney(l.quoted_price_usd)}</td>
       <td>${fmtDate(l.created_at)}</td></tr>`;
   }).join('')+`</tbody></table>`;
+}
+/* Won deals are a build schedule, not a pipeline, so the columns change */
+function drawWonTable(rows){
+  $('tablewrap').innerHTML=`<table><thead><tr>
+    <th>Ref ID</th><th>Customer</th><th>Sale value</th><th>Salesperson</th><th>Site engineer</th><th>Delivery</th><th>Construction</th><th>Won</th>
+  </tr></thead><tbody>`+rows.map(l=>`
+    <tr class="rowlink" onclick="openLead('${l.id}')">
+      <td class="refid">${esc(l.ref_id||'—')}</td>
+      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
+      <td><b>${fmtMoney(l.final_sale_usd)}</b></td>
+      <td>${esc(staffName(l.assigned_to))}</td>
+      <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}</td>
+      <td>${fmtDate(l.delivery_date)}</td>
+      <td>${l.construction_start||l.construction_end?`${fmtDate(l.construction_start)} → ${fmtDate(l.construction_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
+      <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
+}
+function drawLostTable(rows){
+  $('tablewrap').innerHTML=`<table><thead><tr>
+    <th>Ref ID</th><th>Customer</th><th>Channel</th><th>Qualified</th><th>Salesperson</th><th>Lost</th><th>Created</th>
+  </tr></thead><tbody>`+rows.map(l=>`
+    <tr class="rowlink" onclick="openLead('${l.id}')">
+      <td class="refid">${esc(l.ref_id||'—')}</td>
+      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
+      <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
+      <td>${qualPill(l.qualification)}</td>
+      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'—'}</td>
+      <td>${fmtDate(l.stage_entered_at)}</td>
+      <td>${fmtDate(l.created_at)}</td></tr>`).join('')+`</tbody></table>`;
 }
 
 /* ---------------- POOL ---------------- */
@@ -354,22 +438,20 @@ async function renderPool(){
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   const pool=await fetchLeads(q=>q.is('assigned_to',null));
   const canAssign=['manager','admin'].includes(ME.role);
-  const canClaim=ME.role==='sales';
   const salesOpts=STAFF.filter(s=>s.role==='sales'&&s.is_active)
     .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
-    <h2 style="margin-bottom:6px">Unassigned pool</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">New leads are assigned automatically in rotation, so this list is normally empty. Leads shown here need assigning by hand.</p>
+    <h2 style="margin-bottom:6px">Not yet with sales</h2>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Leads still being worked by marketing and engineering. A salesperson is dealt in automatically once the quotation is sent, so this list clears itself. Assign by hand only if you need to jump the queue.</p>
     ${pool.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
     </tr></thead><tbody>`+pool.map(l=>`
       <tr><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b class="rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">${esc(l.customer_name)}</b></td>
-      <td>${esc(l.phone)}</td><td>${esc(l.lead_channel||l.lead_source||'—')}</td>
+      <td>${esc(l.phone||'—')}</td><td>${esc(l.lead_channel||l.lead_source||'—')}</td>
       <td>${daysIn(l.created_at)}d</td><td>${esc(staffName(l.created_by))}</td>
       <td>${canAssign?`<div style="display:flex;gap:6px"><select id="as-${l.id}">${salesOpts}</select>
-            <button class="btn-sun" onclick="assignLead('${l.id}',document.getElementById('as-${l.id}').value)">Assign</button></div>`
-          :canClaim?`<button class="btn-sun" onclick="assignLead('${l.id}','${ME.id}')">Take this lead</button>`:'—'}</td>
+            <button class="btn-sun" onclick="assignLead('${l.id}',document.getElementById('as-${l.id}').value)">Assign</button></div>`:'—'}</td>
       </tr>`).join('')+`</tbody></table></div>`:'<div class="empty">Pool is empty. Nice.</div>'}`;
 }
 async function assignLead(leadId,staffId){
@@ -387,7 +469,7 @@ function renderNew(){
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:820px">
       <div class="grid2">
         <div><label>Customer name *</label><input id="f-name"></div>
-        <div><label>Phone *</label><input id="f-phone"></div>
+        <div><label>Phone</label><input id="f-phone" placeholder="Can be added later"></div>
         <div><label>Customer type *</label><select id="f-ctype">${optList(CUSTOMER_TYPES,'Residential',false)}</select></div>
         <div><label>Monthly electricity bill (USD)</label><input id="f-bill" type="number" min="0" step="0.01"></div>
         <div><label>Lead channel *</label><select id="f-chan" onchange="subChan()">${optList(Object.keys(CHANNELS),'Digital_Marketing',false)}</select></div>
@@ -410,7 +492,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">The lead is assigned automatically to the salesperson who has waited longest. Technical fields (roof, system, panels) are filled by the engineer later.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required, so you can register a lead from a roadshow and fill in the rest afterwards. Marketing completes the details and marks the lead qualified, an engineer is then dealt in to quote it, and a salesperson is dealt in automatically once the quotation is sent.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -433,9 +515,9 @@ function geoDist(){
 }
 async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
-  if(!name||!phone){toast('Name and phone are required');return;}
+  if(!name){toast('Customer name is required');return;}
   const row={
-    customer_name:name,phone,
+    customer_name:name,phone:phone||null,
     customer_type:$('f-ctype').value,
     monthly_bill_usd:$('f-bill').value||null,
     lead_channel:$('f-chan').value,
@@ -457,7 +539,7 @@ async function createLead(){
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){toast('Create failed');console.error(error);return;}
   await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
-  toast('Lead '+(data.ref_id||'')+' created — '+(data.assigned_to?('assigned to '+staffName(data.assigned_to)):'in the pool'));
+  toast('Lead '+(data.ref_id||'')+' created'+(phone?'':' — remember to add the phone number'));
   go('leads');
 }
 
@@ -470,9 +552,20 @@ async function openLead(id){
   ]);
   if(error||!l){toast('Could not open lead');return;}
   const isAdmin=ME.role==='admin';
-  const canSales=isAdmin||(ME.role==='sales'&&l.assigned_to===ME.id);
-  const canEng=isAdmin||(ME.role==='engineer'&&l.current_engineer_id===ME.id);
+  const isSales=ME.role==='sales'&&l.assigned_to===ME.id;
+  const isEng=ME.role==='engineer'&&l.current_engineer_id===ME.id;
+  /* marketing owns the lead until a salesperson is dealt in */
+  const isMkt=ME.role==='marketing'&&(l.created_by===ME.id||!l.assigned_to);
+  const isSiteEng=ME.role==='site_engineer'&&l.site_engineer_id===ME.id;
   const canAssign=isAdmin||ME.role==='manager';
+  /* sales and engineering now share both key-in boxes, by request */
+  const canEng=isAdmin||isSales||isEng;
+  const canSales=canEng||isMkt;
+  /* the database only lets an engineer or admin insert a quotation, so the
+     button follows that rather than the shared key-in rule */
+  const canQuote=isAdmin||isEng;
+  const canQualify=isAdmin||isMkt||ME.role==='manager';
+  const canSite=isAdmin||isSiteEng;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
 
   const stgOpts=STAGES.map(s=>opt(s.stage_code,l.stage_code).replace(`>${esc(s.stage_code)}<`,`>${esc(s.stage_name)}<`)).join('');
@@ -485,16 +578,21 @@ async function openLead(id){
 
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
-    <div class="sub">${esc(l.phone)} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))}
+    <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))}
       · ${stagePill(l.stage_code)} <span class="days" style="display:inline">${daysIn(l.stage_entered_at)}d in stage · contacted ${contacted}×</span></div>
 
     <div class="section sec-sales"><h4>Sales</h4>
       <div class="grid2">
+        <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canSales?'':'disabled'}></div>
+        <div><label>Qualification</label><select id="d-qual" ${canQualify?'':'disabled'} title="Marking a lead qualified deals in an engineer to quote it">
+          <option value="" ${!l.qualification?'selected':''}>— not decided —</option>
+          <option value="qualified" ${l.qualification==='qualified'?'selected':''}>Qualified</option>
+          <option value="disqualified" ${l.qualification==='disqualified'?'selected':''}>Disqualified</option>
+        </select></div>
         <div><label>Stage</label><select id="d-stage" ${canSales?'':'disabled'}>${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canSales?'':'disabled'}></div>
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
-        <div><label>Quoted price (USD)</label><input id="d-quote" type="number" step="0.01" value="${l.quoted_price_usd??''}" ${canSales?'':'disabled'}></div>
         <div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
           <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${l.final_sale_usd??''}" ${canSales?'':'disabled'}></div>
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
@@ -532,14 +630,24 @@ async function openLead(id){
     <div class="section"><h4>Quotations (${(quots||[]).length})</h4>
       ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
         <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
-      ${canEng?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
+      ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
     </div>
 
-    ${(canSales||canEng)?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
+    ${l.stage_code===WON?`
+    <div class="section"><h4>Construction ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
+      <div class="grid3">
+        <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Construction start</label><input id="d-cstart" type="date" value="${l.construction_start||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Construction end</label><input id="d-cend" type="date" value="${l.construction_end||''}" ${canSite?'':'disabled'}></div>
+        <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Materials, access, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
+      </div>
+    </div>`:''}
+
+    ${(canSales||canEng||canSite)?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
 
     <div class="modal-actions">
-      ${(canSales||canEng||canAssign)?`<button class="btn-sun" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>`:''}
-      ${canSales?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
+      ${(canSales||canEng||canSite||canAssign||canQualify)?`<button class="btn-sun" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}','${l.qualification||''}')">Save</button>`:''}
+      ${(isAdmin||isSales)?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
       <button class="btn-line" onclick="closeLead()">Close</button>
     </div>
 
@@ -570,34 +678,26 @@ function dDist(){
   $('d-commune').innerHTML=optList(list,'');
 }
 
-async function saveLead(id,oldStage,oldAssign,oldEng){
-  const isAdmin=ME.role==='admin';
-  const canSales=isAdmin||ME.role==='sales';
-  const canEng=isAdmin||ME.role==='engineer';
-  const canAssign=isAdmin||ME.role==='manager';
+async function saveLead(id,oldStage,oldAssign,oldEng,oldQual){
+  const canAssign=ME.role==='admin'||ME.role==='manager';
   const upd={};
   const val=id2=>{const e=$(id2);return e&&!e.disabled?e.value:undefined;};
 
-  if(canSales){
-    const v=val('d-stage'); if(v!==undefined)upd.stage_code=v;
-    const f=val('d-follow'); if(f!==undefined)upd.next_follow_up=f||null;
-    const q=val('d-quote'); if(q!==undefined)upd.quoted_price_usd=q||null;
-    const a=val('d-addr'); if(a!==undefined)upd.site_address=a.trim()||null;
-    const c=val('d-commune'); if(c!==undefined)upd.commune=c.trim()||null;
-    const d=val('d-district'); if(d!==undefined)upd.district=d||null;
-    const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
-    const stp=val('d-sitetype'); if(stp!==undefined)upd.site_type=stp.trim()||null;
-    const b=val('d-bill'); if(b!==undefined)upd.monthly_bill_usd=b||null;
-    const s=val('d-sale'); if(s!==undefined)upd.final_sale_usd=s||null;
-  }
-  if(canEng){
-    const m={roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
-             panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_brand:'d-ibrand',
-             battery_kwh:'d-batt',battery_brand:'d-bbrand'};
-    for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v||null;}
-    /* kWp is derived, and its input is readonly so val() skips it */
-    const kw=$('d-kwp'); if(kw)upd.panel_kwp=kw.value||null;
-  }
+  /* Every field is gated by whether openLead rendered its input enabled, so
+     the permission rules live in one place instead of being restated here. */
+  const m={phone:'d-phone',qualification:'d-qual',stage_code:'d-stage',next_follow_up:'d-follow',
+           site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
+           monthly_bill_usd:'d-bill',final_sale_usd:'d-sale',
+           roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
+           panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_brand:'d-ibrand',
+           battery_kwh:'d-batt',battery_brand:'d-bbrand',
+           delivery_date:'d-deliv',construction_start:'d-cstart',construction_end:'d-cend',
+           site_notes:'d-sitenotes'};
+  for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
+  const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
+  /* kWp is derived, and its input is readonly so val() skips it */
+  const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
+
   /* assignment: only write if actually changed (bug fix) */
   if(canAssign){
     const a=val('d-assign');
@@ -618,8 +718,13 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
   else if(note)await logActivity(id,'note',null,null,note);
   else await logActivity(id,'edit',null,null,null);
   if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
+  const newQual=upd.qualification===undefined?oldQual:(upd.qualification||'');
+  if(newQual!==(oldQual||''))await logActivity(id,'note',null,null,newQual?('Marked '+newQual):'Qualification cleared');
 
-  toast(newStage===WON&&oldStage!==WON?'Saved — commissions created for this deal':'Saved');
+  toast(newStage===WON&&oldStage!==WON?'Saved — commissions created for this deal'
+       :newQual==='qualified'&&oldQual!=='qualified'?'Qualified — an engineer has been dealt in'
+       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved — a salesperson has been dealt in'
+       :'Saved');
   closeLead();go(VIEW);
 }
 async function softDelete(id){
@@ -701,24 +806,27 @@ function exportLeads(){
     l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),staffName(l.current_engineer_id),
-    l.next_follow_up,l.quoted_price_usd,l.final_sale_usd,
+    l.next_follow_up,l.qualification||'not decided',l.final_sale_usd,
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
     l.inverter_brand,l.inverter_kw,l.battery_brand,l.battery_kwh,
+    staffName(l.site_engineer_id),l.delivery_date,l.construction_start,l.construction_end,
     staffName(l.created_by),localDay(l.created_at)]);
-  downloadCSV('leads',['Ref ID','Customer','Phone','Customer type','Stage',
+  downloadCSV(LEADSCOPE==='won'?'projects':LEADSCOPE==='lost'?'lost-leads':'leads',
+    ['Ref ID','Customer','Phone','Customer type','Stage',
     'Channel','Sub-channel','Event name','Event date',
     'Address','Commune','District','Province','Type of site',
     'Monthly bill (USD)','Salesperson','Engineer',
-    'Next follow-up','Quoted (USD)','Final sale (USD)',
+    'Next follow-up','Qualification','Final sale (USD)',
     'Roof type','System type','Ampere & phase','Panel brand','Panel watt','Panel pcs','Panel kWp',
     'Inverter brand','Inverter kW','Battery brand','Battery kWh',
+    'Site engineer','Delivery date','Construction start','Construction end',
     'Created by','Created'],rows);
 }
 function exportQuots(){
   downloadCSV('quotations',['Ref ID','Customer','System type','Ampere & phase',
     'Roof type','Panel brand','Panel watt','Panel pcs','Panel kWp',
     'Inverter brand','Inverter kW','Battery brand','Battery kWh','Price (USD)','Released','By'],
-    (QUOTS||[]).map(q=>[q.leads?.ref_id,q.leads?.customer_name,q.system_type,q.ampere_phase,
+    filteredQuots().map(q=>[q.leads?.ref_id,q.leads?.customer_name,q.system_type,q.ampere_phase,
       q.roof_type,q.panel_brand,q.panel_watt,q.panel_pcs,q.panel_kwp,
       q.inverter_brand,q.inverter_kw,q.battery_brand,q.battery_kwh,
       q.price_usd,q.released_date?localDay(q.released_date):'',staffName(q.provided_by)]));
@@ -847,13 +955,39 @@ async function renderQuots(){
   const {data:quots,error}=await sb.from('quotations').select('*, leads(ref_id, customer_name)').order('created_at',{ascending:false});
   if(error){$('main').innerHTML=`<div class="empty">Could not load quotations.</div>`;return;}
   QUOTS=quots||[];
+  /* only offer months that actually have quotations, newest first */
+  const monthOpts=[...new Set(QUOTS.map(q=>localDay(q.released_date||q.created_at).slice(0,7)))].filter(Boolean)
+    .sort().reverse().map(m=>`<option value="${m}" ${m===QFILTER.month?'selected':''}>${monthName(m)}</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Quotation log</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every quotation released, newest first. Add quotations from inside a lead.</p>
-    <div class="toolbar"><button class="btn-line" onclick="exportQuots()">Export CSV</button></div>
-    ${quots&&quots.length?`<div class="tablewrap"><table><thead><tr>
+    <div class="toolbar">
+      <input placeholder="Search customer or ref ID…" value="${esc(QFILTER.q||'')}" oninput="QFILTER.q=this.value;drawQuots()">
+      <select title="Released in month" onchange="QFILTER.month=this.value;QFILTER.date='';drawQuots()">
+        <option value="">All months</option>${monthOpts}</select>
+      <input type="date" title="Released on this exact date" value="${esc(QFILTER.date||'')}" onchange="QFILTER.date=this.value;QFILTER.month='';drawQuots()">
+      <button class="btn-line" onclick="QFILTER={q:'',month:'',date:''};renderQuots()">Clear</button>
+      <span class="spacer"></span>
+      <button class="btn-line" onclick="exportQuots()" title="Exports the rows currently shown">Export CSV</button>
+    </div>
+    <div class="tablewrap" id="quotwrap"></div>`;
+  drawQuots();
+}
+function filteredQuots(){
+  let rows=QUOTS;
+  const day=q=>localDay(q.released_date||q.created_at);
+  if(QFILTER.month)rows=rows.filter(q=>day(q).slice(0,7)===QFILTER.month);
+  if(QFILTER.date)rows=rows.filter(q=>day(q)===QFILTER.date);
+  if(QFILTER.q){const s=QFILTER.q.toLowerCase();rows=rows.filter(q=>
+    (q.leads?.customer_name||'').toLowerCase().includes(s)||(q.leads?.ref_id||'').toLowerCase().includes(s));}
+  return rows;
+}
+function drawQuots(){
+  const rows=filteredQuots();
+  if(!rows.length){$('quotwrap').innerHTML=`<div class="empty">No quotations match.</div>`;return;}
+  $('quotwrap').innerHTML=`<table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th>
-    </tr></thead><tbody>`+quots.map(q=>`
+    </tr></thead><tbody>`+rows.map(q=>`
       <tr><td class="refid">${esc(q.leads?.ref_id||'—')}</td>
       <td><b>${esc(q.leads?.customer_name||'?')}</b></td>
       <td>${esc(q.system_type||'—')}<span class="days">${esc(q.ampere_phase||'')}</span></td>
@@ -862,8 +996,7 @@ async function renderQuots(){
       <td>${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}</td>
       <td><b>${fmtMoney(q.price_usd)}</b></td>
       <td>${fmtDate(q.released_date)}</td>
-      <td>${esc(staffName(q.provided_by))}</td></tr>`).join('')+`</tbody></table></div>`
-    :'<div class="empty">No quotations yet.</div>'}`;
+      <td>${esc(staffName(q.provided_by))}</td></tr>`).join('')+`</tbody></table>`;
 }
 
 /* ---------------- COMMISSIONS ---------------- */
@@ -916,7 +1049,8 @@ async function renderUsers(){
         <div><label>Full name</label><input id="u-name"></div>
         <div><label>Role</label><select id="u-role">
           <option value="marketing">marketing</option><option value="sales">sales</option>
-          <option value="engineer">engineer</option>
+          <option value="engineer">engineer (quotes)</option>
+          <option value="site_engineer">site_engineer (construction)</option>
           <option value="manager">manager</option><option value="admin">admin</option></select></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createProfile()">Create profile</button></div>
