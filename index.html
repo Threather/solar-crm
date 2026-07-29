@@ -205,11 +205,12 @@ agreement_signoff:'#dde4da|#4a6b4f',closed_won:'#d9e8dc|#2f6b41',closed_lost:'#f
 const TERMINAL=['closed_won','closed_lost'];
 const WON='closed_won';
 const LOST='closed_lost';
-/* Marketing marks this by hand before a lead goes to an engineer. Only
-   qualified leads ever reach the sales team. */
-function qualPill(q){
-  if(q==='qualified')return '<span class="badge b-on">qualified</span>';
-  if(q==='disqualified')return '<span class="badge b-off">disqualified</span>';
+/* Set by the database the first time a lead reaches Quotation sent, and it
+   sticks — so a lost lead still remembers whether it ever got that far.
+   Nobody sets this by hand. */
+function qualPill(l){
+  if(l.qualification==='qualified')return '<span class="badge b-on">qualified</span>';
+  if(l.stage_code===LOST)return '<span class="badge b-off">disqualified</span>';
   return '<span class="days" style="display:inline">not yet</span>';
 }
 function stagePill(code){
@@ -328,8 +329,7 @@ async function renderLeads(scope){
       <select onchange="FILTER.qual=this.value;drawTable()">
         <option value="">All leads</option>
         <option value="qualified" ${FILTER.qual==='qualified'?'selected':''}>Qualified only</option>
-        <option value="disqualified" ${FILTER.qual==='disqualified'?'selected':''}>Disqualified only</option>
-        <option value="none" ${FILTER.qual==='none'?'selected':''}>Not decided yet</option>
+        <option value="none" ${FILTER.qual==='none'?'selected':''}>Not qualified yet</option>
       </select>`:''}
       <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};renderLeads(LEADSCOPE)">Clear</button>
       <span class="spacer"></span>
@@ -397,7 +397,7 @@ function drawTable(){
       <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'no phone yet')}</span></td>
       <td>${esc(l.customer_type||'—')}</td>
       <td>${stagePill(l.stage_code)}<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
-      <td>${qualPill(l.qualification)}</td>
+      <td>${qualPill(l)}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
       <td>${l.current_engineer_id?esc(staffName(l.current_engineer_id)):'—'}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
@@ -427,7 +427,7 @@ function drawLostTable(rows){
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
-      <td>${qualPill(l.qualification)}</td>
+      <td>${qualPill(l)}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'—'}</td>
       <td>${fmtDate(l.stage_entered_at)}</td>
       <td>${fmtDate(l.created_at)}</td></tr>`).join('')+`</tbody></table>`;
@@ -492,7 +492,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required, so you can register a lead from a roadshow and fill in the rest afterwards. Marketing completes the details and marks the lead qualified, an engineer is then dealt in to quote it, and a salesperson is dealt in automatically once the quotation is sent.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required, so you can register a lead from a roadshow and fill in the rest afterwards. Marketing completes the details and works the lead, an admin or manager assigns the sale engineer who prices it, and once the stage reaches Quotation sent the lead counts as qualified and a salesperson is dealt in automatically.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -564,7 +564,6 @@ async function openLead(id){
   /* the database only lets an engineer or admin insert a quotation, so the
      button follows that rather than the shared key-in rule */
   const canQuote=isAdmin||isEng;
-  const canQualify=isAdmin||isMkt||ME.role==='manager';
   const canSite=isAdmin||isSiteEng;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
 
@@ -584,11 +583,7 @@ async function openLead(id){
     <div class="section sec-sales"><h4>Sales</h4>
       <div class="grid2">
         <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canSales?'':'disabled'}></div>
-        <div><label>Qualification</label><select id="d-qual" ${canQualify?'':'disabled'} title="Marking a lead qualified deals in an engineer to quote it">
-          <option value="" ${!l.qualification?'selected':''}>— not decided —</option>
-          <option value="qualified" ${l.qualification==='qualified'?'selected':''}>Qualified</option>
-          <option value="disqualified" ${l.qualification==='disqualified'?'selected':''}>Disqualified</option>
-        </select></div>
+        <div><label>Qualification</label><input value="${l.qualification==='qualified'?'Qualified':l.stage_code===LOST?'Disqualified':'Not qualified yet'}" disabled title="Set automatically once the lead reaches Quotation sent"></div>
         <div><label>Stage</label><select id="d-stage" ${canSales?'':'disabled'}>${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canSales?'':'disabled'}></div>
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
@@ -646,7 +641,7 @@ async function openLead(id){
     ${(canSales||canEng||canSite)?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
 
     <div class="modal-actions">
-      ${(canSales||canEng||canSite||canAssign||canQualify)?`<button class="btn-sun" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}','${l.qualification||''}')">Save</button>`:''}
+      ${(canSales||canEng||canSite||canAssign)?`<button class="btn-sun" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>`:''}
       ${(isAdmin||isSales)?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
       <button class="btn-line" onclick="closeLead()">Close</button>
     </div>
@@ -678,14 +673,14 @@ function dDist(){
   $('d-commune').innerHTML=optList(list,'');
 }
 
-async function saveLead(id,oldStage,oldAssign,oldEng,oldQual){
+async function saveLead(id,oldStage,oldAssign,oldEng){
   const canAssign=ME.role==='admin'||ME.role==='manager';
   const upd={};
   const val=id2=>{const e=$(id2);return e&&!e.disabled?e.value:undefined;};
 
   /* Every field is gated by whether openLead rendered its input enabled, so
      the permission rules live in one place instead of being restated here. */
-  const m={phone:'d-phone',qualification:'d-qual',stage_code:'d-stage',next_follow_up:'d-follow',
+  const m={phone:'d-phone',stage_code:'d-stage',next_follow_up:'d-follow',
            site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
            monthly_bill_usd:'d-bill',final_sale_usd:'d-sale',
            roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
@@ -718,12 +713,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng,oldQual){
   else if(note)await logActivity(id,'note',null,null,note);
   else await logActivity(id,'edit',null,null,null);
   if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
-  const newQual=upd.qualification===undefined?oldQual:(upd.qualification||'');
-  if(newQual!==(oldQual||''))await logActivity(id,'note',null,null,newQual?('Marked '+newQual):'Qualification cleared');
 
   toast(newStage===WON&&oldStage!==WON?'Saved — commissions created for this deal'
-       :newQual==='qualified'&&oldQual!=='qualified'?'Qualified — an engineer has been dealt in'
-       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved — a salesperson has been dealt in'
+       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved — qualified, and a salesperson has been dealt in'
        :'Saved');
   closeLead();go(VIEW);
 }
@@ -806,7 +798,7 @@ function exportLeads(){
     l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),staffName(l.current_engineer_id),
-    l.next_follow_up,l.qualification||'not decided',l.final_sale_usd,
+    l.next_follow_up,l.qualification==='qualified'?'qualified':l.stage_code===LOST?'disqualified':'not yet',l.final_sale_usd,
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
     l.inverter_brand,l.inverter_kw,l.battery_brand,l.battery_kwh,
     staffName(l.site_engineer_id),l.delivery_date,l.construction_start,l.construction_end,
