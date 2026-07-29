@@ -205,12 +205,20 @@ agreement_signoff:'#dde4da|#4a6b4f',closed_won:'#d9e8dc|#2f6b41',closed_lost:'#f
 const TERMINAL=['closed_won','closed_lost'];
 const WON='closed_won';
 const LOST='closed_lost';
-/* Set by the database the first time a lead reaches Quotation sent, and it
-   sticks — so a lost lead still remembers whether it ever got that far.
-   Nobody sets this by hand. */
+/* Qualification follows the stage: a lead is qualified from Quotation sent
+   onwards, and moving it back makes it unqualified again. The one exception
+   is a lost lead, where the current stage tells you nothing — there we fall
+   back to the database column, which records whether it ever got that far. */
+const QUALIFIED_STAGES=['quotation_sent','follow_up','agreement_signoff','closed_won'];
+function qualText(l){
+  if(QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
+  if(l.stage_code===LOST)return l.qualification==='qualified'?'Qualified':'Disqualified';
+  return 'Not qualified yet';
+}
 function qualPill(l){
-  if(l.qualification==='qualified')return '<span class="badge b-on">qualified</span>';
-  if(l.stage_code===LOST)return '<span class="badge b-off">disqualified</span>';
+  const t=qualText(l);
+  if(t==='Qualified')return '<span class="badge b-on">qualified</span>';
+  if(t==='Disqualified')return '<span class="badge b-off">disqualified</span>';
   return '<span class="days" style="display:inline">not yet</span>';
 }
 function stagePill(code){
@@ -340,8 +348,8 @@ async function renderLeads(scope){
 }
 function activeStats(){
   const rows=scopeLeads();
-  const qual=rows.filter(l=>l.qualification==='qualified');
-  const waiting=rows.filter(l=>!l.qualification);
+  const qual=rows.filter(l=>qualText(l)==='Qualified');
+  const waiting=rows.filter(l=>qualText(l)!=='Qualified');
   const overdue=rows.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0));
   return `<div class="stats">
       <div class="stat gold"><div class="n">${rows.length}</div><div class="l">In pipeline</div></div>
@@ -376,8 +384,8 @@ function filteredLeads(){
   let rows=scopeLeads();
   if(LEADSCOPE==='active'){
     if(FILTER.stage)rows=rows.filter(l=>l.stage_code===FILTER.stage);
-    if(FILTER.qual==='none')rows=rows.filter(l=>!l.qualification);
-    else if(FILTER.qual)rows=rows.filter(l=>l.qualification===FILTER.qual);
+    if(FILTER.qual==='none')rows=rows.filter(l=>qualText(l)!=='Qualified');
+    else if(FILTER.qual==='qualified')rows=rows.filter(l=>qualText(l)==='Qualified');
   }
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
@@ -583,7 +591,7 @@ async function openLead(id){
     <div class="section sec-sales"><h4>Sales</h4>
       <div class="grid2">
         <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canSales?'':'disabled'}></div>
-        <div><label>Qualification</label><input value="${l.qualification==='qualified'?'Qualified':l.stage_code===LOST?'Disqualified':'Not qualified yet'}" disabled title="Set automatically once the lead reaches Quotation sent"></div>
+        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage — qualified from Quotation sent onwards"></div>
         <div><label>Stage</label><select id="d-stage" ${canSales?'':'disabled'}>${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canSales?'':'disabled'}></div>
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
@@ -798,7 +806,7 @@ function exportLeads(){
     l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),staffName(l.current_engineer_id),
-    l.next_follow_up,l.qualification==='qualified'?'qualified':l.stage_code===LOST?'disqualified':'not yet',l.final_sale_usd,
+    l.next_follow_up,qualText(l),l.final_sale_usd,
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
     l.inverter_brand,l.inverter_kw,l.battery_brand,l.battery_kwh,
     staffName(l.site_engineer_id),l.delivery_date,l.construction_start,l.construction_end,
