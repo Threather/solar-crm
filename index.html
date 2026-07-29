@@ -210,6 +210,9 @@ const LOST='closed_lost';
    is a lost lead, where the current stage tells you nothing — there we fall
    back to the database column, which records whether it ever got that far. */
 const QUALIFIED_STAGES=['quotation_sent','follow_up','agreement_signoff','closed_won'];
+/* marketing keeps ownership of these stages even after a salesperson is
+   assigned — must match the leads_select / leads_update policies */
+const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
 function qualText(l){
   if(QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
   if(l.stage_code===LOST)return l.qualification==='qualified'?'Qualified':'Disqualified';
@@ -450,7 +453,7 @@ async function renderPool(){
     .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Leads still being worked by marketing and engineering. A salesperson is dealt in automatically once the quotation is sent, so this list clears itself. Assign by hand only if you need to jump the queue.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Leads with no phone number yet, so no salesperson has been dealt in. Adding a phone number assigns one automatically and clears the lead from this list. Assign by hand only if you need to jump the queue.</p>
     ${pool.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
     </tr></thead><tbody>`+pool.map(l=>`
@@ -500,7 +503,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required, so you can register a lead from a roadshow and fill in the rest afterwards. Marketing completes the details and works the lead, an admin or manager assigns the sale engineer who prices it, and once the stage reaches Quotation sent the lead counts as qualified and a salesperson is dealt in automatically.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required, so you can register a lead from a roadshow and fill in the rest afterwards. A salesperson is dealt in automatically as soon as the lead has a phone number. An admin or manager assigns the sale engineer who prices it, and the lead counts as qualified once it reaches Quotation sent.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -547,7 +550,9 @@ async function createLead(){
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){toast('Create failed');console.error(error);return;}
   await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
-  toast('Lead '+(data.ref_id||'')+' created'+(phone?'':' — remember to add the phone number'));
+  toast('Lead '+(data.ref_id||'')+' created'
+    +(data.assigned_to?' — assigned to '+staffName(data.assigned_to)
+      :' — add the phone number to hand it to sales'));
   go('leads');
 }
 
@@ -562,8 +567,8 @@ async function openLead(id){
   const isAdmin=ME.role==='admin';
   const isSales=ME.role==='sales'&&l.assigned_to===ME.id;
   const isEng=ME.role==='engineer'&&l.current_engineer_id===ME.id;
-  /* marketing owns the lead until a salesperson is dealt in */
-  const isMkt=ME.role==='marketing'&&(l.created_by===ME.id||!l.assigned_to);
+  /* marketing owns their own leads, plus anything still in an early stage */
+  const isMkt=ME.role==='marketing'&&(l.created_by===ME.id||EARLY_STAGES.includes(l.stage_code));
   const isSiteEng=ME.role==='site_engineer'&&l.site_engineer_id===ME.id;
   const canAssign=isAdmin||ME.role==='manager';
   /* sales and engineering now share both key-in boxes, by request */
@@ -723,7 +728,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
   if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
 
   toast(newStage===WON&&oldStage!==WON?'Saved — commissions created for this deal'
-       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved — qualified, and a salesperson has been dealt in'
+       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved — this lead is now qualified'
        :'Saved');
   closeLead();go(VIEW);
 }
