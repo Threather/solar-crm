@@ -508,7 +508,7 @@ async function renderPool(){
     .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Leads with no phone number yet, so no salesperson has been dealt in. Adding a phone number assigns one automatically and clears the lead from this list. Assign by hand only if you need to jump the queue.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">No phone number yet, so no salesperson. Add a number and one gets assigned automatically. Assign by hand only if you need to.</p>
     ${pool.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
     </tr></thead><tbody>`+pool.map(l=>`
@@ -558,7 +558,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required, so you can register a lead from a roadshow and fill in the rest afterwards. A salesperson is dealt in automatically as soon as the lead has a phone number. An admin or manager assigns the sale engineer who prices it, and the lead counts as qualified once it reaches Quotation sent.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required. Add the phone later and a salesperson is assigned automatically. Admin or manager picks the sale engineer. A lead counts as qualified from Telling Price onwards.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -1131,17 +1131,17 @@ async function renderEdc(){
   const outstanding=[...small,...large].filter(l=>edcDone(l)<edcFields(l).length);
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">EDC submissions</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every won deal. Which form applies is decided by the inverter's AC output, not by choosing. Dates save the moment you pick them.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">All won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
       <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
     </div>
-    ${edcTable('≤ 10 kWac — install first, submit afterwards',small,EDC_SMALL)}
-    ${edcTable('&gt; 10 kWac — submit before installation begins',large,EDC_LARGE)}
-    ${nospec.length?`<h3 style="font-size:15px;margin:0 0 6px">Waiting on the inverter spec (${nospec.length})</h3>
-      <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">No inverter total, so there is no kWac figure to decide the form. The sale engineer needs to finish the spec.</p>
+    ${edcTable('≤ 10 kWac',small,EDC_SMALL)}
+    ${edcTable('&gt; 10 kWac',large,EDC_LARGE)}
+    ${nospec.length?`<h3 style="font-size:15px;margin:0 0 6px">No inverter spec yet (${nospec.length})</h3>
+      <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">Inverter total is empty, so there is no kWac to go on.</p>
       <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Salesperson</th><th>Won</th></tr></thead><tbody>`
       +nospec.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')">
         <td class="refid">${esc(l.ref_id||'—')}</td><td><b>${esc(l.customer_name)}</b></td>
@@ -1150,7 +1150,7 @@ async function renderEdc(){
 }
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
-    <div class="empty" style="margin-bottom:22px">Nothing here yet.</div>`;
+    <div class="empty" style="margin-bottom:22px">Nothing here.</div>`;
   return `<h3 style="font-size:15px;margin:0 0 8px">${title} (${rows.length})</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>kWac</th>${fields.map(([,label])=>`<th>${label}</th>`).join('')}<th>Done</th>
