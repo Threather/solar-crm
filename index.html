@@ -319,6 +319,7 @@ function buildNav(){
   if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
   if(['engineer','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
   if(['marketing','manager','admin'].includes(ME.role)) tabs.push(['reports','Reports']);
+  if(ME.role==='admin') tabs.push(['edc','EDC']);
   tabs.push(['comm','Commissions']);
   if(ME.role==='admin') tabs.push(['users','Users']);
   $('nav').innerHTML=tabs.map(([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">${l}</button>`).join('');
@@ -331,7 +332,7 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
-    comm:renderComm,users:renderUsers}[v])();
+    edc:renderEdc,comm:renderComm,users:renderUsers}[v])();
 }
 
 /* ---------------- data ---------------- */
@@ -720,15 +721,7 @@ async function openLead(id){
       </div>
     </div>
 
-    <div class="section"><h4>EDC${edcFields(l)?' · '+(kwac(l)<=10?'≤ 10 kWac':'&gt; 10 kWac')+' ('+kwac(l)+' kWac)':''}</h4>
-      ${!edcFields(l)?`<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">The inverter total is empty, so there is no kWac figure to decide which EDC form applies. Ask the sale engineer to complete the inverter spec first.</p>`:`
-      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 4px">${kwac(l)<=10
-        ?'Installation can go ahead first; the documents follow afterwards.'
-        :'The documents must be submitted before installation begins.'}</p>
-      <div class="grid3">
-        ${edcFields(l).map(([k,label])=>`<div><label>${label}</label><input id="edc-${k}" type="date" value="${l[k]||''}" ${isAdmin?'':'disabled'}></div>`).join('')}
-      </div>`}
-    </div>`:''}
+`:''}
 
     ${(canSales||canEng||canSite)?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
 
@@ -787,8 +780,6 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
            installation_team:'d-team',site_notes:'d-sitenotes'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
-  /* only the variant that rendered has inputs, so the other one is skipped */
-  [...EDC_SMALL,...EDC_LARGE].forEach(([k])=>{const v=val('edc-'+k);if(v!==undefined)upd[k]=v||null;});
   /* both totals are derived, and their inputs are readonly so val() skips them */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
   const ikw=$('d-ikwt'); if(ikw&&$('d-inv')&&!$('d-inv').disabled)upd.inverter_kw_total=ikw.value||null;
@@ -1125,6 +1116,57 @@ function drawQuots(){
       <td><b>${fmtMoney(q.price_usd)}</b></td>
       <td>${fmtDate(q.released_date)}</td>
       <td>${esc(staffName(q.provided_by))}</td></tr>`).join('')+`</tbody></table>`;
+}
+
+/* ---------------- EDC (admin) ----------------
+   Operations work is a worklist, not a lead-by-lead hunt. Every won deal with
+   its outstanding dates, edited in place. The two size bands need different
+   columns, so they get a table each. */
+async function renderEdc(){
+  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  const rows=await fetchLeads(q=>q.eq('stage_code',WON));
+  const small=rows.filter(l=>edcFields(l)===EDC_SMALL);
+  const large=rows.filter(l=>edcFields(l)===EDC_LARGE);
+  const nospec=rows.filter(l=>!edcFields(l));
+  const outstanding=[...small,...large].filter(l=>edcDone(l)<edcFields(l).length);
+  $('main').innerHTML=`
+    <h2 style="margin-bottom:6px">EDC submissions</h2>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every won deal. Which form applies is decided by the inverter's AC output, not by choosing. Dates save the moment you pick them.</p>
+    <div class="stats">
+      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
+      <div class="stat"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
+      <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
+      <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
+    </div>
+    ${edcTable('≤ 10 kWac — install first, submit afterwards',small,EDC_SMALL)}
+    ${edcTable('&gt; 10 kWac — submit before installation begins',large,EDC_LARGE)}
+    ${nospec.length?`<h3 style="font-size:15px;margin:0 0 6px">Waiting on the inverter spec (${nospec.length})</h3>
+      <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">No inverter total, so there is no kWac figure to decide the form. The sale engineer needs to finish the spec.</p>
+      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Salesperson</th><th>Won</th></tr></thead><tbody>`
+      +nospec.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')">
+        <td class="refid">${esc(l.ref_id||'—')}</td><td><b>${esc(l.customer_name)}</b></td>
+        <td>${esc(staffName(l.assigned_to))}</td><td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')
+      +`</tbody></table></div>`:''}`;
+}
+function edcTable(title,rows,fields){
+  if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
+    <div class="empty" style="margin-bottom:22px">Nothing here yet.</div>`;
+  return `<h3 style="font-size:15px;margin:0 0 8px">${title} (${rows.length})</h3>
+    <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
+      <th>Ref ID</th><th>Customer</th><th>kWac</th>${fields.map(([,label])=>`<th>${label}</th>`).join('')}<th>Done</th>
+    </tr></thead><tbody>`+rows.map(l=>`<tr>
+      <td class="refid" style="cursor:pointer" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'—')}</td>
+      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(staffName(l.site_engineer_id))}</span></td>
+      <td>${kwac(l)}</td>
+      ${fields.map(([k])=>`<td><input type="date" style="min-width:145px" value="${l[k]||''}" onchange="setEdcDate('${l.id}','${k}',this.value)"></td>`).join('')}
+      <td><b>${edcDone(l)}/${fields.length}</b></td>
+    </tr>`).join('')+`</tbody></table></div>`;
+}
+async function setEdcDate(id,col,v){
+  const {error}=await sb.from('leads').update({[col]:v||null}).eq('id',id);
+  if(error){toast('Could not save that date');console.error(error);return;}
+  await logActivity(id,'edit',null,null,'EDC '+col.replace(/^edc_/,'').replace(/_/g,' ')+': '+(v||'cleared'));
+  toast('Saved');
 }
 
 /* ---------------- COMMISSIONS ---------------- */
