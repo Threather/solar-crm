@@ -238,8 +238,9 @@ const EDC_LARGE=[['edc_portal_date','Submitted','Document submission date via we
                  ['edc_provincial_date','Provincial','EDC provincial inspection date'],
                  ['edc_pp_date','Phnom Penh','EDC Phnom Penh inspection date']];
 const kwac=l=>Number(l.inverter_kw_total||0);
+const edcApplies=l=>l.system_type==='On-Grid'||l.system_type==='Hybrid';
 /* null means we cannot tell yet, because the inverter spec is missing */
-const edcFields=l=>kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LARGE);
+const edcFields=l=>!edcApplies(l)||kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LARGE);
 const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;};
 /* marketing keeps ownership of these stages even after a salesperson is
    assigned — must match the leads_select / leads_update policies */
@@ -485,7 +486,8 @@ function drawWonTable(rows){
       <td>${esc(l.installation_team||'—')}</td>
       <td>${fmtDate(l.delivery_date)}</td>
       <td>${l.installation_start||l.installation_end?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
-      ${ME.role==='admin'?`<td>${!edcFields(l)?'<span class="days" style="display:inline">no spec</span>'
+      ${ME.role==='admin'?`<td>${!edcApplies(l)?'<span class="days" style="display:inline">off-grid</span>'
+        :!edcFields(l)?'<span class="days" style="display:inline">no spec</span>'
         :`${edcDone(l)}/${edcFields(l).length}<span class="days">${kwac(l)<=10?'≤10 kWac':'>10 kWac'}</span>`}</td>`:''}
       <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
 }
@@ -1129,15 +1131,16 @@ function drawQuots(){
 async function renderEdc(){
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   const rows=await fetchLeads(q=>q.eq('stage_code',WON));
-  const small=rows.filter(l=>edcFields(l)===EDC_SMALL);
-  const large=rows.filter(l=>edcFields(l)===EDC_LARGE);
-  const nospec=rows.filter(l=>!edcFields(l));
+  const applicable=rows.filter(edcApplies);
+  const small=applicable.filter(l=>edcFields(l)===EDC_SMALL);
+  const large=applicable.filter(l=>edcFields(l)===EDC_LARGE);
+  const nospec=applicable.filter(l=>!edcFields(l));
   const outstanding=[...small,...large].filter(l=>edcDone(l)<edcFields(l).length);
   $('main').innerHTML=`
-    <h2 style="margin-bottom:6px">EDC submissions</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">All won deals, split by inverter kWac. Dates save when you pick them.</p>
+    <h2 style="margin-bottom:6px">EDC approval letter</h2>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
-      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
+      <div class="stat gold"><div class="n">${applicable.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
