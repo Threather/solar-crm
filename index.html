@@ -62,6 +62,13 @@ main{max-width:1240px;margin:0 auto;padding:22px 18px 60px}
 .btn-sun:hover{background:var(--sun-press)}
 .btn-line{background:#fff;border:1px solid var(--line);color:var(--ink);padding:10px 14px;font-weight:600}
 .btn-line:hover{border-color:var(--ink)}
+/* scope switch: active, won and lost are one list sliced three ways, so they
+   sit in the toolbar rather than pretending to be separate pages */
+.scope{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+.scope button{padding:10px 15px;font-weight:600;font-size:14px;color:var(--ink-soft);background:transparent;border-right:1px solid var(--line)}
+.scope button:last-child{border-right:0}
+.scope button:hover{color:var(--ink);background:var(--card-alt)}
+.scope button.on{background:var(--ink);color:#fff}
 .btn-danger{background:#fff;border:1px solid var(--bad);color:var(--bad);padding:10px 14px;font-weight:600}
 .btn-danger:hover{background:var(--bad);color:#fff}
 
@@ -209,7 +216,11 @@ const LOST='closed_lost';
    onwards, and moving it back makes it unqualified again. The one exception
    is a lost lead, where the current stage tells you nothing — there we fall
    back to the database column, which records whether it ever got that far. */
-const QUALIFIED_STAGES=['quotation_sent','follow_up','agreement_signoff','closed_won'];
+const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
+const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
+/* sale values live in lead_financials, which only these roles can read —
+   this just keeps the interface honest about it */
+const canSeeMoney=()=>['admin','manager','sales'].includes(ME.role);
 /* marketing keeps ownership of these stages even after a salesperson is
    assigned — must match the leads_select / leads_update policies */
 const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
@@ -256,7 +267,8 @@ async function boot(){
   STAGES=stg.data||[];STAFF=stf.data||[];
   $('login-view').style.display='none';$('app-view').style.display='block';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
-  buildNav();go(ME.role==='site_engineer'?'won':'leads');followUpToday();
+  if(ME.role==='site_engineer')LEADSCOPE='won';
+  buildNav();go('leads');followUpToday();
 }
 
 /* Leads whose follow-up date is today. Shown once, at login. */
@@ -283,12 +295,10 @@ async function followUpToday(){
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=`<button id="nav-won" onclick="go('won')">Won</button>`;
+    $('nav').innerHTML=`<button id="nav-leads" onclick="go('leads')">My jobs</button>`;
     return;
   }
   const tabs=[['leads', ME.role==='engineer'?'My jobs':'Leads']];
-  tabs.push(['won','Won']);
-  tabs.push(['lost','Lost']);
   if(['manager','admin'].includes(ME.role)) tabs.push(['pool','Unassigned']);
   if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
   if(['engineer','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
@@ -301,7 +311,9 @@ function go(v){
   VIEW=v;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
-  ({leads:()=>renderLeads('active'),won:()=>renderLeads('won'),lost:()=>renderLeads('lost'),
+  /* Leads keeps whichever slice you were last looking at, so closing a won
+     deal drops you back on Won rather than bouncing you to Active */
+  ({leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
     comm:renderComm,users:renderUsers}[v])();
 }
@@ -330,10 +342,22 @@ async function renderLeads(scope){
        lead not yet handed to sales — the ones they are meant to be working */
     return q;
   });
+  /* sale values come from their own table, and only for roles the database
+     lets read it — for anyone else they simply stay undefined */
+  if(canSeeMoney()&&LEADS.length){
+    const {data:fins}=await sb.from('lead_financials')
+      .select('lead_id,final_sale_usd').in('lead_id',LEADS.map(l=>l.id));
+    const byId=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f.final_sale_usd]));
+    LEADS.forEach(l=>{l.final_sale_usd=byId[l.id]??null;});
+  }
   const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
   const rows=scopeLeads();
   $('main').innerHTML=(LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
     <div class="toolbar">
+      ${ME.role==='site_engineer'?'':`<div class="scope">
+        ${[['active','Active'],['won','Won'],['lost','Lost']].map(([k,label])=>
+          `<button class="${LEADSCOPE===k?'on':''}" onclick="setScope('${k}')">${label}</button>`).join('')}
+      </div>`}
       <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;drawTable()">
       ${LEADSCOPE==='active'?`
       <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
@@ -349,6 +373,13 @@ async function renderLeads(scope){
     <div class="tablewrap" id="tablewrap"></div>`;
   drawTable();
 }
+/* filters are cleared on a scope change, since a stage filter means nothing
+   on Won or Lost and would silently hide rows */
+function setScope(s){
+  if(LEADSCOPE===s)return;
+  FILTER={stage:'',q:'',qual:''};
+  renderLeads(s);
+}
 function activeStats(){
   const rows=scopeLeads();
   const qual=rows.filter(l=>qualText(l)==='Qualified');
@@ -363,13 +394,13 @@ function activeStats(){
 }
 function wonStats(rows){
   const value=rows.reduce((a,l)=>a+Number(l.final_sale_usd||0),0);
-  const booked=rows.filter(l=>l.construction_start);
-  const done=rows.filter(l=>l.construction_end);
+  const booked=rows.filter(l=>l.installation_start);
+  const teamed=rows.filter(l=>l.installation_team);
   return `<div class="stats">
       <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
-      <div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total sale value</div></div>
-      <div class="stat"><div class="n">${booked.length}</div><div class="l">Construction booked</div></div>
-      <div class="stat"><div class="n">${done.length}</div><div class="l">Completed</div></div>
+      ${canSeeMoney()?`<div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total sale value</div></div>`:''}
+      <div class="stat"><div class="n">${booked.length}</div><div class="l">Installation booked</div></div>
+      <div class="stat"><div class="n">${teamed.length}</div><div class="l">Team assigned</div></div>
     </div>`;
 }
 function lostStats(rows){
@@ -418,16 +449,17 @@ function drawTable(){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Sale value</th><th>Salesperson</th><th>Site engineer</th><th>Delivery</th><th>Construction</th><th>Won</th>
+    <th>Ref ID</th><th>Customer</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Team</th><th>Delivery</th><th>Installation</th><th>Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
-      <td><b>${fmtMoney(l.final_sale_usd)}</b></td>
+      ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${esc(staffName(l.assigned_to))}</td>
       <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}</td>
+      <td>${esc(l.installation_team||'—')}</td>
       <td>${fmtDate(l.delivery_date)}</td>
-      <td>${l.construction_start||l.construction_end?`${fmtDate(l.construction_start)} → ${fmtDate(l.construction_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
+      <td>${l.installation_start||l.installation_end?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
       <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
 }
 function drawLostTable(rows){
@@ -553,15 +585,18 @@ async function createLead(){
   toast('Lead '+(data.ref_id||'')+' created'
     +(data.assigned_to?' — assigned to '+staffName(data.assigned_to)
       :' — add the phone number to hand it to sales'));
-  go('leads');
+  LEADSCOPE='active';go('leads');
 }
 
 /* ---------------- LEAD DETAIL ---------------- */
 async function openLead(id){
-  const [{data:l,error},{data:acts},{data:quots}]=await Promise.all([
+  const [{data:l,error},{data:acts},{data:quots},{data:fin}]=await Promise.all([
     sb.from('leads').select('*').eq('id',id).single(),
     sb.from('lead_activities').select('*').eq('lead_id',id).order('created_at',{ascending:false}),
-    sb.from('quotations').select('*').eq('lead_id',id).order('created_at',{ascending:false})
+    sb.from('quotations').select('*').eq('lead_id',id).order('created_at',{ascending:false}),
+    /* returns nothing at all for marketing and the site engineer — the
+       database refuses the row, the interface is not what hides it */
+    sb.from('lead_financials').select('final_sale_usd').eq('lead_id',id).maybeSingle()
   ]);
   if(error||!l){toast('Could not open lead');return;}
   const isAdmin=ME.role==='admin';
@@ -578,9 +613,14 @@ async function openLead(id){
      button follows that rather than the shared key-in rule */
   const canQuote=isAdmin||isEng;
   const canSite=isAdmin||isSiteEng;
+  const canMoney=isAdmin||ME.role==='manager'||isSales;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
 
-  const stgOpts=STAGES.map(s=>opt(s.stage_code,l.stage_code).replace(`>${esc(s.stage_code)}<`,`>${esc(s.stage_name)}<`)).join('');
+  /* someone who cannot see the sale value must not be able to close a deal
+     either, or they hit the "enter the final sale value" guard with no field
+     to fill it in */
+  const stageList=canMoney?STAGES:STAGES.filter(s=>!TERMINAL.includes(s.stage_code)||s.stage_code===l.stage_code);
+  const stgOpts=stageList.map(s=>opt(s.stage_code,l.stage_code).replace(`>${esc(s.stage_code)}<`,`>${esc(s.stage_name)}<`)).join('');
   /* assignment dropdowns: always include current assignee even if role changed (bug fix) */
   const salesPeople=STAFF.filter(s=>(s.role==='sales'&&s.is_active)||s.id===l.assigned_to);
   const salesOpts=`<option value="">— pool (unassigned) —</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
@@ -601,8 +641,8 @@ async function openLead(id){
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canSales?'':'disabled'}></div>
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
-        <div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
-          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${l.final_sale_usd??''}" ${canSales?'':'disabled'}></div>
+        ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
+          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
         ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
       </div>
@@ -629,25 +669,32 @@ async function openLead(id){
         <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
         <div><label>Panel (kWp) — auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
         <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
-        <div><label>Inverter (kW)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" oninput="dInvKw()" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" oninput="dInvKw()" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter total (kW) — auto</label><input id="d-ikwt" type="number" step="0.01" value="${l.inverter_kw_total??''}" readonly title="kW each × pcs"></div>
         <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
         <div><label>Battery (kWh)</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" ${canEng?'':'disabled'}></div>
+        <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
       </div>
     </div>
 
     <div class="section"><h4>Quotations (${(quots||[]).length})</h4>
-      ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
+      ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
         <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
       ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
     </div>
 
     ${l.stage_code===WON?`
-    <div class="section"><h4>Construction ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
+    <div class="section"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
       <div class="grid3">
         <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
-        <div><label>Construction start</label><input id="d-cstart" type="date" value="${l.construction_start||''}" ${canSite?'':'disabled'}></div>
-        <div><label>Construction end</label><input id="d-cend" type="date" value="${l.construction_end||''}" ${canSite?'':'disabled'}></div>
-        <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Materials, access, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
+        <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Installation end</label><input id="d-cend" type="date" value="${l.installation_end||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Installation team</label><select id="d-team" ${canSite?'':'disabled'}>${optList(INSTALL_TEAMS,l.installation_team)}</select></div>
+        <div style="grid-column:2/-1"><label>Location</label>${l.site_link
+          ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
+          :`<input value="No link yet — ask the sale engineer" disabled>`}</div>
+        <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
       </div>
     </div>`:''}
 
@@ -669,13 +716,17 @@ async function openLead(id){
     </div>`;
   $('lead-overlay').classList.add('open');
   const stSel=$('d-stage');
-  if(stSel&&!stSel.disabled)stSel.onchange=()=>{$('d-salewrap').style.display=stSel.value===WON?'block':'none';};
+  if(stSel&&!stSel.disabled)stSel.onchange=()=>{const w=$('d-salewrap');if(w)w.style.display=stSel.value===WON?'block':'none';};
 }
 function closeLead(){$('lead-overlay').classList.remove('open');}
 /* panel kWp = watt × pcs ÷ 1000 */
 function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(2):'';}
 function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
 function qKwp(){$('q-kwp').value=kwp($('q-pwatt').value,$('q-pcs').value);}
+/* inverters are quoted in kW each, so the total is a plain multiply */
+function invTotal(kw,p){const n=(Number(kw)||0)*(Number(p)||0);return n?n.toFixed(2):'';}
+function dInvKw(){$('d-ikwt').value=invTotal($('d-inv').value,$('d-ipcs').value);}
+function qInvKw(){$('q-ikwt').value=invTotal($('q-inv').value,$('q-ipcs').value);}
 function dProv(){
   const d=GEO[$('d-prov').value]||{};
   $('d-district').innerHTML=optList(Object.keys(d),'');
@@ -695,16 +746,22 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
      the permission rules live in one place instead of being restated here. */
   const m={phone:'d-phone',stage_code:'d-stage',next_follow_up:'d-follow',
            site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
-           monthly_bill_usd:'d-bill',final_sale_usd:'d-sale',
+           monthly_bill_usd:'d-bill',
            roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
-           panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_brand:'d-ibrand',
-           battery_kwh:'d-batt',battery_brand:'d-bbrand',
-           delivery_date:'d-deliv',construction_start:'d-cstart',construction_end:'d-cend',
-           site_notes:'d-sitenotes'};
+           panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_pcs:'d-ipcs',
+           inverter_brand:'d-ibrand',battery_kwh:'d-batt',battery_brand:'d-bbrand',
+           site_link:'d-sitelink',
+           delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
+           installation_team:'d-team',site_notes:'d-sitenotes'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
-  /* kWp is derived, and its input is readonly so val() skips it */
+  /* both totals are derived, and their inputs are readonly so val() skips them */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
+  const ikw=$('d-ikwt'); if(ikw&&$('d-inv')&&!$('d-inv').disabled)upd.inverter_kw_total=ikw.value||null;
+
+  /* the sale value lives in its own table, which marketing and the site
+     engineer have no read or write access to at all */
+  const sale=val('d-sale');
 
   /* assignment: only write if actually changed (bug fix) */
   if(canAssign){
@@ -714,12 +771,17 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     if(e!==undefined&&e!==(oldEng||''))upd.current_engineer_id=e||null;
   }
   const newStage=upd.stage_code??oldStage;
-  if(newStage===WON&&oldStage!==WON&&!upd.final_sale_usd){toast('Enter the final sale value before marking Closed-Won');return;}
-  if(!Object.keys(upd).length&&!($('d-note')&&$('d-note').value.trim())){toast('Nothing to save');return;}
+  if(newStage===WON&&oldStage!==WON&&!sale){toast('Enter the final sale value before marking Closed-Won');return;}
+  if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){toast('Nothing to save');return;}
 
   if(Object.keys(upd).length){
     const {error}=await sb.from('leads').update(upd).eq('id',id);
     if(error){toast('Save failed');console.error(error);return;}
+  }
+  if(sale!==undefined){
+    const {error}=await sb.from('lead_financials')
+      .upsert({lead_id:id,final_sale_usd:sale||null,updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
+    if(error){toast('Saved, but the sale value did not');console.error(error);return;}
   }
   const note=$('d-note')?$('d-note').value.trim():'';
   if(upd.stage_code&&upd.stage_code!==oldStage)await logActivity(id,'stage_change',oldStage,upd.stage_code,note||null);
@@ -759,7 +821,9 @@ function quotForm(leadId){
       <div><label>Panel pcs</label><input id="q-pcs" type="number" step="1" value="${esc(g('d-pcs'))}" oninput="qKwp()"></div>
       <div><label>Panel (kWp) — auto</label><input id="q-kwp" type="number" step="0.01" value="${esc(g('d-kwp'))}" readonly></div>
       <div><label>Inverter brand</label><select id="q-ibrand">${optList(INVERTER_BRANDS,g('d-ibrand'))}</select></div>
-      <div><label>Inverter (kW)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}"></div>
+      <div><label>Inverter (kW each)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}" oninput="qInvKw()"></div>
+      <div><label>Inverter pcs</label><input id="q-ipcs" type="number" step="1" value="${esc(g('d-ipcs'))}" oninput="qInvKw()"></div>
+      <div><label>Inverter total (kW) — auto</label><input id="q-ikwt" type="number" step="0.01" value="${esc(g('d-ikwt'))}" readonly></div>
       <div><label>Battery brand</label><select id="q-bbrand">${optList(BATTERY_BRANDS,g('d-bbrand'))}</select></div>
       <div><label>Battery (kWh)</label><input id="q-batt" value="${esc(g('d-batt'))}"></div>
       <div><label>Price (USD) *</label><input id="q-price" type="number" step="0.01" autofocus></div>
@@ -776,6 +840,7 @@ async function addQuot(leadId){
     price_usd:price,panel_pcs:$('q-pcs').value||null,panel_brand:$('q-pbrand').value||null,
     panel_watt:$('q-pwatt').value||null,panel_kwp:$('q-kwp').value||null,
     inverter_kw:$('q-inv').value||null,inverter_brand:$('q-ibrand').value||null,
+    inverter_pcs:$('q-ipcs').value||null,inverter_kw_total:$('q-ikwt').value||null,
     battery_kwh:$('q-batt').value.trim()||null,battery_brand:$('q-bbrand').value||null
   });
   if(error){toast('Could not save quotation');console.error(error);return;}
@@ -806,34 +871,45 @@ function downloadCSV(name,headers,rows){
 const stageName=c=>(STAGES.find(s=>s.stage_code===c)||{}).stage_name||c||'';
 
 function exportLeads(){
+  /* the sale value only appears for roles the database serves it to, so an
+     export can never leak what the screen hides */
+  const money=canSeeMoney();
   const rows=filteredLeads().map(l=>[
     l.ref_id,l.customer_name,l.phone,l.customer_type,stageName(l.stage_code),
     l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),staffName(l.current_engineer_id),
-    l.next_follow_up,qualText(l),l.final_sale_usd,
+    l.next_follow_up,qualText(l),
+    ...(money?[l.final_sale_usd]:[]),
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
-    l.inverter_brand,l.inverter_kw,l.battery_brand,l.battery_kwh,
-    staffName(l.site_engineer_id),l.delivery_date,l.construction_start,l.construction_end,
+    l.inverter_brand,l.inverter_kw,l.inverter_pcs,l.inverter_kw_total,
+    l.battery_brand,l.battery_kwh,l.site_link,
+    staffName(l.site_engineer_id),l.installation_team,
+    l.delivery_date,l.installation_start,l.installation_end,
     staffName(l.created_by),localDay(l.created_at)]);
-  downloadCSV(LEADSCOPE==='won'?'projects':LEADSCOPE==='lost'?'lost-leads':'leads',
+  downloadCSV(LEADSCOPE==='won'?'won-deals':LEADSCOPE==='lost'?'lost-leads':'leads',
     ['Ref ID','Customer','Phone','Customer type','Stage',
     'Channel','Sub-channel','Event name','Event date',
     'Address','Commune','District','Province','Type of site',
     'Monthly bill (USD)','Salesperson','Engineer',
-    'Next follow-up','Qualification','Final sale (USD)',
+    'Next follow-up','Qualification',
+    ...(money?['Final sale (USD)']:[]),
     'Roof type','System type','Ampere & phase','Panel brand','Panel watt','Panel pcs','Panel kWp',
-    'Inverter brand','Inverter kW','Battery brand','Battery kWh',
-    'Site engineer','Delivery date','Construction start','Construction end',
+    'Inverter brand','Inverter kW each','Inverter pcs','Inverter total kW',
+    'Battery brand','Battery kWh','Location link',
+    'Site engineer','Installation team',
+    'Delivery date','Installation start','Installation end',
     'Created by','Created'],rows);
 }
 function exportQuots(){
   downloadCSV('quotations',['Ref ID','Customer','System type','Ampere & phase',
     'Roof type','Panel brand','Panel watt','Panel pcs','Panel kWp',
-    'Inverter brand','Inverter kW','Battery brand','Battery kWh','Price (USD)','Released','By'],
+    'Inverter brand','Inverter kW each','Inverter pcs','Inverter total kW',
+    'Battery brand','Battery kWh','Price (USD)','Released','By'],
     filteredQuots().map(q=>[q.leads?.ref_id,q.leads?.customer_name,q.system_type,q.ampere_phase,
       q.roof_type,q.panel_brand,q.panel_watt,q.panel_pcs,q.panel_kwp,
-      q.inverter_brand,q.inverter_kw,q.battery_brand,q.battery_kwh,
+      q.inverter_brand,q.inverter_kw,q.inverter_pcs,q.inverter_kw_total,
+      q.battery_brand,q.battery_kwh,
       q.price_usd,q.released_date?localDay(q.released_date):'',staffName(q.provided_by)]));
 }
 function exportComms(){
@@ -841,7 +917,7 @@ function exportComms(){
     'Amount (USD)','Paid','Paid on'],
     (COMMS||[]).map(c=>[c.leads?.ref_id,c.leads?.customer_name,
       c.beneficiary_type==='referrer'?(c.referrer_name||'External referrer'):staffName(c.profile_id),
-      c.beneficiary_type,c.leads?.final_sale_usd,c.amount_usd,
+      c.beneficiary_type,c.leads?.lead_financials?.final_sale_usd,c.amount_usd,
       c.is_paid?'yes':'no',c.paid_at?localDay(c.paid_at):'']));
 }
 
@@ -860,11 +936,18 @@ async function renderReports(){
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   LEADS=await fetchLeads(q=>ME.role==='manager'||ME.role==='admin'?q:q.eq('created_by',ME.id));
   const won=LEADS.filter(l=>l.stage_code===WON);
-  const lost=LEADS.filter(l=>l.stage_code==='closed_lost');
+  const lost=LEADS.filter(l=>l.stage_code===LOST);
   const open=LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
   const decided=won.length+lost.length;
   const winRate=decided?Math.round(won.length/decided*100):null;
-  const wonValue=won.reduce((a,l)=>a+Number(l.final_sale_usd||0),0);
+  /* marketing reaches this tab but cannot read sale values, so the money tile
+     is left out for them rather than shown as zero */
+  let wonValue=null;
+  if(canSeeMoney()&&won.length){
+    const {data:fins}=await sb.from('lead_financials')
+      .select('final_sale_usd').in('lead_id',won.map(l=>l.id));
+    wonValue=(fins||[]).reduce((a,f)=>a+Number(f.final_sale_usd||0),0);
+  }
 
   const months=[...new Set(LEADS.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean).sort().slice(-12);
   const counts={};
@@ -879,7 +962,7 @@ async function renderReports(){
       <div class="stat"><div class="n">${open.length}</div><div class="l">In pipeline</div></div>
       <div class="stat"><div class="n">${won.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat"><div class="n">${winRate===null?'—':winRate+'%'}</div><div class="l">Win rate</div></div>
-      <div class="stat"><div class="n">${fmtMoney(wonValue)}</div><div class="l">Won value</div></div>
+      ${wonValue===null?'':`<div class="stat"><div class="n">${fmtMoney(wonValue)}</div><div class="l">Won value</div></div>`}
     </div>
     ${months.length?barChart(months,counts,used):'<div class="empty">No leads yet — the chart appears once leads are created.</div>'}
     ${stageTable()}`;
@@ -997,7 +1080,7 @@ function drawQuots(){
       <td><b>${esc(q.leads?.customer_name||'?')}</b></td>
       <td>${esc(q.system_type||'—')}<span class="days">${esc(q.ampere_phase||'')}</span></td>
       <td>${q.panel_pcs??'—'} ${esc(q.panel_brand||'')}<span class="days">${q.panel_kwp?q.panel_kwp+' kWp':''}</span></td>
-      <td>${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')}</td>
+      <td>${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')}<span class="days">${q.inverter_kw_total?q.inverter_kw_total+' kW total':''}</span></td>
       <td>${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}</td>
       <td><b>${fmtMoney(q.price_usd)}</b></td>
       <td>${fmtDate(q.released_date)}</td>
@@ -1007,7 +1090,9 @@ function drawQuots(){
 /* ---------------- COMMISSIONS ---------------- */
 async function renderComm(){
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
-  const {data:comms,error}=await sb.from('commissions').select('*, leads(ref_id, customer_name, final_sale_usd)').order('created_at',{ascending:false});
+  const {data:comms,error}=await sb.from('commissions')
+    .select('*, leads(ref_id, customer_name, lead_financials(final_sale_usd))')
+    .order('created_at',{ascending:false});
   if(error){$('main').innerHTML=`<div class="empty">Could not load commissions.</div>`;return;}
   COMMS=comms||[];
   const isAdmin=ME.role==='admin';
@@ -1022,7 +1107,7 @@ async function renderComm(){
     </tr></thead><tbody>`+comms.map(c=>`
       <tr><td class="refid">${esc(c.leads?.ref_id||'—')}</td>
         <td><b>${esc(c.leads?.customer_name||'?')}</b></td>
-        <td>${fmtMoney(c.leads?.final_sale_usd)}</td>
+        <td>${fmtMoney(c.leads?.lead_financials?.final_sale_usd)}</td>
         <td>${c.beneficiary_type==='referrer'?esc(c.referrer_name||'External referrer'):esc(staffName(c.profile_id))}${mine(c)?' <span class="badge b-on">you</span>':''}</td>
         <td>${esc(c.beneficiary_type)}</td>
         <td>${isAdmin?`<input style="width:110px" type="number" step="0.01" value="${c.amount_usd??''}" onchange="setCommAmount('${c.id}',this.value)">`:fmtMoney(c.amount_usd)}</td>
