@@ -238,7 +238,11 @@ const EDC_LARGE=[['edc_portal_date','Submitted','Document submission date via we
                  ['edc_provincial_date','Provincial','EDC provincial inspection date'],
                  ['edc_pp_date','Phnom Penh','EDC Phnom Penh inspection date']];
 const kwac=l=>Number(l.inverter_kw_total||0);
+/* three states, not two: EDC applies to on-grid and hybrid, off-grid is
+   genuinely exempt, and a blank system type means nobody has said yet —
+   which must not be silently treated as exempt */
 const edcApplies=l=>l.system_type==='On-Grid'||l.system_type==='Hybrid';
+const edcExempt=l=>l.system_type==='Off-Grid';
 /* null means we cannot tell yet, because the inverter spec is missing */
 const edcFields=l=>!edcApplies(l)||kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LARGE);
 const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;};
@@ -486,7 +490,8 @@ function drawWonTable(rows){
       <td>${esc(l.installation_team||'—')}</td>
       <td>${fmtDate(l.delivery_date)}</td>
       <td>${l.installation_start||l.installation_end?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
-      ${ME.role==='admin'?`<td>${!edcApplies(l)?'<span class="days" style="display:inline">off-grid</span>'
+      ${ME.role==='admin'?`<td>${edcExempt(l)?'<span class="days" style="display:inline">off-grid</span>'
+        :!edcApplies(l)?'<span class="days" style="display:inline">no system type</span>'
         :!edcFields(l)?'<span class="days" style="display:inline">no spec</span>'
         :`${edcDone(l)}/${edcFields(l).length}<span class="days">${kwac(l)<=10?'≤10 kWac':'>10 kWac'}</span>`}</td>`:''}
       <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
@@ -1134,7 +1139,9 @@ async function renderEdc(){
   const applicable=rows.filter(edcApplies);
   const small=applicable.filter(l=>edcFields(l)===EDC_SMALL);
   const large=applicable.filter(l=>edcFields(l)===EDC_LARGE);
-  const nospec=applicable.filter(l=>!edcFields(l));
+  /* anything not off-grid that we still cannot place: either nobody has set
+     the system type, or there is no inverter total to give a kWac */
+  const pending=rows.filter(l=>!edcExempt(l)&&!edcFields(l));
   const outstanding=[...small,...large].filter(l=>edcDone(l)<edcFields(l).length);
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">EDC approval letter</h2>
@@ -1147,11 +1154,12 @@ async function renderEdc(){
     </div>
     ${edcTable('Inverter ≤ 10 kWac',small,EDC_SMALL)}
     ${edcTable('Inverter &gt; 10 kWac',large,EDC_LARGE)}
-    ${nospec.length?`<h3 style="font-size:15px;margin:0 0 6px">No inverter spec yet (${nospec.length})</h3>
-      <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">Inverter total is empty, so there is no kWac to go on.</p>
-      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Salesperson</th><th>Won</th></tr></thead><tbody>`
-      +nospec.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')">
+    ${pending.length?`<h3 style="font-size:15px;margin:0 0 6px">Missing information (${pending.length})</h3>
+      <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">Not placed yet. The sale engineer needs to finish the spec.</p>
+      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Missing</th><th>Salesperson</th><th>Won</th></tr></thead><tbody>`
+      +pending.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')">
         <td class="refid">${esc(l.ref_id||'—')}</td><td><b>${esc(l.customer_name)}</b></td>
+        <td>${!edcApplies(l)?'System type':'Inverter total'}</td>
         <td>${esc(staffName(l.assigned_to))}</td><td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')
       +`</tbody></table></div>`:''}`;
 }
