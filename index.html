@@ -221,6 +221,22 @@ const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 /* sale values live in lead_financials, which only these roles can read —
    this just keeps the interface honest about it */
 const canSeeMoney=()=>['admin','manager','sales'].includes(ME.role);
+
+/* EDC paperwork. Which form applies is decided by the inverter's AC output,
+   not by anyone choosing: 10 kWac or under takes the short form, above it
+   takes the long one. Small systems may be installed before submitting;
+   large ones must be submitted first. */
+const EDC_SMALL=[['edc_doc_date','Document submission date'],
+                 ['edc_inspection_date','Inspection date']];
+const EDC_LARGE=[['edc_portal_date','Document submission date via web portal'],
+                 ['edc_approval_date','EDC approval letter received date'],
+                 ['edc_meter_date','Smart meter installation &amp; grid connection date'],
+                 ['edc_provincial_date','EDC provincial inspection date'],
+                 ['edc_pp_date','EDC Phnom Penh inspection date']];
+const kwac=l=>Number(l.inverter_kw_total||0);
+/* null means we cannot tell yet, because the inverter spec is missing */
+const edcFields=l=>kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LARGE);
+const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;};
 /* marketing keeps ownership of these stages even after a salesperson is
    assigned — must match the leads_select / leads_update policies */
 const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
@@ -453,7 +469,7 @@ function drawTable(){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Team</th><th>Delivery</th><th>Installation</th><th>Won</th>
+    <th>Ref ID</th><th>Customer</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Team</th><th>Delivery</th><th>Installation</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -464,6 +480,8 @@ function drawWonTable(rows){
       <td>${esc(l.installation_team||'—')}</td>
       <td>${fmtDate(l.delivery_date)}</td>
       <td>${l.installation_start||l.installation_end?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
+      ${ME.role==='admin'?`<td>${!edcFields(l)?'<span class="days" style="display:inline">no spec</span>'
+        :`${edcDone(l)}/${edcFields(l).length}<span class="days">${kwac(l)<=10?'≤10 kWac':'>10 kWac'}</span>`}</td>`:''}
       <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
 }
 function drawLostTable(rows){
@@ -700,6 +718,16 @@ async function openLead(id){
           :`<input value="No link yet — ask the sale engineer" disabled>`}</div>
         <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
       </div>
+    </div>
+
+    <div class="section"><h4>EDC${edcFields(l)?' · '+(kwac(l)<=10?'≤ 10 kWac':'&gt; 10 kWac')+' ('+kwac(l)+' kWac)':''}</h4>
+      ${!edcFields(l)?`<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">The inverter total is empty, so there is no kWac figure to decide which EDC form applies. Ask the sale engineer to complete the inverter spec first.</p>`:`
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 4px">${kwac(l)<=10
+        ?'Installation can go ahead first; the documents follow afterwards.'
+        :'The documents must be submitted before installation begins.'}</p>
+      <div class="grid3">
+        ${edcFields(l).map(([k,label])=>`<div><label>${label}</label><input id="edc-${k}" type="date" value="${l[k]||''}" ${isAdmin?'':'disabled'}></div>`).join('')}
+      </div>`}
     </div>`:''}
 
     ${(canSales||canEng||canSite)?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
@@ -759,6 +787,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
            installation_team:'d-team',site_notes:'d-sitenotes'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
+  /* only the variant that rendered has inputs, so the other one is skipped */
+  [...EDC_SMALL,...EDC_LARGE].forEach(([k])=>{const v=val('edc-'+k);if(v!==undefined)upd[k]=v||null;});
   /* both totals are derived, and their inputs are readonly so val() skips them */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
   const ikw=$('d-ikwt'); if(ikw&&$('d-inv')&&!$('d-inv').disabled)upd.inverter_kw_total=ikw.value||null;
@@ -890,6 +920,9 @@ function exportLeads(){
     l.battery_brand,l.battery_kwh,l.site_link,
     staffName(l.site_engineer_id),l.installation_team,
     l.delivery_date,l.installation_start,l.installation_end,
+    l.inverter_kw_total,l.edc_doc_date,l.edc_inspection_date,
+    l.edc_portal_date,l.edc_approval_date,l.edc_meter_date,
+    l.edc_provincial_date,l.edc_pp_date,
     staffName(l.created_by),localDay(l.created_at)]);
   downloadCSV(LEADSCOPE==='won'?'won-deals':LEADSCOPE==='lost'?'lost-leads':'leads',
     ['Ref ID','Customer','Phone','Customer type','Stage',
@@ -903,6 +936,9 @@ function exportLeads(){
     'Battery brand','Battery kWh','Location link',
     'Site engineer','Installation team',
     'Delivery date','Installation start','Installation end',
+    'kWac','EDC doc submission','EDC inspection',
+    'EDC portal submission','EDC approval letter','EDC smart meter & grid',
+    'EDC provincial inspection','EDC Phnom Penh inspection',
     'Created by','Created'],rows);
 }
 function exportQuots(){
