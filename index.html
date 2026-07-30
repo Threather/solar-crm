@@ -703,9 +703,9 @@ async function openLead(id){
         <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
         <div><label>Panel (kWp) — auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
         <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
-        <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" oninput="dInvKw()" ${canEng?'':'disabled'}></div>
-        <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" oninput="dInvKw()" ${canEng?'':'disabled'}></div>
-        <div><label>Inverter total (kW) — auto</label><input id="d-ikwt" type="number" step="0.01" value="${l.inverter_kw_total??''}" readonly title="kW each × pcs"></div>
+        <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter total (kW)</label><input id="d-ikwt" type="number" step="0.01" value="${l.inverter_kw_total??''}" ${canEng?'':'disabled'} title="Decides which EDC form applies"></div>
         <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
         <div><label>Battery (kWh)</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" ${canEng?'':'disabled'}></div>
         <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
@@ -760,9 +760,6 @@ function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(
 function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
 function qKwp(){$('q-kwp').value=kwp($('q-pwatt').value,$('q-pcs').value);}
 /* inverters are quoted in kW each, so the total is a plain multiply */
-function invTotal(kw,p){const n=(Number(kw)||0)*(Number(p)||0);return n?n.toFixed(2):'';}
-function dInvKw(){$('d-ikwt').value=invTotal($('d-inv').value,$('d-ipcs').value);}
-function qInvKw(){$('q-ikwt').value=invTotal($('q-inv').value,$('q-ipcs').value);}
 function dProv(){
   const d=GEO[$('d-prov').value]||{};
   $('d-district').innerHTML=optList(Object.keys(d),'');
@@ -785,15 +782,15 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
            monthly_bill_usd:'d-bill',
            roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
            panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_pcs:'d-ipcs',
-           inverter_brand:'d-ibrand',battery_kwh:'d-batt',battery_brand:'d-bbrand',
+           inverter_kw_total:'d-ikwt',inverter_brand:'d-ibrand',
+           battery_kwh:'d-batt',battery_brand:'d-bbrand',
            site_link:'d-sitelink',
            delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
            installation_team:'d-team',site_notes:'d-sitenotes'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
-  /* both totals are derived, and their inputs are readonly so val() skips them */
+  /* panel kWp is derived, and its input is readonly so val() skips it */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
-  const ikw=$('d-ikwt'); if(ikw&&$('d-inv')&&!$('d-inv').disabled)upd.inverter_kw_total=ikw.value||null;
 
   /* the sale value lives in its own table, which marketing and the site
      engineer have no read or write access to at all */
@@ -857,9 +854,9 @@ function quotForm(leadId){
       <div><label>Panel pcs</label><input id="q-pcs" type="number" step="1" value="${esc(g('d-pcs'))}" oninput="qKwp()"></div>
       <div><label>Panel (kWp) — auto</label><input id="q-kwp" type="number" step="0.01" value="${esc(g('d-kwp'))}" readonly></div>
       <div><label>Inverter brand</label><select id="q-ibrand">${optList(INVERTER_BRANDS,g('d-ibrand'))}</select></div>
-      <div><label>Inverter (kW each)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}" oninput="qInvKw()"></div>
-      <div><label>Inverter pcs</label><input id="q-ipcs" type="number" step="1" value="${esc(g('d-ipcs'))}" oninput="qInvKw()"></div>
-      <div><label>Inverter total (kW) — auto</label><input id="q-ikwt" type="number" step="0.01" value="${esc(g('d-ikwt'))}" readonly></div>
+      <div><label>Inverter (kW each)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}"></div>
+      <div><label>Inverter pcs</label><input id="q-ipcs" type="number" step="1" value="${esc(g('d-ipcs'))}"></div>
+      <div><label>Inverter total (kW)</label><input id="q-ikwt" type="number" step="0.01" value="${esc(g('d-ikwt'))}"></div>
       <div><label>Battery brand</label><select id="q-bbrand">${optList(BATTERY_BRANDS,g('d-bbrand'))}</select></div>
       <div><label>Battery (kWh)</label><input id="q-batt" value="${esc(g('d-batt'))}"></div>
       <div><label>Price (USD) *</label><input id="q-price" type="number" step="0.01" autofocus></div>
