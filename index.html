@@ -328,11 +328,11 @@ async function fetchLeads(extra){
 }
 
 /* ---------------- LEADS ---------------- */
-/* One renderer, three tabs. "active" is the live pipeline, "won" is the
-   construction hand-over, "lost" is the archive. Keeping won and lost out
-   of the main list is the point: Leads should only show work in play. */
+/* Active, won and lost are one list sliced three ways. renderLeads fetches,
+   paintLeads draws — kept apart so switching slice is instant and never
+   round-trips to Supabase for rows it already holds. */
 async function renderLeads(scope){
-  LEADSCOPE=scope||'active';
+  LEADSCOPE=scope||LEADSCOPE;
   $('main').innerHTML=`<div class="empty">Loading…</div>`;
   LEADS=await fetchLeads(q=>{
     if(ME.role==='sales')return q.eq('assigned_to',ME.id);
@@ -350,6 +350,9 @@ async function renderLeads(scope){
     const byId=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f.final_sale_usd]));
     LEADS.forEach(l=>{l.final_sale_usd=byId[l.id]??null;});
   }
+  paintLeads();
+}
+function paintLeads(){
   const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
   const rows=scopeLeads();
   $('main').innerHTML=(LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
@@ -366,7 +369,7 @@ async function renderLeads(scope){
         <option value="qualified" ${FILTER.qual==='qualified'?'selected':''}>Qualified only</option>
         <option value="none" ${FILTER.qual==='none'?'selected':''}>Not qualified yet</option>
       </select>`:''}
-      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};renderLeads(LEADSCOPE)">Clear</button>
+      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};paintLeads()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
@@ -377,8 +380,9 @@ async function renderLeads(scope){
    on Won or Lost and would silently hide rows */
 function setScope(s){
   if(LEADSCOPE===s)return;
+  LEADSCOPE=s;
   FILTER={stage:'',q:'',qual:''};
-  renderLeads(s);
+  paintLeads();
 }
 function activeStats(){
   const rows=scopeLeads();
