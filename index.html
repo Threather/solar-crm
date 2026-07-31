@@ -616,7 +616,7 @@ async function createLead(){
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){toast('Create failed');console.error(error);return;}
   await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
-  toast('Lead '+(data.ref_id||'')+' created'
+  toast((data.ref_id?'Lead '+data.ref_id+' created':'Lead created')
     +(data.assigned_to?' — assigned to '+staffName(data.assigned_to)
       :' — add the phone number to hand it to sales'));
   LEADSCOPE='active';go('leads');
@@ -669,6 +669,8 @@ async function openLead(id){
 
     <div class="section sec-sales"><h4>Sales</h4>
       <div class="grid2">
+        <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canSales?'':'disabled'}></div>
+        <div><label>Customer type</label><select id="d-ctype" ${canSales?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
         <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canSales?'':'disabled'}></div>
         <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage — qualified from Quotation sent onwards"></div>
         <div><label>Stage</label><select id="d-stage" ${canSales?'':'disabled'}>${stgOpts}</select></div>
@@ -777,7 +779,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
 
   /* Every field is gated by whether openLead rendered its input enabled, so
      the permission rules live in one place instead of being restated here. */
-  const m={phone:'d-phone',stage_code:'d-stage',next_follow_up:'d-follow',
+  const m={customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
+           stage_code:'d-stage',next_follow_up:'d-follow',
            site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
            monthly_bill_usd:'d-bill',
            roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
@@ -803,6 +806,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     const e=val('d-eng');
     if(e!==undefined&&e!==(oldEng||''))upd.current_engineer_id=e||null;
   }
+  /* the name is the one field that must never be blanked */
+  if(upd.customer_name===null){toast('Customer name cannot be empty');return;}
   const newStage=upd.stage_code??oldStage;
   if(newStage===WON&&oldStage!==WON&&!sale){toast('Enter the final sale value before marking Closed-Won');return;}
   if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){toast('Nothing to save');return;}
