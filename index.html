@@ -71,6 +71,12 @@ main{max-width:1240px;margin:0 auto;padding:22px 18px 60px}
 .scope button.on{background:var(--ink);color:#fff}
 /* the step a deal is actually waiting on, so the eye lands on the work */
 .edc-next{background:#fbeee8}
+/* the 860px floor above is for full-width data grids; a table inside a modal
+   has about 800px to work with, so it needs its own rules */
+.table-compact{min-width:0}
+.table-compact th,.table-compact td{padding:8px 10px}
+.btn-mini{background:#fff;border:1px solid var(--line);color:var(--ink-soft);padding:5px 10px;font-weight:600;font-size:12px}
+.btn-mini:hover{border-color:var(--bad);color:var(--bad)}
 .btn-danger{background:#fff;border:1px solid var(--bad);color:var(--bad);padding:10px 14px;font-weight:600}
 .btn-danger:hover{background:var(--bad);color:#fff}
 
@@ -1296,12 +1302,12 @@ function openFinance(id){
     </div>
 
     <div class="section"><h4>Payments (${r.payments.length})</h4>
-      ${r.payments.length?`<div class="tablewrap"><table><thead><tr>
-        <th>#</th><th>Date</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>`
+      ${r.payments.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
+        <th style="width:34px">#</th><th style="width:130px">Date</th><th style="width:110px">Amount</th><th>Note</th><th style="width:86px"></th></tr></thead><tbody>`
         +r.payments.map((p,i)=>`<tr>
           <td>${i+1}</td><td>${fmtDate(p.paid_on)}</td>
           <td><b>${fmtMoney(p.amount_usd)}</b></td><td>${esc(p.note||'')}</td>
-          <td><button class="btn-line" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
+          <td><button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
         </tr>`).join('')+`</tbody></table></div>`
         :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
       <div class="grid3" style="margin-top:10px">
