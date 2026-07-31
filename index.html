@@ -170,11 +170,14 @@ tr.rowlink:hover{background:var(--card-alt)}
 .stat .n{font-family:'Source Serif 4',Georgia,serif;font-size:var(--t-h1);font-weight:600;
   line-height:1.05;color:var(--ink-2);letter-spacing:-.02em}
 .stat .l{font-size:var(--t-cap);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+/* The hero wins on size and surface alone. Colour is reserved: red appears
+   only on .alert, where it means "this needs you", and nowhere else. */
 .stat.hero{flex:1.7 1 220px;background:var(--card);border-radius:var(--r);padding:18px 20px;
   box-shadow:var(--lift);position:relative;overflow:hidden}
-.stat.hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sun)}
 .stat.hero .n{font-size:var(--t-hero);color:var(--ink)}
-.stat.hero .l{color:var(--sun-deep);font-weight:600}
+.stat.hero .l{color:var(--ink-soft);font-weight:600}
+.stat.hero.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
+.stat.hero.alert .n,.stat.hero.alert .l{color:var(--bad)}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
   padding:11px 20px;border-radius:99px;font-size:var(--t-body);display:none;z-index:99;
@@ -491,7 +494,7 @@ function activeStats(){
   const waiting=rows.filter(l=>qualText(l)!=='Qualified');
   const overdue=rows.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0));
   return `<div class="stats">
-      <div class="stat hero"><div class="n" style="color:${overdue.length?'var(--bad)':'var(--ink)'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
+      <div class="stat hero ${overdue.length?'alert':''}"><div class="n">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
       <div class="stat"><div class="n">${rows.length}</div><div class="l">In pipeline</div></div>
       <div class="stat"><div class="n">${qual.length}</div><div class="l">Qualified</div></div>
       <div class="stat"><div class="n">${waiting.length}</div><div class="l">Awaiting decision</div></div>
@@ -1224,7 +1227,7 @@ async function renderEdc(){
     <h2 style="margin-bottom:6px">EDC approval letter</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
-      <div class="stat hero"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
+      <div class="stat hero ${outstanding.length?'alert':''}"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
       <div class="stat"><div class="n">${applicable.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
@@ -1293,7 +1296,7 @@ async function renderFinance(){
     <h2 style="margin-bottom:6px">Finance</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Won deals. Open a row to record the contract and its payments.</p>
     <div class="stats">
-      <div class="stat hero"><div class="n" style="color:${totalDue-totalPaid>0?'var(--bad)':'var(--ink)'}">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
+      <div class="stat hero ${totalDue-totalPaid>0?'alert':''}"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
       <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Collected</div></div>
       <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
