@@ -131,7 +131,28 @@ tr.rowlink:hover{background:var(--card-alt)}
 .pooltag{color:var(--pool);font-weight:700;font-size:var(--t-cap);letter-spacing:.04em}
 .refid{font-size:var(--t-meta);color:var(--ink-mute);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .overdue{color:var(--bad);font-weight:600}
-.empty{padding:44px;text-align:center;color:var(--ink-mute);font-size:var(--t-body)}
+.quiet{color:var(--ink-mute)}
+/* compact status marker — a column that is mostly one glyph wide */
+.mark{display:inline-block;font-size:var(--t-cap);font-weight:600;padding:3px 8px;border-radius:6px;
+  background:var(--sunk);color:var(--ink-mute);white-space:nowrap;letter-spacing:.02em}
+.mark-done{background:#dfe9df;color:var(--ok)}
+.mark-open{background:#f7e6dd;color:var(--sun-press)}
+.mark-wait{background:var(--sunk);color:var(--ink-mute)}
+
+/* Designed states. An empty list should say what would put something in it. */
+.empty{padding:52px 24px;text-align:center;color:var(--ink-mute);font-size:var(--t-body)}
+.empty b{display:block;font-family:'Source Serif 4',Georgia,serif;font-size:var(--t-h3);
+  color:var(--ink-2);font-weight:600;margin-bottom:4px;letter-spacing:-.01em}
+.empty span{display:block;max-width:38ch;margin:0 auto;font-size:var(--t-meta);color:var(--ink-mute)}
+.skel{background:var(--card);border-radius:var(--r);box-shadow:var(--lift);padding:18px 20px;overflow:hidden}
+.skel i{display:block;height:11px;border-radius:99px;margin:12px 0;
+  background:linear-gradient(90deg,var(--sunk) 0%,#f4f1e7 40%,var(--sunk) 80%);
+  background-size:220% 100%;animation:sweep 1.15s linear infinite}
+.skel i:nth-child(1){width:34%;height:15px}
+.skel i:nth-child(2){width:88%} .skel i:nth-child(3){width:72%}
+.skel i:nth-child(4){width:80%} .skel i:nth-child(5){width:56%;margin-bottom:2px}
+@keyframes sweep{to{background-position:-220% 0}}
+@media(prefers-reduced-motion:reduce){.skel i{animation:none}}
 
 .overlay{position:fixed;inset:0;background:rgba(25,20,15,.5);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
 .overlay.open{display:flex}
@@ -172,10 +193,13 @@ tr.rowlink:hover{background:var(--card-alt)}
 .stat .l{font-size:var(--t-cap);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
 /* The hero wins on size and surface alone. Colour is reserved: red appears
    only on .alert, where it means "this needs you", and nowhere else. */
-.stat.hero{flex:1.7 1 220px;background:var(--card);border-radius:var(--r);padding:18px 20px;
+.stat.hero{flex:1.25 1 190px;background:var(--card);border-radius:var(--r);padding:15px 18px 14px;
   box-shadow:var(--lift);position:relative;overflow:hidden}
-.stat.hero .n{font-size:var(--t-hero);color:var(--ink)}
-.stat.hero .l{color:var(--ink-soft);font-weight:600}
+.stat.hero .n{font-size:38px;color:var(--ink)}
+/* the one label worth reading gets sentence case; the demoted ones stay
+   as uppercase micro-type, so the two tiers do not look alike */
+.stat.hero .l{color:var(--ink-2);font-weight:600;font-size:var(--t-meta);
+  text-transform:none;letter-spacing:0;margin-top:2px}
 .stat.hero.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
 .stat.hero.alert .n,.stat.hero.alert .l{color:var(--bad)}
 
@@ -276,6 +300,10 @@ const staffName=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'—';
 const opt=(v,cur)=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}</option>`;
 const optList=(arr,cur,blank=true)=>(blank?`<option value="">—</option>`:'')+arr.map(v=>opt(v,cur)).join('');
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
+/* a shape where the content will be, rather than the word "Loading" */
+const SKEL=`<div class="skel"><i></i><i></i><i></i><i></i><i></i></div>`;
+/* an empty list should say what would put something in it */
+const blank=(title,why)=>`<div class="empty"><b>${title}</b><span>${why}</span></div>`;
 
 /* warm pills; follow_up is deliberately coral and quotation_sent gold so
    the two neighbouring stages don't blur together in a long list */
@@ -437,7 +465,7 @@ async function fetchLeads(extra){
    round-trips to Supabase for rows it already holds. */
 async function renderLeads(scope){
   LEADSCOPE=scope||LEADSCOPE;
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   LEADS=await fetchLeads(q=>{
     if(ME.role==='sales')return q.eq('assigned_to',ME.id);
     if(ME.role==='engineer')return q.eq('current_engineer_id',ME.id);
@@ -535,7 +563,11 @@ function filteredLeads(){
 }
 function drawTable(){
   const rows=filteredLeads();
-  if(!rows.length){$('tablewrap').innerHTML=`<div class="empty">Nothing here.</div>`;return;}
+  if(!rows.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual
+    ?blank('No matches','Nothing in this list fits the current search or filters. Clear them to see everything.')
+    :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a salesperson marks them Closed-Won.')
+    :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
+    :blank('No active leads','New leads land here as soon as they are created.');return;}
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table><thead><tr>
@@ -557,21 +589,20 @@ function drawTable(){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Team</th><th>Delivery</th><th>Installation</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
+    <th>Ref ID</th><th>Customer</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${esc(staffName(l.assigned_to))}</td>
-      <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}</td>
-      <td>${esc(l.installation_team||'—')}</td>
-      <td>${fmtDate(l.delivery_date)}</td>
-      <td>${l.installation_start||l.installation_end?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}`:'<span class="days" style="display:inline">not scheduled</span>'}</td>
-      ${ME.role==='admin'?`<td>${edcExempt(l)?'<span class="days" style="display:inline">off-grid</span>'
-        :!edcApplies(l)?'<span class="days" style="display:inline">no system type</span>'
-        :!edcFields(l)?'<span class="days" style="display:inline">no spec</span>'
-        :`${edcDone(l)}/${edcFields(l).length}<span class="days">${kwac(l)<=10?'≤10 kWac':'>10 kWac'}</span>`}</td>`:''}
+      <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
+      <td>${l.installation_start||l.installation_end
+        ?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}<span class="days">${l.delivery_date?'delivery '+fmtDate(l.delivery_date):'no delivery date'}</span>`
+        :`<span class="quiet">not scheduled</span>${l.delivery_date?`<span class="days">delivery ${fmtDate(l.delivery_date)}</span>`:''}`}</td>
+      ${ME.role==='admin'?`<td>${edcExempt(l)?'<span class="mark">off-grid</span>'
+        :!edcApplies(l)||!edcFields(l)?'<span class="mark mark-wait">pending</span>'
+        :`<span class="mark ${edcDone(l)===edcFields(l).length?'mark-done':'mark-open'}">${edcDone(l)}/${edcFields(l).length}</span>`}</td>`:''}
       <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
 }
 function drawLostTable(rows){
@@ -590,7 +621,7 @@ function drawLostTable(rows){
 
 /* ---------------- POOL ---------------- */
 async function renderPool(){
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   const pool=await fetchLeads(q=>q.is('assigned_to',null));
   const canAssign=['manager','admin'].includes(ME.role);
   const salesOpts=STAFF.filter(s=>s.role==='sales'&&s.is_active)
@@ -607,7 +638,7 @@ async function renderPool(){
       <td>${daysIn(l.created_at)}d</td><td>${esc(staffName(l.created_by))}</td>
       <td>${canAssign?`<div style="display:flex;gap:6px"><select id="as-${l.id}">${salesOpts}</select>
             <button class="btn-sun" onclick="assignLead('${l.id}',document.getElementById('as-${l.id}').value)">Assign</button></div>`:'—'}</td>
-      </tr>`).join('')+`</tbody></table></div>`:'<div class="empty">Pool is empty. Nice.</div>'}`;
+      </tr>`).join('')+`</tbody></table></div>`:blank('Everything is with sales','Leads appear here only while they have no phone number. Adding one assigns a salesperson automatically.')}`;
 }
 async function assignLead(leadId,staffId){
   if(!staffId)return;
@@ -828,7 +859,7 @@ async function openLead(id){
         <div class="t-head">${esc(a.activity_type==='stage_change'?`Stage: ${a.from_stage||'—'} → ${a.to_stage}`:a.activity_type)}</div>
         <div class="t-meta">${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
         ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
-      </div>`).join('')||'<div class="empty">No history yet.</div>'}
+      </div>`).join('')||blank('No history yet','Calls, notes and stage changes are recorded here as the lead moves.')}
     </div>`;
   $('lead-overlay').classList.add('open');
   const stSel=$('d-stage');
@@ -1055,7 +1086,7 @@ const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
 async function renderReports(){
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   LEADS=await fetchLeads(q=>ME.role==='manager'||ME.role==='admin'?q:q.eq('created_by',ME.id));
   const won=LEADS.filter(l=>l.stage_code===WON);
   const lost=LEADS.filter(l=>l.stage_code===LOST);
@@ -1086,7 +1117,7 @@ async function renderReports(){
       <div class="stat"><div class="n">${won.length}</div><div class="l">Closed-Won</div></div>
       ${wonValue===null?'':`<div class="stat"><div class="n">${fmtMoney(wonValue)}</div><div class="l">Won value</div></div>`}
     </div>
-    ${months.length?barChart(months,counts,used):'<div class="empty">No leads yet — the chart appears once leads are created.</div>'}
+    ${months.length?barChart(months,counts,used):blank('Nothing to chart yet','The breakdown by channel appears once leads have been created.')}
     ${stageTable()}`;
 }
 
@@ -1161,9 +1192,9 @@ function stageTable(){
 
 /* ---------------- QUOTATIONS TAB ---------------- */
 async function renderQuots(){
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   const {data:quots,error}=await sb.from('quotations').select('*, leads(ref_id, customer_name)').order('created_at',{ascending:false});
-  if(error){$('main').innerHTML=`<div class="empty">Could not load quotations.</div>`;return;}
+  if(error){$('main').innerHTML=blank('Could not load quotations','Check your connection and refresh. If it keeps happening, tell your admin.');return;}
   QUOTS=quots||[];
   /* only offer months that actually have quotations, newest first */
   const monthOpts=[...new Set(QUOTS.map(q=>localDay(q.released_date||q.created_at).slice(0,7)))].filter(Boolean)
@@ -1194,7 +1225,9 @@ function filteredQuots(){
 }
 function drawQuots(){
   const rows=filteredQuots();
-  if(!rows.length){$('quotwrap').innerHTML=`<div class="empty">No quotations match.</div>`;return;}
+  if(!rows.length){$('quotwrap').innerHTML=QUOTS.length
+    ?blank('No matches','No quotation fits the current search or dates.')
+    :blank('No quotations yet','An engineer releases a quotation from inside a lead, and it is logged here.');return;}
   $('quotwrap').innerHTML=`<table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th>
     </tr></thead><tbody>`+rows.map(q=>`
@@ -1214,7 +1247,7 @@ function drawQuots(){
    its outstanding dates, edited in place. The two size bands need different
    columns, so they get a table each. */
 async function renderEdc(){
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   const rows=await fetchLeads(q=>q.eq('stage_code',WON));
   const applicable=rows.filter(edcApplies);
   const small=applicable.filter(l=>edcFields(l)===EDC_SMALL);
@@ -1245,7 +1278,7 @@ async function renderEdc(){
 }
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
-    <div class="empty" style="margin-bottom:22px">Nothing here.</div>`;
+    <div class="empty" style="margin-bottom:22px"><b>Nothing in this band</b><span>Won deals land here once their inverter total puts them in this size.</span></div>`;
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
@@ -1276,7 +1309,7 @@ const finPaid=r=>(r.payments||[]).reduce((a,p)=>a+Number(p.amount_usd||0),0);
 const finDue=r=>Number(r.fin?.contract_total_usd??r.final_sale_usd??0)+Number(r.fin?.other_fee_usd||0);
 
 async function renderFinance(){
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const ids=leads.map(l=>l.id);
   const [{data:fins},{data:pays},{data:sale}]=await Promise.all([
@@ -1317,7 +1350,9 @@ function filteredFin(){
 }
 function drawFinance(){
   const rows=filteredFin();
-  if(!rows.length){$('finwrap').innerHTML=`<div class="empty">Nothing here.</div>`;return;}
+  if(!rows.length){$('finwrap').innerHTML=FINROWS.length
+    ?blank('No matches','No deal fits the current search.')
+    :blank('No won deals yet','Contracts and payments can be recorded here once a deal is closed.');return;}
   $('finwrap').innerHTML=`<table><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Won</th><th>Received</th><th>Salesperson</th>
     <th>Channel</th><th>System</th><th>Sale value</th><th>Contract</th><th>Signed</th>
@@ -1435,11 +1470,11 @@ function exportFinance(){
 
 /* ---------------- COMMISSIONS ---------------- */
 async function renderComm(){
-  $('main').innerHTML=`<div class="empty">Loading…</div>`;
+  $('main').innerHTML=SKEL;
   const {data:comms,error}=await sb.from('commissions')
     .select('*, leads(ref_id, customer_name, lead_financials(final_sale_usd))')
     .order('created_at',{ascending:false});
-  if(error){$('main').innerHTML=`<div class="empty">Could not load commissions.</div>`;return;}
+  if(error){$('main').innerHTML=blank('Could not load commissions','Check your connection and refresh. If it keeps happening, tell your admin.');return;}
   COMMS=comms||[];
   const isAdmin=ME.role==='admin';
   const mine=c=>c.profile_id===ME.id;
@@ -1447,7 +1482,7 @@ async function renderComm(){
     <h2 style="margin-bottom:6px">Commissions</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Created automatically when a deal is marked Won. ${isAdmin?'Fill in amounts and mark paid.':'You see only your own.'}</p>
     <div class="toolbar"><button class="btn-line" onclick="exportComms()">Export CSV</button></div>
-    ${!comms||!comms.length?'<div class="empty">No commissions yet.</div>':`
+    ${!comms||!comms.length?blank('No commissions yet','A commission is created automatically for the salesperson, the marketer and any referrer when a deal is won.'):`
     <div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Deal</th><th>Sale value</th><th>Who</th><th>Type</th><th>Amount</th><th>Status</th>${isAdmin?'<th></th>':''}
     </tr></thead><tbody>`+comms.map(c=>`
