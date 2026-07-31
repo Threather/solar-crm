@@ -11,32 +11,66 @@
 <script src="geo.js"></script>
 <style>
 :root{
-  /* warm neutral paper, one clay accent */
-  --ink:#191919; --ink-soft:#6b6862; --line:#e0dcd1;
-  --paper:#f0eee6; --card:#faf9f5; --card-alt:#f5f3ec;
+  /* Sun-bleached concrete, terracotta tile, panel glass — one hue family,
+     lightness does the work. */
+  --paper:#efece3; --card:#fffefb; --card-alt:#f6f3ea; --sunk:#eae6da;
+
+  /* four text levels: primary, secondary, tertiary, muted */
+  --ink:#1a1714; --ink-2:#4a453d; --ink-soft:#6b6862; --ink-mute:#9b958a;
+  --line:#e2ded2; --line-soft:#ece8dd;
+
   --sun:#cc785c; --sun-deep:#a85841; --sun-press:#8f4835; --sky:#3d6376;
   --ok:#2f6b41; --bad:#a8412f; --warn:#86601f;
   --pool:#6c4f7b; --eng:#4a7c8c;
-  --r:10px;
+
+  /* the handoff is the product: every block carries its owner's hue */
+  --own-sales:#a85841; --own-site:#7c7563; --own-eng:#4a7c8c;
+  --own-install:#7a6a3f; --own-edc:#6c4f7b; --own-fin:#2f6b41;
+
+  /* type scale, 1.25 from a 14px body */
+  --t-cap:11px; --t-meta:12px; --t-body:14px; --t-lg:16px;
+  --t-h3:18px; --t-h2:22px; --t-h1:28px; --t-hero:44px;
+
+  /* radius climbs with the element: control, card, modal */
+  --r-sm:8px; --r:12px; --r-lg:16px;
+
+  /* one depth strategy — a hairline ring plus two soft depths. No borders
+     on containers; borders are for dividers and inputs only. */
+  --lift:0 0 0 1px rgba(26,23,20,.07), 0 1px 2px -1px rgba(26,23,20,.07), 0 2px 6px rgba(26,23,20,.04);
+  --lift-2:0 0 0 1px rgba(26,23,20,.08), 0 8px 18px -8px rgba(26,23,20,.20), 0 24px 48px -16px rgba(26,23,20,.24);
+  --ease:cubic-bezier(.23,1,.32,1);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);font-size:15px}
-h1,h2,h3,.brand{font-family:'Source Serif 4',Georgia,serif;letter-spacing:-.01em}
-button{font-family:inherit;cursor:pointer;border:none;border-radius:8px;font-size:14px}
-input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
-input:disabled,select:disabled,textarea:disabled{background:#edeae1;color:#9a958a}
-input:focus,select:focus,textarea:focus{outline:2px solid var(--sun);outline-offset:1px;border-color:var(--sun)}
-label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+body{font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);
+  font-size:var(--t-body);line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1,h2,h3,.brand{font-family:'Source Serif 4',Georgia,serif;letter-spacing:-.02em;text-wrap:balance}
+p{text-wrap:pretty}
+/* every dynamic figure holds its column */
+.n,td,.badge,.refid,input[type=number],input[type=date]{font-variant-numeric:tabular-nums}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:var(--r-sm);font-size:var(--t-body);
+  transition:background .14s var(--ease),color .14s var(--ease),border-color .14s var(--ease),transform .1s var(--ease),box-shadow .14s var(--ease)}
+button:active{transform:scale(.975)}
+input,select,textarea{font-family:inherit;font-size:var(--t-body);padding:9px 11px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink);width:100%;
+  transition:border-color .14s var(--ease),box-shadow .14s var(--ease)}
+/* inputs sit inset — a darker fill says "type here" without a heavy edge */
+input:hover:not(:disabled),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:#d3cec0}
+input:disabled,select:disabled,textarea:disabled{background:var(--sunk);color:var(--ink-mute);border-color:var(--line-soft)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sun);box-shadow:0 0 0 3px rgba(204,120,92,.18)}
+:focus-visible{outline:2px solid var(--sun);outline-offset:2px}
+label{display:block;font-size:var(--t-cap);font-weight:600;color:var(--ink-soft);margin:10px 0 4px;
+  text-transform:uppercase;letter-spacing:.07em}
+@media(prefers-reduced-motion:reduce){*{transition-duration:.01ms !important;animation-duration:.01ms !important}}
 
 #login-view{min-height:100vh;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(160deg,#191919 0%,#2e2823 55%,#5a4739 100%)}
-.login-card{background:var(--card);padding:36px 32px;border-radius:16px;width:360px;max-width:92vw;
+.login-card{background:var(--card);padding:36px 32px;border-radius:var(--r-lg);width:360px;max-width:92vw;
   box-shadow:0 18px 50px rgba(25,20,15,.45)}
 .sunmark{width:46px;height:46px;border-radius:50%;margin-bottom:14px;
   background:radial-gradient(circle at 35% 35%, #e9a98d, var(--sun) 55%, var(--sun-deep));
   box-shadow:0 0 0 6px rgba(204,120,92,.18), 0 0 24px rgba(204,120,92,.45)}
-.login-card h1{font-size:22px;margin-bottom:2px}
-.login-card p{color:var(--ink-soft);font-size:13px;margin-bottom:12px}
+.login-card h1{font-size:var(--t-h2);margin-bottom:2px}
+.login-card p{color:var(--ink-soft);font-size:var(--t-meta);margin-bottom:12px}
 .btn-primary{background:var(--sun-deep);color:#fff;font-weight:600;padding:11px 16px;width:100%;margin-top:16px}
 .btn-primary:hover{background:var(--sun-press)}
 .err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
@@ -46,31 +80,33 @@ header{background:var(--ink);color:#fff;padding:0 18px;display:flex;align-items:
 .brand{font-weight:700;font-size:16px;display:flex;align-items:center;gap:9px}
 .brand .dot{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e9a98d,var(--sun))}
 nav{display:flex;gap:4px;flex:1}
-nav button{background:transparent;color:#c4bfb5;padding:8px 12px;border-radius:8px;font-weight:600}
-nav button.active{background:rgba(204,120,92,.22);color:#e9a98d}
-nav button:hover{color:#fff}
-.who{font-size:12px;color:#a8a297;text-align:right;line-height:1.3}
-.who b{color:#fff;display:block;font-size:13px}
+nav button{background:transparent;color:#b8b2a7;padding:8px 12px;border-radius:var(--r-sm);font-weight:600}
+nav button.active{background:rgba(204,120,92,.22);color:#eeb193}
+nav button:hover{color:#fff;background:rgba(255,255,255,.06)}
+.who{font-size:var(--t-meta);color:#a8a297;text-align:right;line-height:1.3}
+.who b{color:#fff;display:block;font-size:var(--t-body)}
 .btn-ghost{background:transparent;color:#c4bfb5;border:1px solid #4a443c;padding:7px 12px}
 .btn-ghost:hover{color:#fff;border-color:#fff}
-main{max-width:1240px;margin:0 auto;padding:22px 18px 60px}
+main{max-width:1240px;margin:0 auto;padding:26px 18px 72px}
+main>h2{font-size:var(--t-h2)}
+main>h3{font-size:var(--t-h3)}
 
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
 .toolbar input,.toolbar select{width:auto;min-width:150px}
 .spacer{flex:1}
-.btn-sun{background:var(--sun-deep);color:#fff;font-weight:600;padding:10px 16px}
-.btn-sun:hover{background:var(--sun-press)}
-.btn-line{background:#fff;border:1px solid var(--line);color:var(--ink);padding:10px 14px;font-weight:600}
-.btn-line:hover{border-color:var(--ink)}
+.btn-sun{background:var(--sun-deep);color:#fff;font-weight:600;padding:10px 16px;
+  box-shadow:0 1px 2px rgba(168,88,65,.28)}
+.btn-sun:hover{background:var(--sun-press);box-shadow:0 2px 6px rgba(168,88,65,.32)}
+.btn-line{background:#fff;box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);padding:10px 14px;font-weight:600}
+.btn-line:hover{box-shadow:inset 0 0 0 1px #cdc7b8;color:var(--ink);background:var(--card-alt)}
 /* scope switch: active, won and lost are one list sliced three ways, so they
    sit in the toolbar rather than pretending to be separate pages */
-.scope{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
-.scope button{padding:10px 15px;font-weight:600;font-size:14px;color:var(--ink-soft);background:transparent;border-right:1px solid var(--line)}
-.scope button:last-child{border-right:0}
-.scope button:hover{color:var(--ink);background:var(--card-alt)}
-.scope button.on{background:var(--ink);color:#fff}
+.scope{display:inline-flex;border-radius:var(--r-sm);background:var(--sunk);padding:3px;gap:2px}
+.scope button{padding:7px 14px;font-weight:600;font-size:var(--t-body);color:var(--ink-soft);background:transparent;border-radius:6px}
+.scope button:hover{color:var(--ink)}
+.scope button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(26,23,20,.10)}
 /* the step a deal is actually waiting on, so the eye lands on the work */
-.edc-next{background:#fbeee8}
+.edc-next{background:#fbeee8;box-shadow:inset 2px 0 0 var(--sun)}
 /* the 860px floor above is for full-width data grids; a table inside a modal
    has about 800px to work with, so it needs its own rules */
 .table-compact{min-width:0}
@@ -80,60 +116,85 @@ main{max-width:1240px;margin:0 auto;padding:22px 18px 60px}
 .btn-danger{background:#fff;border:1px solid var(--bad);color:var(--bad);padding:10px 14px;font-weight:600}
 .btn-danger:hover{background:var(--bad);color:#fff}
 
-.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:auto}
+.tablewrap{background:var(--card);border-radius:var(--r);overflow:auto;box-shadow:var(--lift)}
 table{width:100%;border-collapse:collapse;min-width:860px}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);text-align:left;padding:10px 12px;border-bottom:2px solid var(--line);background:var(--card-alt);position:sticky;top:0}
-td{padding:11px 12px;border-bottom:1px solid #ebe7dc;font-size:14px;vertical-align:middle}
-tr.rowlink{cursor:pointer}
-tr.rowlink:hover{background:#f3ede4}
-.stagepill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
-.days{font-size:11px;color:var(--ink-soft);display:block;margin-top:2px}
-.pooltag{color:var(--pool);font-weight:700;font-size:12px}
-.refid{font-size:12px;color:var(--ink-soft);font-family:monospace}
-.overdue{color:var(--bad);font-weight:700}
-.empty{padding:40px;text-align:center;color:var(--ink-soft)}
+/* headers recede: the data is the content, the labels are scaffolding */
+th{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-mute);font-weight:600;
+  text-align:left;padding:12px 14px 8px;background:var(--card);position:sticky;top:0;white-space:nowrap}
+td{padding:11px 14px;border-top:1px solid var(--line-soft);font-size:var(--t-body);vertical-align:middle;color:var(--ink-2)}
+/* the first column is the handle — it leads */
+tbody td:first-child,td b{color:var(--ink)}
+tr.rowlink{cursor:pointer;transition:background .12s var(--ease)}
+tr.rowlink:hover{background:var(--card-alt)}
+.stagepill{display:inline-block;padding:3px 10px;border-radius:99px;font-size:var(--t-cap);font-weight:600;white-space:nowrap}
+.days{font-size:var(--t-cap);color:var(--ink-mute);display:block;margin-top:2px;font-weight:400}
+.pooltag{color:var(--pool);font-weight:700;font-size:var(--t-cap);letter-spacing:.04em}
+.refid{font-size:var(--t-meta);color:var(--ink-mute);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.overdue{color:var(--bad);font-weight:600}
+.empty{padding:44px;text-align:center;color:var(--ink-mute);font-size:var(--t-body)}
 
 .overlay{position:fixed;inset:0;background:rgba(25,20,15,.5);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:30px 12px}
 .overlay.open{display:flex}
-.modal{background:var(--card);border-radius:14px;width:880px;max-width:100%;padding:24px;box-shadow:0 24px 70px rgba(25,20,15,.45)}
-.modal h2{font-size:19px;margin-bottom:4px}
-.modal .sub{color:var(--ink-soft);font-size:13px;margin-bottom:8px}
+.modal{background:var(--card);border-radius:var(--r-lg);width:880px;max-width:100%;padding:26px;box-shadow:var(--lift-2)}
+.modal h2{font-size:var(--t-h2);margin-bottom:4px}
+.modal .sub{color:var(--ink-soft);font-size:var(--t-meta);margin-bottom:8px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 14px}
 @media(max-width:680px){.grid2,.grid3{grid-template-columns:1fr}}
 .modal-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
-.section{border:1px solid var(--line);border-radius:var(--r);padding:4px 16px 14px;margin-top:14px}
-.section h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 2px;font-family:'Inter',sans-serif;font-weight:600}
-.sec-sales h4{color:var(--sun-deep)} .sec-eng h4{color:var(--eng)} .sec-addr h4{color:var(--ink-soft)}
+/* A lead passes through six pairs of hands. Each block wears its owner's
+   colour on the left edge, so people learn the shape of the handoff. */
+.section{background:var(--card-alt);border-radius:var(--r);padding:4px 18px 16px;margin-top:16px;
+  border-left:3px solid var(--line);position:relative}
+.section h4{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.09em;margin:12px 0 2px;
+  font-family:'Inter',sans-serif;font-weight:600;color:var(--ink-mute)}
+.sec-sales{border-left-color:var(--own-sales)}   .sec-sales h4{color:var(--own-sales)}
+.sec-addr{border-left-color:var(--own-site)}     .sec-addr h4{color:var(--own-site)}
+.sec-eng{border-left-color:var(--own-eng)}       .sec-eng h4{color:var(--own-eng)}
+.sec-install{border-left-color:var(--own-install)} .sec-install h4{color:var(--own-install)}
+.sec-quote{border-left-color:var(--sky)}         .sec-quote h4{color:var(--sky)}
+.sec-fin{border-left-color:var(--own-fin)}       .sec-fin h4{color:var(--own-fin)}
 
-.timeline{border-left:2px solid var(--line);margin:14px 0 0 8px;padding-left:18px}
-.tl-item{position:relative;padding-bottom:14px}
-.tl-item::before{content:"";position:absolute;left:-24px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--sun);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
-.tl-item .t-head{font-size:13px;font-weight:600}
-.tl-item .t-meta{font-size:11px;color:var(--ink-soft)}
-.tl-item .t-note{font-size:13px;margin-top:3px;white-space:pre-wrap}
+.timeline{border-left:1px solid var(--line);margin:14px 0 0 8px;padding-left:20px}
+.tl-item{position:relative;padding-bottom:16px}
+.tl-item::before{content:"";position:absolute;left:-25px;top:5px;width:9px;height:9px;border-radius:50%;
+  background:var(--card);box-shadow:0 0 0 2px var(--sun)}
+.tl-item .t-head{font-size:var(--t-body);font-weight:600;color:var(--ink)}
+.tl-item .t-meta{font-size:var(--t-cap);color:var(--ink-mute)}
+.tl-item .t-note{font-size:var(--t-meta);margin-top:4px;white-space:pre-wrap;color:var(--ink-2)}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
-.stat .n{font-family:'Source Serif 4',Georgia,serif;font-size:28px;font-weight:600}
-.stat .l{font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
-.stat.gold{border-top:3px solid var(--sun)}
+/* One figure answers "what do I do now" and dominates; the rest are context
+   and are demoted to plain type with no container at all. */
+.stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px;align-items:stretch}
+.stat{flex:1 1 130px;padding:16px 6px 14px}
+.stat .n{font-family:'Source Serif 4',Georgia,serif;font-size:var(--t-h1);font-weight:600;
+  line-height:1.05;color:var(--ink-2);letter-spacing:-.02em}
+.stat .l{font-size:var(--t-cap);color:var(--ink-soft);text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+.stat.hero{flex:1.7 1 220px;background:var(--card);border-radius:var(--r);padding:18px 20px;
+  box-shadow:var(--lift);position:relative;overflow:hidden}
+.stat.hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sun)}
+.stat.hero .n{font-size:var(--t-hero);color:var(--ink)}
+.stat.hero .l{color:var(--sun-deep);font-weight:600}
 
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:99px;font-size:14px;display:none;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.3)}
-.badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
-.b-on{background:#dde8de;color:var(--ok)} .b-off{background:#f0ddd9;color:var(--bad)}
-.hint{background:#f7efe3;border:1px solid #e0cfb4;border-radius:var(--r);padding:12px 14px;font-size:13px;color:#6b5537;margin-bottom:14px}
-.chartcard{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 10px;margin-bottom:18px}
-.chartcard h3{font-size:15px;margin-bottom:2px}
-.chartcard .cap{font-size:12px;color:var(--ink-soft);margin-bottom:12px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
+  padding:11px 20px;border-radius:99px;font-size:var(--t-body);display:none;z-index:99;
+  box-shadow:0 10px 30px rgba(26,23,20,.35)}
+.badge{font-size:var(--t-cap);font-weight:600;padding:3px 9px;border-radius:99px;letter-spacing:.02em}
+.b-on{background:#dfe9df;color:var(--ok)} .b-off{background:#f2e0db;color:var(--bad)}
+.hint{background:#f8f1e5;border-left:3px solid #d8b98a;border-radius:var(--r);padding:13px 16px;
+  font-size:var(--t-meta);color:#6b5537;margin-bottom:16px}
+.chartcard{background:var(--card);border-radius:var(--r);padding:20px 20px 12px;margin-bottom:20px;box-shadow:var(--lift)}
+.chartcard h3{font-size:var(--t-h3);margin-bottom:2px}
+.chartcard .cap{font-size:var(--t-meta);color:var(--ink-soft);margin-bottom:14px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;font-size:12px;color:var(--ink-soft)}
 .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:-1px}
 .chartsvg{width:100%;height:auto;display:block}
 .chartsvg text{font-family:'Inter',sans-serif}
 .tick{font-size:10px;fill:var(--ink-soft);font-variant-numeric:tabular-nums}
 .seglabel{font-size:10px;font-weight:600;fill:#fff;font-variant-numeric:tabular-nums}
-.qcard{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-top:8px;font-size:13px;background:var(--card-alt)}
-.qcard b{font-family:'Source Serif 4',Georgia,serif}
+.qcard{border-radius:var(--r-sm);padding:11px 13px;margin-top:8px;font-size:var(--t-meta);
+  background:var(--card);box-shadow:inset 0 0 0 1px var(--line-soft);color:var(--ink-2)}
+.qcard b{font-family:'Source Serif 4',Georgia,serif;font-size:var(--t-lg);color:var(--ink)}
 @media(max-width:700px){ nav{overflow-x:auto} .who{display:none} }
 </style>
 </head>
@@ -430,10 +491,10 @@ function activeStats(){
   const waiting=rows.filter(l=>qualText(l)!=='Qualified');
   const overdue=rows.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0));
   return `<div class="stats">
-      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">In pipeline</div></div>
+      <div class="stat hero"><div class="n" style="color:${overdue.length?'var(--bad)':'var(--ink)'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
+      <div class="stat"><div class="n">${rows.length}</div><div class="l">In pipeline</div></div>
       <div class="stat"><div class="n">${qual.length}</div><div class="l">Qualified</div></div>
       <div class="stat"><div class="n">${waiting.length}</div><div class="l">Awaiting decision</div></div>
-      <div class="stat"><div class="n" style="color:${overdue.length?'var(--bad)':'inherit'}">${overdue.length}</div><div class="l">Follow-up overdue</div></div>
     </div>`;
 }
 function wonStats(rows){
@@ -441,7 +502,7 @@ function wonStats(rows){
   const booked=rows.filter(l=>l.installation_start);
   const teamed=rows.filter(l=>l.installation_team);
   return `<div class="stats">
-      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
+      <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
       ${canSeeMoney()?`<div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total sale value</div></div>`:''}
       <div class="stat"><div class="n">${booked.length}</div><div class="l">Installation booked</div></div>
       <div class="stat"><div class="n">${teamed.length}</div><div class="l">Team assigned</div></div>
@@ -449,7 +510,7 @@ function wonStats(rows){
 }
 function lostStats(rows){
   return `<div class="stats">
-      <div class="stat gold"><div class="n">${rows.length}</div><div class="l">Lost leads</div></div>
+      <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Lost leads</div></div>
     </div>`;
 }
 /* rows for the current tab, before the toolbar filters */
@@ -728,14 +789,14 @@ async function openLead(id){
       </div>
     </div>
 
-    <div class="section"><h4>Quotations (${(quots||[]).length})</h4>
+    <div class="section sec-quote"><h4>Quotations (${(quots||[]).length})</h4>
       ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
         <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
       ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
     </div>
 
     ${l.stage_code===WON?`
-    <div class="section"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
+    <div class="section sec-install"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
       <div class="grid3">
         <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
         <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
@@ -1016,10 +1077,10 @@ async function renderReports(){
   $('main').innerHTML=`
     <h2 style="margin-bottom:14px">Reports</h2>
     <div class="stats">
-      <div class="stat gold"><div class="n">${LEADS.length}</div><div class="l">Total leads</div></div>
+      <div class="stat hero"><div class="n">${winRate===null?'—':winRate+'%'}</div><div class="l">Win rate</div></div>
+      <div class="stat"><div class="n">${LEADS.length}</div><div class="l">Total leads</div></div>
       <div class="stat"><div class="n">${open.length}</div><div class="l">In pipeline</div></div>
       <div class="stat"><div class="n">${won.length}</div><div class="l">Closed-Won</div></div>
-      <div class="stat"><div class="n">${winRate===null?'—':winRate+'%'}</div><div class="l">Win rate</div></div>
       ${wonValue===null?'':`<div class="stat"><div class="n">${fmtMoney(wonValue)}</div><div class="l">Won value</div></div>`}
     </div>
     ${months.length?barChart(months,counts,used):'<div class="empty">No leads yet — the chart appears once leads are created.</div>'}
@@ -1163,8 +1224,8 @@ async function renderEdc(){
     <h2 style="margin-bottom:6px">EDC approval letter</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
-      <div class="stat gold"><div class="n">${applicable.length}</div><div class="l">Won deals</div></div>
-      <div class="stat"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
+      <div class="stat hero"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
+      <div class="stat"><div class="n">${applicable.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
     </div>
@@ -1232,10 +1293,10 @@ async function renderFinance(){
     <h2 style="margin-bottom:6px">Finance</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Won deals. Open a row to record the contract and its payments.</p>
     <div class="stats">
-      <div class="stat gold"><div class="n">${FINROWS.length}</div><div class="l">Won deals</div></div>
-      <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
+      <div class="stat hero"><div class="n" style="color:${totalDue-totalPaid>0?'var(--bad)':'var(--ink)'}">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
       <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Collected</div></div>
-      <div class="stat"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
+      <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Won deals</div></div>
+      <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
     </div>
     <div class="toolbar">
       <input placeholder="Search customer or ref ID…" oninput="FILTER.q=this.value;drawFinance()" value="${esc(FILTER.q||'')}">
@@ -1283,7 +1344,7 @@ function openFinance(id){
     <h2>${esc(r.customer_name)} <span class="refid">${esc(r.ref_id||'')}</span></h2>
     <div class="sub">${esc(staffName(r.assigned_to))} · ${esc(r.lead_channel||'—')} · received ${fmtDate(r.created_at)} · won ${fmtDate(r.stage_entered_at)}</div>
 
-    <div class="section"><h4>Deal</h4>
+    <div class="section sec-sales"><h4>Deal</h4>
       <div class="grid3">
         <div><label>System</label><input value="${esc(sysLine(r))}" disabled></div>
         <div><label>Sale value recorded at closing</label><input value="${fmtMoney(r.final_sale_usd)}" disabled></div>
@@ -1291,7 +1352,7 @@ function openFinance(id){
       </div>
     </div>
 
-    <div class="section"><h4>Contract</h4>
+    <div class="section sec-fin"><h4>Contract</h4>
       <div class="grid3">
         <div><label>Date signed</label><input id="f-signed" type="date" value="${f.contract_signed_date||''}"></div>
         <div><label>Contract total (USD)</label><input id="f-total" type="number" step="0.01" value="${f.contract_total_usd??''}"></div>
@@ -1301,7 +1362,7 @@ function openFinance(id){
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
     </div>
 
-    <div class="section"><h4>Payments (${r.payments.length})</h4>
+    <div class="section sec-fin"><h4>Payments (${r.payments.length})</h4>
       ${r.payments.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
         <th style="width:34px">#</th><th style="width:130px">Date</th><th style="width:110px">Amount</th><th>Note</th><th style="width:86px"></th></tr></thead><tbody>`
         +r.payments.map((p,i)=>`<tr>
@@ -1318,7 +1379,7 @@ function openFinance(id){
       <div class="modal-actions"><button class="btn-line" onclick="addPayment('${r.id}')">Add payment</button></div>
     </div>
 
-    <div class="section"><h4>Balance</h4>
+    <div class="section sec-fin"><h4>Balance</h4>
       <div class="grid3">
         <div><label>Total due</label><input value="${fmtMoney(due)}" disabled></div>
         <div><label>Paid</label><input value="${fmtMoney(paid)}" disabled></div>
