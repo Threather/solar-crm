@@ -38,6 +38,14 @@ Tables: `profiles`, `leads`, `lead_stages`, `lead_activities`, `quotations`,
 `lead_financials` (sale price), `lead_finance` (contract), `lead_payments`,
 `commissions`.
 
+Quotations carry `price_usd`, so `quotations_select` is narrow: admin and manager
+see all, the engineer who released one keeps it, and the salesperson or current
+engineer on the lead sees that lead's quotations. Marketing, finance and site
+engineers see none. Note the policy reaches into `leads`, so that subquery obeys
+the leads policies too — if a role cannot see the lead, it cannot see the
+quotation either. That is intended, and it is the first place to look if a
+quotation goes missing for someone who should have it.
+
 ## Roles
 
 `marketing` creates leads and works them early. `sales` owns the customer
@@ -89,10 +97,18 @@ Kevin's own admin account is a real Gmail address.
 
 All current data is test data. No commissions have been paid.
 
+## Working with Kevin
+
+One session per topic, then start fresh. Update this file when something durable
+changes — a role, a table, a rule, a decision. Not for bug fixes or copy edits.
+It is only useful while it stays short.
+
 ## Open
 
-Verification pass as each role — the engineer's view has never been opened by
-anyone. Drop the dead `quoted_price_usd` column from `leads`. Mobile pass:
+Verification pass as each role — as of 3 Aug 2026 the engineer's view has never
+been opened by anyone. Drop the dead `quoted_price_usd` column from `leads`;
+the SQL is `alter table leads drop column quoted_price_usd;` and it has not been
+run. Mobile pass:
 tables should become stacked cards below a breakpoint, deferred until the client
 says which screens they use. Not yet decided: reasons on Closed-Lost, editing or
 superseding a quotation.
