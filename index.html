@@ -184,6 +184,23 @@ tr.rowlink:hover{background:var(--card-alt)}
 .tl-item .t-meta{font-size:var(--t-cap);color:var(--ink-mute)}
 .tl-item .t-note{font-size:var(--t-meta);margin-top:4px;white-space:pre-wrap;color:var(--ink-2)}
 
+/* What sales needs before scrolling: how old, how stale, what was quoted,
+   what was last said — and one button between them and an accidental edit. */
+.leadbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 0;
+  padding:11px 14px;background:var(--sunk);border-radius:var(--r)}
+.leadbar .facts{display:flex;gap:16px;flex-wrap:wrap;flex:1;
+  font-size:var(--t-meta);color:var(--ink-soft)}
+.leadbar .facts b{color:var(--ink);font-weight:600}
+.leadbar .barbtns{display:flex;gap:8px}
+.notebox{margin-top:12px}
+.notebox label{display:block}
+.recent{margin-top:12px;padding-left:12px;border-left:2px solid var(--line)}
+.recent h4{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-mute);margin:0 0 6px}
+.r-item{margin-bottom:8px}
+.r-meta{font-size:var(--t-cap);color:var(--ink-mute)}
+.r-note{font-size:var(--t-meta);color:var(--ink-2);white-space:pre-wrap}
+
 /* One figure answers "what do I do now" and dominates; the rest are context
    and are demoted to plain type with no container at all. */
 .stats{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px;align-items:stretch}
@@ -260,7 +277,7 @@ tr.rowlink:hover{background:var(--card-alt)}
    ============================================================ */
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
-let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads';
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true;
 /* the Leads tab shows only live work; won and lost have their own tabs */
 let LEADSCOPE='active';
 let FINROWS=[];
@@ -319,6 +336,16 @@ const LOST='closed_lost';
    back to the database column, which records whether it ever got that far. */
 const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
 const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
+const CONTRACT_STATUS=['Not signed','Pending','Signed'];
+/* a follow-up lands on the same day of the month; February keeps the last day */
+function addMonths(d,n){
+  if(!d)return '';
+  const [y,m,day]=d.split('-').map(Number);
+  const t=new Date(y,m-1+n,1);
+  const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
+  t.setDate(Math.min(day,last));
+  return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+}
 /* sale values live in lead_financials, which only these roles can read —
    this just keeps the interface honest about it */
 const canSeeMoney=()=>['admin','manager','sales'].includes(ME.role);
@@ -758,6 +785,10 @@ async function openLead(id){
   const canSite=isAdmin||isSiteEng;
   const canMoney=isAdmin||ME.role==='manager'||isSales;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
+  /* what sales asks first: how old, how stale, what was quoted, what was said */
+  const lastQuot=(quots||[])[0];
+  const recentNotes=(acts||[]).filter(a=>a.note).slice(0,3);
+  const canEditAny=canSales||canEng||canSite||canAssign;
 
   /* someone who cannot see the sale value must not be able to close a deal
      either, or they hit the "enter the final sale value" guard with no field
@@ -775,6 +806,28 @@ async function openLead(id){
     <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
     <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))}
       · ${stagePill(l.stage_code)} <span class="days" style="display:inline">${daysIn(l.stage_entered_at)}d in stage · contacted ${contacted}×</span></div>
+
+    <div class="leadbar">
+      <div class="facts">
+        <span><b>${daysIn(l.created_at)}d</b> old</span>
+        <span><b>${daysIn(l.stage_entered_at)}d</b> in stage</span>
+        <span>follow-up <b>${l.next_follow_up?fmtDate(l.next_follow_up):'—'}</b></span>
+        <span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>
+      </div>
+      ${canEditAny?`<div class="barbtns">
+        <button id="lockbtn" class="btn-line" onclick="toggleLock()">Edit</button>
+        <button id="savebtn" class="btn-sun" style="display:none" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>
+      </div>`:''}
+    </div>
+
+    ${(canSales||canEng||canSite)?`<div class="notebox">
+      <label>Add note / call result</label>
+      <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
+    </div>`:''}
+
+    ${recentNotes.length?`<div class="recent"><h4>Latest</h4>${recentNotes.map(a=>`
+      <div class="r-item"><div class="r-meta">${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
+      <div class="r-note">${esc(a.note)}</div></div>`).join('')}</div>`:''}
 
     <div class="section sec-sales"><h4>Sales</h4>
       <div class="grid2">
@@ -845,10 +898,7 @@ async function openLead(id){
 
 `:''}
 
-    ${(canSales||canEng||canSite)?`<label>Add note / call result</label><textarea id="d-note" rows="2" placeholder="What happened?"></textarea>`:''}
-
     <div class="modal-actions">
-      ${(canSales||canEng||canSite||canAssign)?`<button class="btn-sun" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>`:''}
       ${(isAdmin||isSales)?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
       <button class="btn-line" onclick="closeLead()">Close</button>
     </div>
@@ -863,8 +913,23 @@ async function openLead(id){
     </div>`;
   $('lead-overlay').classList.add('open');
   const stSel=$('d-stage');
-  if(stSel&&!stSel.disabled)stSel.onchange=()=>{const w=$('d-salewrap');if(w)w.style.display=stSel.value===WON?'block':'none';};
+  if(stSel)stSel.onchange=()=>{const w=$('d-salewrap');if(w)w.style.display=stSel.value===WON?'block':'none';};
+  /* a lead opens read-only: one stray click must not move a stage */
+  markLockable();setLock(true);
 }
+/* everything openLead left enabled is what Edit unlocks and Lock puts back */
+function markLockable(){
+  document.querySelectorAll('#lead-modal input,#lead-modal select,#lead-modal textarea')
+    .forEach(e=>{if(!e.disabled&&!e.readOnly)e.dataset.lockable='1';});
+}
+function setLock(on){
+  LEADLOCK=on;
+  document.querySelectorAll('#lead-modal [data-lockable]').forEach(e=>{e.disabled=on;});
+  const b=$('lockbtn'),s=$('savebtn');
+  if(b)b.textContent=on?'Edit':'Lock';
+  if(s)s.style.display=on?'none':'';
+}
+function toggleLock(){setLock(!LEADLOCK);}
 function closeLead(){$('lead-overlay').classList.remove('open');}
 /* panel kWp = watt × pcs ÷ 1000 */
 function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(2):'';}
@@ -1307,6 +1372,8 @@ const sysLine=l=>[l.system_type,l.panel_kwp?l.panel_kwp+' kWp':null,
   l.inverter_kw_total?l.inverter_kw_total+' kW':null].filter(Boolean).join(' · ')||'—';
 const finPaid=r=>(r.payments||[]).reduce((a,p)=>a+Number(p.amount_usd||0),0);
 const finDue=r=>Number(r.fin?.contract_total_usd??r.final_sale_usd??0)+Number(r.fin?.other_fee_usd||0);
+/* due today or overdue, and only while there is still money outstanding */
+const finFollowDue=r=>!!r.fin?.follow_up_date&&r.fin.follow_up_date<=localDay(new Date())&&finDue(r)-finPaid(r)>0;
 
 async function renderFinance(){
   $('main').innerHTML=SKEL;
@@ -1325,11 +1392,13 @@ async function renderFinance(){
   const contracted=FINROWS.filter(r=>r.fin?.contract_signed_date);
   const totalDue=FINROWS.reduce((a,r)=>a+finDue(r),0);
   const totalPaid=FINROWS.reduce((a,r)=>a+finPaid(r),0);
+  const dueNow=FINROWS.filter(r=>finFollowDue(r));
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Finance</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Won deals. Open a row to record the contract and its payments.</p>
     <div class="stats">
       <div class="stat hero ${totalDue-totalPaid>0?'alert':''}"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
+      <div class="stat"><div class="n">${dueNow.length}</div><div class="l">Follow up now</div></div>
       <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Collected</div></div>
       <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Won deals</div></div>
       <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
@@ -1355,10 +1424,10 @@ function drawFinance(){
     :blank('No won deals yet','Contracts and payments can be recorded here once a deal is closed.');return;}
   $('finwrap').innerHTML=`<table><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Won</th><th>Received</th><th>Salesperson</th>
-    <th>Channel</th><th>System</th><th>Sale value</th><th>Contract</th><th>Signed</th>
-    <th>Paid</th><th>Balance</th>
+    <th>Channel</th><th>System</th><th>Sale value</th><th>Contract</th><th>Status</th>
+    <th>Follow-up</th><th>Paid</th><th>Balance</th>
   </tr></thead><tbody>`+rows.map(r=>{
-    const paid=finPaid(r), due=finDue(r), bal=due-paid;
+    const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
     return `<tr class="rowlink" onclick="openFinance('${r.id}')">
       <td class="refid">${esc(r.ref_id||'—')}</td>
       <td><b>${esc(r.customer_name)}</b></td>
@@ -1369,7 +1438,8 @@ function drawFinance(){
       <td>${esc(sysLine(r))}</td>
       <td>${fmtMoney(r.final_sale_usd)}</td>
       <td>${fmtMoney(r.fin?.contract_total_usd)}</td>
-      <td>${fmtDate(r.fin?.contract_signed_date)}</td>
+      <td>${esc(r.fin?.contract_status||'—')}<span class="days">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
+      <td>${r.fin?.follow_up_date?`<b style="color:${dueNow?'var(--bad)':'inherit'}">${fmtDate(r.fin.follow_up_date)}</b>`:'—'}</td>
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
       <td><b style="color:${bal>0?'var(--bad)':'inherit'}">${fmtMoney(bal)}</b></td>
     </tr>`;}).join('')+`</tbody></table>`;
@@ -1392,10 +1462,11 @@ function openFinance(id){
 
     <div class="section sec-fin"><h4>Contract</h4>
       <div class="grid3">
+        <div><label>Contract status</label><select id="f-status">${optList(CONTRACT_STATUS,f.contract_status)}</select></div>
         <div><label>Date signed</label><input id="f-signed" type="date" value="${f.contract_signed_date||''}"></div>
         <div><label>Contract total (USD)</label><input id="f-total" type="number" step="0.01" value="${f.contract_total_usd??''}"></div>
         <div><label>Other fee (USD)</label><input id="f-fee" type="number" step="0.01" value="${f.other_fee_usd??''}"></div>
-        <div style="grid-column:1/-1"><label>What the fee is for</label><input id="f-feenote" value="${esc(f.other_fee_note||'')}"></div>
+        <div style="grid-column:2/-1"><label>What the fee is for</label><input id="f-feenote" value="${esc(f.other_fee_note||'')}"></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
     </div>
@@ -1417,6 +1488,14 @@ function openFinance(id){
       <div class="modal-actions"><button class="btn-line" onclick="addPayment('${r.id}')">Add payment</button></div>
     </div>
 
+    <div class="section sec-fin"><h4>Next follow-up</h4>
+      <div class="grid3">
+        <div><label>Date</label><input id="f-follow" type="date" value="${f.follow_up_date||''}"></div>
+        <div style="align-self:end"><button class="btn-line" onclick="skipFollowUp('${r.id}')">Skip a month</button></div>
+        <div style="align-self:end"><span class="days">Recording a payment moves this on a month by itself.</span></div>
+      </div>
+    </div>
+
     <div class="section sec-fin"><h4>Balance</h4>
       <div class="grid3">
         <div><label>Total due</label><input value="${fmtMoney(due)}" disabled></div>
@@ -1430,14 +1509,26 @@ function openFinance(id){
 }
 async function saveFinance(id){
   const row={lead_id:id,
+    contract_status:$('f-status').value||null,
     contract_signed_date:$('f-signed').value||null,
     contract_total_usd:$('f-total').value||null,
     other_fee_usd:$('f-fee').value||null,
     other_fee_note:$('f-feenote').value.trim()||null,
+    follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
   const {error}=await sb.from('lead_finance').upsert(row,{onConflict:'lead_id'});
   if(error){toast('Could not save the contract');console.error(error);return;}
   toast('Contract saved');closeLead();renderFinance();
+}
+/* the customer paid ahead, so this month's follow-up is not needed */
+async function skipFollowUp(id){
+  const cur=$('f-follow').value;
+  if(!cur){toast('Set a follow-up date first');return;}
+  const next=addMonths(cur,1);
+  const {error}=await sb.from('lead_finance')
+    .upsert({lead_id:id,follow_up_date:next,updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
+  if(error){toast('Could not move the follow-up');console.error(error);return;}
+  toast('Follow-up moved to '+fmtDate(next));closeLead();renderFinance();
 }
 async function addPayment(id){
   const amt=$('p-amt').value;
@@ -1446,6 +1537,10 @@ async function addPayment(id){
     paid_on:$('p-date').value||null,amount_usd:amt,
     note:$('p-note').value.trim()||null,created_by:ME.id});
   if(error){toast('Could not add the payment');console.error(error);return;}
+  /* this month is settled, so the follow-up rolls to the same day next month */
+  const cur=$('f-follow')?$('f-follow').value:'';
+  if(cur)await sb.from('lead_finance')
+    .upsert({lead_id:id,follow_up_date:addMonths(cur,1),updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
   toast('Payment added');closeLead();renderFinance();
 }
 async function deletePayment(pid,leadId){
@@ -1457,14 +1552,15 @@ async function deletePayment(pid,leadId){
 function exportFinance(){
   downloadCSV('finance',['Ref ID','Customer','Won month','Received','Salesperson',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
-    'Sale value (USD)','Contract total (USD)','Date signed','Other fee (USD)','Fee note',
+    'Sale value (USD)','Contract total (USD)','Contract status','Date signed','Next follow-up',
+    'Other fee (USD)','Fee note',
     'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)'],
     filteredFin().map(r=>[r.ref_id,r.customer_name,
       r.stage_entered_at?localDay(r.stage_entered_at).slice(0,7):'',
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
-      r.final_sale_usd,r.fin?.contract_total_usd,r.fin?.contract_signed_date,
-      r.fin?.other_fee_usd,r.fin?.other_fee_note,
+      r.final_sale_usd,r.fin?.contract_total_usd,r.fin?.contract_status,r.fin?.contract_signed_date,
+      r.fin?.follow_up_date,r.fin?.other_fee_usd,r.fin?.other_fee_note,
       r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r)]));
 }
 
