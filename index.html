@@ -194,6 +194,12 @@ tr.rowlink:hover{background:var(--card-alt)}
 .leadbar .barbtns{display:flex;gap:8px}
 .notebox{margin-top:12px}
 .notebox label{display:block}
+.noterow{display:flex;gap:8px;align-items:flex-start}
+.noterow input[type=date]{width:150px;flex:none}
+.noterow textarea{flex:1}
+/* one line only in the table, the whole thing lives inside the lead */
+td.remark{max-width:300px}
+td.remark>span{white-space:nowrap}
 .recent{margin-top:12px;padding-left:12px;border-left:2px solid var(--line)}
 .recent h4{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.08em;
   color:var(--ink-mute);margin:0 0 6px}
@@ -509,6 +515,16 @@ async function renderLeads(scope){
     const byId=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f.final_sale_usd]));
     LEADS.forEach(l=>{l.final_sale_usd=byId[l.id]??null;});
   }
+  /* the newest remark per lead, so sales can read the list without opening rows */
+  if(LEADS.length){
+    const {data:rem}=await sb.from('lead_activities')
+      .select('lead_id,note,note_date,created_at,actor_id')
+      .in('lead_id',LEADS.map(l=>l.id)).not('note','is',null)
+      .order('created_at',{ascending:false});
+    const seen={};
+    (rem||[]).forEach(a=>{if(!seen[a.lead_id])seen[a.lead_id]=a;});
+    LEADS.forEach(l=>{l.last_remark=seen[l.id]||null;});
+  }
   paintLeads();
 }
 function paintLeads(){
@@ -598,7 +614,7 @@ function drawTable(){
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Type</th><th>Stage</th><th>Qualified</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Type</th><th>Stage</th><th>Qualified</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Created</th><th>Latest remark</th>
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
@@ -610,8 +626,15 @@ function drawTable(){
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
       <td>${l.current_engineer_id?esc(staffName(l.current_engineer_id)):'—'}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
-      <td>${fmtDate(l.created_at)}</td></tr>`;
+      <td>${fmtDate(l.created_at)}</td>
+      <td class="remark">${remarkCell(l.last_remark)}</td></tr>`;
   }).join('')+`</tbody></table>`;
+}
+/* the date the contact happened, which is not always the day it was typed */
+const remarkDate=a=>a?(a.note_date||localDay(a.created_at)):'';
+function remarkCell(a){
+  if(!a)return '—';
+  return `<span class="days" style="display:block">${fmtDate(remarkDate(a))}</span>${esc(a.note)}`;
 }
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
@@ -787,7 +810,9 @@ async function openLead(id){
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
   /* what sales asks first: how old, how stale, what was quoted, what was said */
   const lastQuot=(quots||[])[0];
-  const recentNotes=(acts||[]).filter(a=>a.note).slice(0,3);
+  /* newest first, by the day the contact happened rather than the day it was typed */
+  const allRemarks=(acts||[]).filter(a=>a.note).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
+  const recentNotes=allRemarks.slice(0,3);
   const canEditAny=canSales||canEng||canSite||canAssign;
 
   /* someone who cannot see the sale value must not be able to close a deal
@@ -821,13 +846,17 @@ async function openLead(id){
     </div>
 
     ${(canSales||canEng||canSite)?`<div class="notebox">
-      <label>Add note / call result</label>
-      <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
+      <label>Add remark</label>
+      <div class="noterow">
+        <input id="d-notedate" type="date" value="${localDay(new Date())}" title="The day it happened">
+        <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
+      </div>
     </div>`:''}
 
-    ${recentNotes.length?`<div class="recent"><h4>Latest</h4>${recentNotes.map(a=>`
-      <div class="r-item"><div class="r-meta">${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
-      <div class="r-note">${esc(a.note)}</div></div>`).join('')}</div>`:''}
+    ${recentNotes.length?`<div class="recent"><h4>Remarks (${allRemarks.length})</h4>${recentNotes.map(a=>`
+      <div class="r-item"><div class="r-meta">${fmtDate(remarkDate(a))} · ${esc(staffName(a.actor_id))}</div>
+      <div class="r-note">${esc(a.note)}</div></div>`).join('')}
+      ${allRemarks.length>recentNotes.length?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:''}
 
     <div class="section sec-sales"><h4>Sales</h4>
       <div class="grid2">
@@ -907,7 +936,7 @@ async function openLead(id){
     <div class="timeline">${(acts||[]).map(a=>`
       <div class="tl-item">
         <div class="t-head">${esc(a.activity_type==='stage_change'?`Stage: ${a.from_stage||'—'} → ${a.to_stage}`:a.activity_type)}</div>
-        <div class="t-meta">${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
+        <div class="t-meta">${a.note_date?fmtDate(a.note_date)+' · ':''}${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
         ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
       </div>`).join('')||blank('No history yet','Calls, notes and stage changes are recorded here as the lead moves.')}
     </div>`;
@@ -996,8 +1025,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     if(error){toast('Saved, but the sale value did not');console.error(error);return;}
   }
   const note=$('d-note')?$('d-note').value.trim():'';
-  if(upd.stage_code&&upd.stage_code!==oldStage)await logActivity(id,'stage_change',oldStage,upd.stage_code,note||null);
-  else if(note)await logActivity(id,'note',null,null,note);
+  const nd=$('d-notedate')?$('d-notedate').value:'';
+  if(upd.stage_code&&upd.stage_code!==oldStage)await logActivity(id,'stage_change',oldStage,upd.stage_code,note||null,nd);
+  else if(note)await logActivity(id,'note',null,null,note,nd);
   else await logActivity(id,'edit',null,null,null);
   if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
 
@@ -1013,8 +1043,9 @@ async function softDelete(id){
   await logActivity(id,'soft_delete',null,null,null);
   toast('Lead deleted');closeLead();go('leads');
 }
-async function logActivity(leadId,type,from,to,note){
-  await sb.from('lead_activities').insert({lead_id:leadId,actor_id:ME.id,activity_type:type,from_stage:from,to_stage:to,note});
+async function logActivity(leadId,type,from,to,note,noteDate){
+  await sb.from('lead_activities').insert({lead_id:leadId,actor_id:ME.id,activity_type:type,
+    from_stage:from,to_stage:to,note,note_date:note?(noteDate||localDay(new Date())):null});
 }
 
 /* ---------------- QUOTATION FORM ---------------- */
@@ -1101,7 +1132,8 @@ function exportLeads(){
     l.inverter_kw_total,l.edc_doc_date,l.edc_inspection_date,
     l.edc_portal_date,l.edc_approval_date,l.edc_meter_date,
     l.edc_provincial_date,l.edc_pp_date,
-    staffName(l.created_by),localDay(l.created_at)]);
+    staffName(l.created_by),localDay(l.created_at),
+    remarkDate(l.last_remark),l.last_remark?.note]);
   downloadCSV(LEADSCOPE==='won'?'won-deals':LEADSCOPE==='lost'?'lost-leads':'leads',
     ['Ref ID','Customer','Phone','Customer type','Stage',
     'Channel','Sub-channel','Event name','Event date',
@@ -1117,7 +1149,7 @@ function exportLeads(){
     'kWac','EDC doc submission','EDC inspection',
     'EDC portal submission','EDC approval letter','EDC smart meter & grid',
     'EDC provincial inspection','EDC Phnom Penh inspection',
-    'Created by','Created'],rows);
+    'Created by','Created','Latest remark date','Latest remark'],rows);
 }
 function exportQuots(){
   downloadCSV('quotations',['Ref ID','Customer','System type','Ampere & phase',
