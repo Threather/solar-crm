@@ -753,8 +753,8 @@ async function createLead(){
   if(error){toast('Create failed');console.error(error);return;}
   await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
   toast((data.ref_id?'Lead '+data.ref_id+' created':'Lead created')
-    +(data.assigned_to?' — assigned to '+staffName(data.assigned_to)
-      :' — add the phone number to hand it to sales'));
+    +(data.assigned_to?', assigned to '+staffName(data.assigned_to)
+      :' Add the phone number to hand it to sales.'));
   LEADSCOPE='active';go('leads');
 }
 
@@ -797,10 +797,10 @@ async function openLead(id){
   const stgOpts=stageList.map(s=>opt(s.stage_code,l.stage_code).replace(`>${esc(s.stage_code)}<`,`>${esc(s.stage_name)}<`)).join('');
   /* assignment dropdowns: always include current assignee even if role changed (bug fix) */
   const salesPeople=STAFF.filter(s=>(s.role==='sales'&&s.is_active)||s.id===l.assigned_to);
-  const salesOpts=`<option value="">— pool (unassigned) —</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
+  const salesOpts=`<option value="">Pool (unassigned)</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
   const PV=l.province||l.city_province||'Phnom Penh';
   const engPeople=STAFF.filter(s=>(s.role==='engineer'&&s.is_active)||s.id===l.current_engineer_id);
-  const engOpts=`<option value="">— none —</option>`+engPeople.map(s=>`<option value="${s.id}" ${s.id===l.current_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('');
+  const engOpts=`<option value="">None</option>`+engPeople.map(s=>`<option value="${s.id}" ${s.id===l.current_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('');
 
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
@@ -834,7 +834,7 @@ async function openLead(id){
         <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canSales?'':'disabled'}></div>
         <div><label>Customer type</label><select id="d-ctype" ${canSales?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
         <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canSales?'':'disabled'}></div>
-        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage — qualified from Quotation sent onwards"></div>
+        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>
         <div><label>Stage</label><select id="d-stage" ${canSales?'':'disabled'}>${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canSales?'':'disabled'}></div>
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
@@ -865,7 +865,7 @@ async function openLead(id){
         <div><label>Panel brand</label><select id="d-pbrand" ${canEng?'':'disabled'}>${optList(PANEL_BRANDS,l.panel_brand)}</select></div>
         <div><label>Panel watt (W)</label><input id="d-pwatt" type="number" step="1" value="${l.panel_watt??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
         <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
-        <div><label>Panel (kWp) — auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
+        <div><label>Panel (kWp), auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
         <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
         <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
         <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
@@ -891,7 +891,7 @@ async function openLead(id){
         <div><label>Installation team</label><select id="d-team" ${canSite?'':'disabled'}>${optList(INSTALL_TEAMS,l.installation_team)}</select></div>
         <div style="grid-column:2/-1"><label>Location</label>${l.site_link
           ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
-          :`<input value="No link yet — ask the sale engineer" disabled>`}</div>
+          :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
         <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
       </div>
     </div>
@@ -1001,8 +1001,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
   else await logActivity(id,'edit',null,null,null);
   if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
 
-  toast(newStage===WON&&oldStage!==WON?'Saved — commissions created for this deal'
-       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved — this lead is now qualified'
+  toast(newStage===WON&&oldStage!==WON?'Saved. Commissions created for this deal.'
+       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved. This lead is now qualified.'
        :'Saved');
   closeLead();go(VIEW);
 }
@@ -1031,7 +1031,7 @@ function quotForm(leadId){
       <div><label>Panel brand</label><select id="q-pbrand">${optList(PANEL_BRANDS,g('d-pbrand'))}</select></div>
       <div><label>Panel watt (W)</label><input id="q-pwatt" type="number" step="1" value="${esc(g('d-pwatt'))}" oninput="qKwp()"></div>
       <div><label>Panel pcs</label><input id="q-pcs" type="number" step="1" value="${esc(g('d-pcs'))}" oninput="qKwp()"></div>
-      <div><label>Panel (kWp) — auto</label><input id="q-kwp" type="number" step="0.01" value="${esc(g('d-kwp'))}" readonly></div>
+      <div><label>Panel (kWp), auto</label><input id="q-kwp" type="number" step="0.01" value="${esc(g('d-kwp'))}" readonly></div>
       <div><label>Inverter brand</label><select id="q-ibrand">${optList(INVERTER_BRANDS,g('d-ibrand'))}</select></div>
       <div><label>Inverter (kW each)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}"></div>
       <div><label>Inverter pcs</label><input id="q-ipcs" type="number" step="1" value="${esc(g('d-ipcs'))}"></div>
@@ -1636,7 +1636,7 @@ async function createProfile(){
   const staff=$('u-staff').value.trim(),name=$('u-name').value.trim(),role=$('u-role').value;
   if(!email||!staff||!name){toast('All fields are required');return;}
   const {error}=await sb.rpc('admin_create_profile',{p_email:email,p_staff_id:staff,p_full_name:name,p_role:role});
-  if(error){toast(error.message.includes('not found')?'No auth user with that email — do step 1 first':'Create failed');console.error(error);return;}
+  if(error){toast(error.message.includes('not found')?'No auth user with that email. Do step 1 first.':'Create failed');console.error(error);return;}
   toast('Profile created');renderUsers();
 }
 async function toggleUser(id,active){
