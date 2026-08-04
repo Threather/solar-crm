@@ -197,12 +197,17 @@ tr.rowlink:hover{background:var(--card-alt)}
 .noterow{display:flex;gap:8px;align-items:flex-start}
 .noterow input[type=date]{width:150px;flex:none}
 .noterow textarea{flex:1}
-/* the latest remark rides under the customer, so nothing needs opening */
-td.cust{max-width:340px}
-.rline{display:block;margin-top:5px;font-size:var(--t-meta);color:var(--ink-2);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rline i{font-style:normal;color:var(--ink-mute);margin-right:6px}
-.rline.none{color:var(--ink-mute)}
+/* the running log, in the row itself: three lines, the rest on request */
+td.cust{max-width:260px}
+td.rem{width:300px;max-width:300px;white-space:normal}
+.rstack{display:flex;flex-direction:column;gap:4px}
+.rl{font-size:var(--t-meta);color:var(--ink-2);line-height:1.35}
+.rl i{font-style:normal;color:var(--ink-mute);margin-right:6px;white-space:nowrap}
+.rl.none{color:var(--ink-mute)}
+.rstack.collapsed .rl:nth-of-type(n+4){display:none}
+.rmore{align-self:flex-start;margin-top:2px;padding:2px 7px;font-size:var(--t-cap);
+  font-weight:600;color:var(--ink-soft);background:var(--sunk);border-radius:99px}
+.rmore:hover{color:var(--ink);background:var(--line)}
 .recent{margin-top:12px;padding-left:12px;border-left:2px solid var(--line)}
 .recent h4{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.08em;
   color:var(--ink-mute);margin:0 0 6px}
@@ -524,9 +529,12 @@ async function renderLeads(scope){
       .select('lead_id,note,note_date,created_at,actor_id')
       .in('lead_id',LEADS.map(l=>l.id)).not('note','is',null)
       .order('created_at',{ascending:false});
-    const seen={};
-    (rem||[]).forEach(a=>{if(!seen[a.lead_id])seen[a.lead_id]=a;});
-    LEADS.forEach(l=>{l.last_remark=seen[l.id]||null;});
+    const by={};
+    (rem||[]).forEach(a=>{(by[a.lead_id]=by[a.lead_id]||[]).push(a);});
+    LEADS.forEach(l=>{
+      l.remarks=(by[l.id]||[]).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
+      l.last_remark=l.remarks[0]||null;
+    });
   }
   paintLeads();
 }
@@ -617,27 +625,36 @@ function drawTable(){
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Created</th><th>Remarks</th>
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
-      <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'no phone yet')}${l.customer_type?' · '+esc(l.customer_type):''}</span>
-        ${remarkLine(l.last_remark)}</td>
+      <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'no phone yet')}${l.customer_type?' · '+esc(l.customer_type):''}</span></td>
       <td>${stagePill(l.stage_code)}<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
       <td>${qualPill(l)}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
       <td>${l.current_engineer_id?esc(staffName(l.current_engineer_id)):'—'}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
-      <td>${fmtDate(l.created_at)}</td></tr>`;
+      <td>${fmtDate(l.created_at)}</td>
+      <td class="rem">${remarkStack(l)}</td></tr>`;
   }).join('')+`</tbody></table>`;
 }
 /* the date the contact happened, which is not always the day it was typed */
 const remarkDate=a=>a?(a.note_date||localDay(a.created_at)):'';
-/* the last thing that happened, read straight from the row */
-function remarkLine(a){
-  if(!a)return '<span class="rline none">no remark yet</span>';
-  return `<span class="rline"><i>${fmtDate(remarkDate(a))}</i>${esc(a.note)}</span>`;
+/* three most recent in the row, the rest one click away and still in the row */
+function remarkStack(l){
+  const rs=l.remarks||[];
+  if(!rs.length)return '<span class="rl none">no remark yet</span>';
+  const extra=rs.length-3;
+  return `<div class="rstack collapsed">
+    ${rs.map(a=>`<span class="rl"><i>${fmtDate(remarkDate(a))}</i>${esc(a.note)}</span>`).join('')}
+    ${extra>0?`<button class="rmore" onclick="event.stopPropagation();toggleRemarks(this)">${extra} more</button>`:''}
+  </div>`;
+}
+function toggleRemarks(btn){
+  const box=btn.parentElement, open=box.classList.toggle('collapsed');
+  btn.textContent=open?((box.querySelectorAll('.rl').length-3)+' more'):'Show less';
 }
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
