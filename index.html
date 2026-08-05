@@ -206,11 +206,7 @@ tr.rowlink:hover{background:var(--card-alt)}
 .tabs button:hover{color:var(--ink-2)}
 .tabs button.on{color:var(--sun-deep);background:var(--card);
   box-shadow:inset 0 -2px 0 var(--sun)}
-/* always reachable, so a long lead never has to be scrolled to be closed */
-.modal-x{position:fixed;top:14px;right:18px;z-index:2;width:38px;height:38px;
-  border-radius:50%;background:var(--card);color:var(--ink-2);font-size:15px;
-  box-shadow:var(--lift);display:flex;align-items:center;justify-content:center}
-.modal-x:hover{background:var(--sunk);color:var(--ink)}
+
 .lockmsg{font-size:var(--t-meta);color:var(--ink-soft);margin:2px 0 8px}
 .sec-cust{border-left-color:var(--own-site)}
 .sec-cust h4{color:var(--own-site)}
@@ -308,7 +304,7 @@ td.nowrap{white-space:nowrap}
   <main id="main"></main>
 </div>
 
-<div class="overlay" id="lead-overlay"><button class="modal-x" onclick="closeLead()" title="Close">&#10005;</button><div class="modal" id="lead-modal"></div></div>
+<div class="overlay" id="lead-overlay"><div class="modal" id="lead-modal"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -317,7 +313,7 @@ td.nowrap{white-space:nowrap}
    ============================================================ */
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
-let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true;
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null;
 /* the Leads tab shows only live work; won and lost have their own tabs */
 let LEADSCOPE='active';
 let FINROWS=[];
@@ -925,10 +921,10 @@ async function openLead(id){
         <span>follow-up <b>${l.next_follow_up?fmtDate(l.next_follow_up):'—'}</b></span>
         <span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>`}
       </div>
-      ${canEditAny?`<div class="barbtns">
-        <span class="switch" id="lockbtn" role="switch" aria-checked="false" onclick="toggleLock()" title="Slide to edit"><i></i></span>
-        <button id="savebtn" class="btn-sun" style="display:none" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>
-      </div>`:''}
+      <div class="barbtns">
+        ${canEditAny?`<span class="switch" id="lockbtn" role="switch" aria-checked="false" onclick="toggleLock()" title="Slide to edit, slide back to save"><i></i></span>`:''}
+        <button class="btn-line" onclick="closeLead()">Close</button>
+      </div>
     </div>
 
     <div class="tabs">
@@ -1011,10 +1007,7 @@ async function openLead(id){
 
     ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false):''}
 
-    <div class="modal-actions">
-      ${(isAdmin||isSales)?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
-      <button class="btn-line" onclick="closeLead()">Close</button>
-    </div>
+    ${(isAdmin||isSales)?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
 
     </div>
 
@@ -1026,27 +1019,31 @@ async function openLead(id){
         ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
       </div>`).join('')||blank('No history yet','Calls, notes and stage changes are recorded here as the lead moves.')}
     </div>
-    <div class="modal-actions"><button class="btn-line" onclick="closeLead()">Close</button></div>
     </div>`;
   $('lead-overlay').classList.add('open');
   const stSel=$('d-stage');
   if(stSel)stSel.onchange=()=>{const w=$('d-salewrap');if(w)w.style.display=stSel.value===WON?'block':'none';};
   /* a lead opens read-only: one stray click must not move a stage */
+  LEADSAVE={id:l.id,stage:l.stage_code,assign:l.assigned_to||'',eng:l.current_engineer_id||''};
   markLockable();setLock(true);
 }
 /* everything openLead left enabled is what Edit unlocks and Lock puts back */
 function markLockable(){
   document.querySelectorAll('#lead-modal input,#lead-modal select,#lead-modal textarea')
-    .forEach(e=>{if(!e.disabled&&!e.readOnly)e.dataset.lockable='1';});
+    .forEach(e=>{if(!e.disabled&&!e.readOnly){e.dataset.lockable='1';e.dataset.orig=e.value;}});
 }
 function setLock(on){
   LEADLOCK=on;
   document.querySelectorAll('#lead-modal [data-lockable]').forEach(e=>{e.disabled=on;});
-  const b=$('lockbtn'),s=$('savebtn');
+  const b=$('lockbtn');
   if(b){b.classList.toggle('on',!on);b.setAttribute('aria-checked',String(!on));}
-  if(s)s.style.display=on?'none':'';
 }
-function toggleLock(){setLock(!LEADLOCK);}
+/* the switch is the whole control: slide it on to edit, slide it back to save */
+function toggleLock(){
+  if(LEADLOCK){setLock(false);return;}
+  if(LEADSAVE)saveLead(LEADSAVE.id,LEADSAVE.stage,LEADSAVE.assign,LEADSAVE.eng);
+  else setLock(true);
+}
 /* the log is a place you go to, not a thing you scroll past */
 function leadTab(which){
   $('tab-detail').style.display=which==='detail'?'':'none';
@@ -1076,7 +1073,12 @@ function dDist(){
 async function saveLead(id,oldStage,oldAssign,oldEng){
   const canAssign=ME.role==='admin'||ME.role==='manager';
   const upd={};
-  const val=id2=>{const e=$(id2);return e&&!e.disabled?e.value:undefined;};
+  /* only what actually changed, or opening and closing a lead would write a
+     row and an "edit" line into the history every time */
+  const val=id2=>{const e=$(id2);
+    if(!e||e.disabled)return undefined;
+    if(e.dataset.orig!==undefined&&e.dataset.orig===e.value)return undefined;
+    return e.value;};
 
   /* Every field is gated by whether openLead rendered its input enabled, so
      the permission rules live in one place instead of being restated here. */
@@ -1101,8 +1103,11 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
     const t=(Number(upd.inverter_kw??0)||0)*(Number(upd.inverter_pcs??0)||0);
     upd.inverter_kw_total=t||null;
   }
-  /* sales get one pass at the customer box, then it locks behind them */
-  if(ME.role==='sales'&&$('d-name')&&!$('d-name').disabled)upd.customer_locked=true;
+  /* sales get one pass at the customer box, and it only closes behind them if
+     they actually changed something in it */
+  const custKeys=['customer_name','customer_type','phone','site_address','province',
+                  'commune','district','site_type','monthly_bill_usd'];
+  if(ME.role==='sales'&&custKeys.some(k=>upd[k]!==undefined))upd.customer_locked=true;
 
   /* the sale value lives in its own table, which marketing and the site
      engineer have no read or write access to at all */
@@ -1119,7 +1124,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
   if(upd.customer_name===null){toast('Customer name cannot be empty');return;}
   const newStage=upd.stage_code??oldStage;
   if(newStage===WON&&oldStage!==WON&&!sale){toast('Enter the final sale value before marking Closed-Won');return;}
-  if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){toast('Nothing to save');return;}
+  if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){setLock(true);return;}
 
   if(Object.keys(upd).length){
     const {error}=await sb.from('leads').update(upd).eq('id',id);
