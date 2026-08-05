@@ -199,8 +199,18 @@ tr.rowlink:hover{background:var(--card-alt)}
   background:#fff;box-shadow:0 1px 3px rgba(26,23,20,.35);transition:transform .18s var(--ease)}
 .switch.on{background:var(--sun)}
 .switch.on i{transform:translateX(18px)}
-.switch-l{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.07em;
-  color:var(--ink-soft);font-weight:600;min-width:52px}
+.tabs{display:flex;gap:4px;margin-top:14px;border-bottom:1px solid var(--line)}
+.tabs button{background:transparent;color:var(--ink-soft);font-weight:600;
+  font-size:var(--t-meta);padding:9px 14px;border-radius:var(--r-sm) var(--r-sm) 0 0;
+  position:relative;top:1px}
+.tabs button:hover{color:var(--ink-2)}
+.tabs button.on{color:var(--sun-deep);background:var(--card);
+  box-shadow:inset 0 -2px 0 var(--sun)}
+/* always reachable, so a long lead never has to be scrolled to be closed */
+.modal-x{position:fixed;top:14px;right:18px;z-index:2;width:38px;height:38px;
+  border-radius:50%;background:var(--card);color:var(--ink-2);font-size:15px;
+  box-shadow:var(--lift);display:flex;align-items:center;justify-content:center}
+.modal-x:hover{background:var(--sunk);color:var(--ink)}
 .lockmsg{font-size:var(--t-meta);color:var(--ink-soft);margin:2px 0 8px}
 .sec-cust{border-left-color:var(--own-site)}
 .sec-cust h4{color:var(--own-site)}
@@ -298,7 +308,7 @@ td.nowrap{white-space:nowrap}
   <main id="main"></main>
 </div>
 
-<div class="overlay" id="lead-overlay"><div class="modal" id="lead-modal"></div></div>
+<div class="overlay" id="lead-overlay"><button class="modal-x" onclick="closeLead()" title="Close">&#10005;</button><div class="modal" id="lead-modal"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -916,12 +926,17 @@ async function openLead(id){
         <span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>`}
       </div>
       ${canEditAny?`<div class="barbtns">
-        <span class="switch" id="lockbtn" role="switch" aria-checked="false" onclick="toggleLock()"><i></i></span>
-        <span class="switch-l" id="locklbl">Locked</span>
+        <span class="switch" id="lockbtn" role="switch" aria-checked="false" onclick="toggleLock()" title="Slide to edit"><i></i></span>
         <button id="savebtn" class="btn-sun" style="display:none" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>
       </div>`:''}
     </div>
 
+    <div class="tabs">
+      <button id="tab-b-detail" class="on" onclick="leadTab('detail')">Details</button>
+      <button id="tab-b-hist" onclick="leadTab('hist')">History (${(acts||[]).length})</button>
+    </div>
+
+    <div id="tab-detail">
     ${isSiteEng?siteBox(l,canSite,true):''}
 
     ${canSales?`<div class="section sec-sales"><h4>Working</h4>
@@ -1001,13 +1016,17 @@ async function openLead(id){
       <button class="btn-line" onclick="closeLead()">Close</button>
     </div>
 
-    <h3 style="margin-top:22px;font-size:15px">History</h3>
+    </div>
+
+    <div id="tab-hist" style="display:none">
     <div class="timeline">${(acts||[]).map(a=>`
       <div class="tl-item">
         <div class="t-head">${esc(a.activity_type==='stage_change'?`Stage: ${a.from_stage||'—'} → ${a.to_stage}`:a.activity_type)}</div>
         <div class="t-meta">${a.note_date?fmtDate(a.note_date)+' · ':''}${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
         ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
       </div>`).join('')||blank('No history yet','Calls, notes and stage changes are recorded here as the lead moves.')}
+    </div>
+    <div class="modal-actions"><button class="btn-line" onclick="closeLead()">Close</button></div>
     </div>`;
   $('lead-overlay').classList.add('open');
   const stSel=$('d-stage');
@@ -1023,13 +1042,22 @@ function markLockable(){
 function setLock(on){
   LEADLOCK=on;
   document.querySelectorAll('#lead-modal [data-lockable]').forEach(e=>{e.disabled=on;});
-  const b=$('lockbtn'),s=$('savebtn'),t=$('locklbl');
+  const b=$('lockbtn'),s=$('savebtn');
   if(b){b.classList.toggle('on',!on);b.setAttribute('aria-checked',String(!on));}
-  if(t)t.textContent=on?'Locked':'Editing';
   if(s)s.style.display=on?'none':'';
 }
 function toggleLock(){setLock(!LEADLOCK);}
+/* the log is a place you go to, not a thing you scroll past */
+function leadTab(which){
+  $('tab-detail').style.display=which==='detail'?'':'none';
+  $('tab-hist').style.display=which==='hist'?'':'none';
+  $('tab-b-detail').classList.toggle('on',which==='detail');
+  $('tab-b-hist').classList.toggle('on',which==='hist');
+}
 function closeLead(){$('lead-overlay').classList.remove('open');}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&$('lead-overlay').classList.contains('open'))closeLead();
+});
 /* panel kWp = watt × pcs ÷ 1000 */
 function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(2):'';}
 function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
