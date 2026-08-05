@@ -1041,7 +1041,7 @@ function setLock(on){
 /* the switch is the whole control: slide it on to edit, slide it back to save */
 function toggleLock(){
   if(LEADLOCK){setLock(false);return;}
-  if(LEADSAVE)saveLead(LEADSAVE.id,LEADSAVE.stage,LEADSAVE.assign,LEADSAVE.eng);
+  if(LEADSAVE)saveLead(LEADSAVE.id,LEADSAVE.stage,LEADSAVE.assign,LEADSAVE.eng,true);
   else setLock(true);
 }
 /* the log is a place you go to, not a thing you scroll past */
@@ -1070,7 +1070,7 @@ function dDist(){
   $('d-commune').innerHTML=optList(list,'');
 }
 
-async function saveLead(id,oldStage,oldAssign,oldEng){
+async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   const canAssign=ME.role==='admin'||ME.role==='manager';
   const upd={};
   /* only what actually changed, or opening and closing a lead would write a
@@ -1145,7 +1145,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
   toast(newStage===WON&&oldStage!==WON?'Saved. Commissions created for this deal.'
        :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved. This lead is now qualified.'
        :'Saved');
-  closeLead();go(VIEW);
+  /* saving is not leaving: the lead stays open, locked, showing what was saved */
+  go(VIEW);
+  if(keepOpen)openLead(id); else closeLead();
 }
 /* admin reopening the customer box after sales used their one pass */
 async function unlockCustomer(id){
