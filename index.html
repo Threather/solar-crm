@@ -191,7 +191,20 @@ tr.rowlink:hover{background:var(--card-alt)}
 .leadbar .facts{display:flex;gap:16px;flex-wrap:wrap;flex:1;
   font-size:var(--t-meta);color:var(--ink-soft)}
 .leadbar .facts b{color:var(--ink);font-weight:600}
-.leadbar .barbtns{display:flex;gap:8px}
+.leadbar .barbtns{display:flex;gap:8px;align-items:center}
+/* one control, two states: slide it to edit, slide it back to lock */
+.switch{width:44px;height:26px;border-radius:99px;background:var(--ink-mute);
+  position:relative;cursor:pointer;flex:none;transition:background .18s var(--ease)}
+.switch i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 3px rgba(26,23,20,.35);transition:transform .18s var(--ease)}
+.switch.on{background:var(--sun)}
+.switch.on i{transform:translateX(18px)}
+.switch-l{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.07em;
+  color:var(--ink-soft);font-weight:600;min-width:52px}
+.lockmsg{font-size:var(--t-meta);color:var(--ink-soft);margin:2px 0 8px}
+.sec-cust{border-left-color:var(--own-site)}
+.sec-cust h4{color:var(--own-site)}
+.lead-first{margin-top:16px}
 .notebox{margin-top:12px}
 .notebox label{display:block}
 .noterow{display:flex;gap:8px;align-items:flex-start}
@@ -351,9 +364,10 @@ const LOST='closed_lost';
    onwards, and moving it back makes it unqualified again. The one exception
    is a lost lead, where the current stage tells you nothing — there we fall
    back to the database column, which records whether it ever got that far. */
-const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
+const QUALIFIED_STAGES=['quotation_sent','follow_up','agreement_signoff','closed_won'];
 const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
+const BOQ_STATUS=['Pending','Done'];
 /* a follow-up lands on the same day of the month; February keeps the last day */
 function addMonths(d,n){
   if(!d)return '';
@@ -381,7 +395,7 @@ const EDC_LARGE=[['edc_portal_date','Submitted','Document submission date via we
                  ['edc_meter_date','Smart meter','Smart meter installation & grid connection date'],
                  ['edc_provincial_date','Provincial','EDC provincial inspection date'],
                  ['edc_pp_date','Phnom Penh','EDC Phnom Penh inspection date']];
-const kwac=l=>Number(l.inverter_kw_total||0);
+const kwac=l=>(Number(l.inverter_kw||0)*Number(l.inverter_pcs||0))||Number(l.inverter_kw_total||0);
 /* three states, not two: EDC applies to on-grid and hybrid, off-grid is
    genuinely exempt, and a blank system type means nobody has said yet —
    which must not be silently treated as exempt */
@@ -538,6 +552,14 @@ async function renderLeads(scope){
       l.remarks=(by[l.id]||[]).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
       l.last_remark=l.remarks[0]||null;
     });
+    /* the last price quoted, for the column that replaces the salesperson's
+       own name when they are looking at their own list */
+    const {data:qs}=await sb.from('quotations')
+      .select('lead_id,price_usd,created_at').in('lead_id',LEADS.map(l=>l.id))
+      .order('created_at',{ascending:false});
+    const qby={};
+    (qs||[]).forEach(q=>{if(!qby[q.lead_id])qby[q.lead_id]=q;});
+    LEADS.forEach(l=>{l.last_quot=qby[l.id]||null;});
   }
   paintLeads();
 }
@@ -628,25 +650,27 @@ function drawTable(){
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>Sales</th><th>Engineer</th><th>Follow-up</th><th>Created</th>${showRemarks()?'<th>Remarks</th>':''}
+    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sales'}</th><th>Engineer</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'no phone yet')}${l.customer_type?' · '+esc(l.customer_type):''}</span></td>
-      <td>${stagePill(l.stage_code)}<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
+      <td>${stagePill(l.stage_code)}</td>
       <td>${qualPill(l)}</td>
-      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
+      <td>${ME.role==='sales'
+        ?(l.last_quot?`<b>${fmtMoney(l.last_quot.price_usd)}</b><span class="days">${fmtDate(l.last_quot.created_at)}</span>`:'—')
+        :(l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>')}</td>
       <td>${l.current_engineer_id?esc(staffName(l.current_engineer_id)):'—'}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
-      <td class="nowrap">${fmtDate(l.created_at)}</td>
+      <td class="nowrap"><b>${daysIn(l.created_at)}d</b> old<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
       ${showRemarks()?`<td class="rem">${remarkStack(l)}</td>`:''}</tr>`;
   }).join('')+`</tbody></table>`;
 }
 /* the date the contact happened, which is not always the day it was typed */
 const remarkDate=a=>a?(a.note_date||localDay(a.created_at)):'';
 /* the running log is the salesperson's working view, and nobody else's */
-const showRemarks=()=>ME.role==='sales';
+const showRemarks=()=>ME.role==='sales'||ME.role==='admin';
 /* three most recent in the row, the rest one click away and still in the row */
 function remarkStack(l){
   const rs=l.remarks||[];
@@ -806,6 +830,25 @@ async function createLead(){
   LEADSCOPE='active';go('leads');
 }
 
+/* installation and BOQ: the site engineer's whole job, so for them it sits
+   first and everything else is context they scroll past */
+function siteBox(l,canSite,first){
+  const d=l.boq_status==='Done';
+  return `<div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
+      <div class="grid3">
+        <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Installation end</label><input id="d-cend" type="date" value="${l.installation_end||''}" ${canSite?'':'disabled'}></div>
+        <div><label>Installation team</label><select id="d-team" ${canSite?'':'disabled'}>${optList(INSTALL_TEAMS,l.installation_team)}</select></div>
+        <div><label>BOQ release</label><select id="d-boq" ${canSite?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
+        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canSite?'':'disabled'} ${d?'':'title="Fill this in once the BOQ is Done"'}></div>
+        <div style="grid-column:1/-1"><label>Location</label>${l.site_link
+          ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
+          :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
+        <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
+      </div>
+    </div>`;
+}
 /* ---------------- LEAD DETAIL ---------------- */
 async function openLead(id){
   const [{data:l,error},{data:acts},{data:quots},{data:fin}]=await Promise.all([
@@ -824,9 +867,15 @@ async function openLead(id){
   const isMkt=ME.role==='marketing'&&(l.created_by===ME.id||EARLY_STAGES.includes(l.stage_code));
   const isSiteEng=ME.role==='site_engineer'&&l.site_engineer_id===ME.id;
   const canAssign=isAdmin||ME.role==='manager';
-  /* sales and engineering now share both key-in boxes, by request */
-  const canEng=isAdmin||isSales||isEng;
-  const canSales=canEng||isMkt;
+  /* the engineering box belongs to engineering again; marketing never sees it */
+  const canEng=isAdmin||isEng;
+  const seeEng=ME.role!=='marketing';
+  /* stage, follow-up and remarks are the day-to-day, open to whoever works the lead */
+  const canSales=isAdmin||ME.role==='manager'||isSales||isMkt||isEng;
+  /* customer identity is marketing's to keep. Sales get one pass at it, then it
+     locks; admin can reopen it. */
+  const canCustomer=isAdmin||isMkt||(isSales&&!l.customer_locked);
+  const custLocked=isSales&&l.customer_locked;
   /* the database only lets an engineer or admin insert a quotation, so the
      button follows that rather than the shared key-in rule */
   const canQuote=isAdmin||isEng;
@@ -854,24 +903,35 @@ async function openLead(id){
 
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
-    <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))}
-      · ${stagePill(l.stage_code)} <span class="days" style="display:inline">${daysIn(l.stage_entered_at)}d in stage · contacted ${contacted}×</span></div>
+    <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))} · contacted ${contacted}×</div>
 
     <div class="leadbar">
-      <div class="facts">
+      <div class="facts">${isSiteEng?`
+        <span>delivery <b>${l.delivery_date?fmtDate(l.delivery_date):'not set'}</b></span>
+        <span>install <b>${l.installation_start?fmtDate(l.installation_start):'not set'}</b></span>
+        <span>BOQ <b>${esc(l.boq_status||'not set')}</b></span>`:`
         <span><b>${daysIn(l.created_at)}d</b> old</span>
         <span><b>${daysIn(l.stage_entered_at)}d</b> in stage</span>
         <span>follow-up <b>${l.next_follow_up?fmtDate(l.next_follow_up):'—'}</b></span>
-        <span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>
+        <span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>`}
       </div>
       ${canEditAny?`<div class="barbtns">
-        <button id="lockbtn" class="btn-line" onclick="toggleLock()">Edit</button>
+        <span class="switch" id="lockbtn" role="switch" aria-checked="false" onclick="toggleLock()"><i></i></span>
+        <span class="switch-l" id="locklbl">Locked</span>
         <button id="savebtn" class="btn-sun" style="display:none" onclick="saveLead('${l.id}','${l.stage_code}','${l.assigned_to||''}','${l.current_engineer_id||''}')">Save</button>
       </div>`:''}
     </div>
 
-    ${(canSales||canEng||canSite)?`<div class="notebox">
-      <label>Add remark</label>
+    ${isSiteEng?siteBox(l,canSite,true):''}
+
+    ${canSales?`<div class="section sec-sales"><h4>Working</h4>
+      <div class="grid2">
+        <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
+        <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
+        ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
+          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
+      </div>
+      <label style="margin-top:10px;display:block">Add remark</label>
       <div class="noterow">
         <input id="d-notedate" type="date" value="${localDay(new Date())}" title="The day it happened">
         <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
@@ -883,35 +943,33 @@ async function openLead(id){
       <div class="r-note">${esc(a.note)}</div></div>`).join('')}
       ${allRemarks.length>recentNotes.length?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:''}
 
-    <div class="section sec-sales"><h4>Sales</h4>
+    <div class="section sec-cust"><h4>Customer${custLocked?' · locked':''}</h4>
+      ${custLocked?'<p class="lockmsg">Already corrected once. Ask an admin to reopen it.</p>':''}
       <div class="grid2">
-        <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canSales?'':'disabled'}></div>
-        <div><label>Customer type</label><select id="d-ctype" ${canSales?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
-        <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canSales?'':'disabled'}></div>
-        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>
-        <div><label>Stage</label><select id="d-stage" ${canSales?'':'disabled'}>${stgOpts}</select></div>
-        <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}" ${canSales?'':'disabled'}></div>
+        <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
+        <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canCustomer?'':'disabled'}></div>
+        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Quotation Sent onwards."></div>
         <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
-        ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
-          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
         ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
+        ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
       </div>
     </div>
 
     <div class="section sec-addr"><h4>Site</h4>
       <div class="grid2">
-        <div style="grid-column:1/-1"><label>Address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canSales?'':'disabled'}></div>
-        <div><label>Province / City</label><select id="d-prov" onchange="dProv()" ${canSales?'':'disabled'}>${optList(PROVINCES,PV,false)}</select></div>
-        <div><label>District</label><select id="d-district" onchange="dDist()" ${canSales?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
-        <div><label>Commune</label><select id="d-commune" ${canSales?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
-        <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canSales?'':'disabled'}></div>
-        <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canSales?'':'disabled'}></div>
+        <div style="grid-column:1/-1"><label>Address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Province / City</label><select id="d-prov" onchange="dProv()" ${canCustomer?'':'disabled'}>${optList(PROVINCES,PV,false)}</select></div>
+        <div><label>District</label><select id="d-district" onchange="dDist()" ${canCustomer?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
+        <div><label>Commune</label><select id="d-commune" ${canCustomer?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
+        <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canCustomer?'':'disabled'}></div>
       </div>
     </div>
 
-    <div class="section sec-eng"><h4>Sale Engineer key-in ${l.current_engineer_id?('· '+esc(staffName(l.current_engineer_id))):''}${l.original_engineer_id&&l.original_engineer_id!==l.current_engineer_id?(' (original: '+esc(staffName(l.original_engineer_id))+')'):''}</h4>
+    ${seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.current_engineer_id?('· '+esc(staffName(l.current_engineer_id))):''}${l.original_engineer_id&&l.original_engineer_id!==l.current_engineer_id?(' (original: '+esc(staffName(l.original_engineer_id))+')'):''}</h4>
       <div class="grid3">
         <div><label>Roof type</label><select id="d-roof" ${canEng?'':'disabled'}>${optList(ROOF_TYPES,l.roof_type)}</select></div>
         <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
@@ -923,34 +981,20 @@ async function openLead(id){
         <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
         <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
         <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
-        <div><label>Inverter total (kW)</label><input id="d-ikwt" type="number" step="0.01" value="${l.inverter_kw_total??''}" ${canEng?'':'disabled'} title="Decides which EDC form applies"></div>
         <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
+        <div><label>Battery (pcs)</label><input id="d-bpcs" type="number" step="1" value="${l.battery_pcs??''}" ${canEng?'':'disabled'}></div>
         <div><label>Battery (kWh)</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" ${canEng?'':'disabled'}></div>
         <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
       </div>
-    </div>
+    </div>`:''}
 
-    <div class="section sec-quote"><h4>Quotations (${(quots||[]).length})</h4>
+    ${seeEng?`<div class="section sec-quote"><h4>Quotations (${(quots||[]).length})</h4>
       ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
         <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
       ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
-    </div>
+    </div>`:''}
 
-    ${l.stage_code===WON?`
-    <div class="section sec-install"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
-      <div class="grid3">
-        <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
-        <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
-        <div><label>Installation end</label><input id="d-cend" type="date" value="${l.installation_end||''}" ${canSite?'':'disabled'}></div>
-        <div><label>Installation team</label><select id="d-team" ${canSite?'':'disabled'}>${optList(INSTALL_TEAMS,l.installation_team)}</select></div>
-        <div style="grid-column:2/-1"><label>Location</label>${l.site_link
-          ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
-          :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
-        <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
-      </div>
-    </div>
-
-`:''}
+    ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false):''}
 
     <div class="modal-actions">
       ${(isAdmin||isSales)?`<button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button>`:''}
@@ -979,8 +1023,9 @@ function markLockable(){
 function setLock(on){
   LEADLOCK=on;
   document.querySelectorAll('#lead-modal [data-lockable]').forEach(e=>{e.disabled=on;});
-  const b=$('lockbtn'),s=$('savebtn');
-  if(b)b.textContent=on?'Edit':'Lock';
+  const b=$('lockbtn'),s=$('savebtn'),t=$('locklbl');
+  if(b){b.classList.toggle('on',!on);b.setAttribute('aria-checked',String(!on));}
+  if(t)t.textContent=on?'Locked':'Editing';
   if(s)s.style.display=on?'none':'';
 }
 function toggleLock(){setLock(!LEADLOCK);}
@@ -1013,15 +1058,23 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
            monthly_bill_usd:'d-bill',
            roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
            panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_pcs:'d-ipcs',
-           inverter_kw_total:'d-ikwt',inverter_brand:'d-ibrand',
-           battery_kwh:'d-batt',battery_brand:'d-bbrand',
+           inverter_brand:'d-ibrand',
+           battery_kwh:'d-batt',battery_brand:'d-bbrand',battery_pcs:'d-bpcs',
            site_link:'d-sitelink',
            delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
-           installation_team:'d-team',site_notes:'d-sitenotes'};
+           installation_team:'d-team',site_notes:'d-sitenotes',
+           boq_status:'d-boq',boq_date:'d-boqdate'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
   /* panel kWp is derived, and its input is readonly so val() skips it */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
+  /* the inverter total has no box any more, but EDC still needs the number */
+  if(upd.inverter_kw!==undefined||upd.inverter_pcs!==undefined){
+    const t=(Number(upd.inverter_kw??0)||0)*(Number(upd.inverter_pcs??0)||0);
+    upd.inverter_kw_total=t||null;
+  }
+  /* sales get one pass at the customer box, then it locks behind them */
+  if(ME.role==='sales'&&$('d-name')&&!$('d-name').disabled)upd.customer_locked=true;
 
   /* the sale value lives in its own table, which marketing and the site
      engineer have no read or write access to at all */
@@ -1061,6 +1114,13 @@ async function saveLead(id,oldStage,oldAssign,oldEng){
        :'Saved');
   closeLead();go(VIEW);
 }
+/* admin reopening the customer box after sales used their one pass */
+async function unlockCustomer(id){
+  const {error}=await sb.from('leads').update({customer_locked:false}).eq('id',id);
+  if(error){toast('Could not reopen it');console.error(error);return;}
+  await logActivity(id,'edit',null,null,'Customer details reopened for sales');
+  toast('Customer details reopened');closeLead();go(VIEW);
+}
 async function softDelete(id){
   if(!confirm('Delete this lead? It disappears from the CRM but stays in the database.'))return;
   const {error}=await sb.from('leads').update({is_deleted:true,deleted_at:new Date().toISOString(),deleted_by:ME.id}).eq('id',id);
@@ -1091,7 +1151,7 @@ function quotForm(leadId){
       <div><label>Inverter brand</label><select id="q-ibrand">${optList(INVERTER_BRANDS,g('d-ibrand'))}</select></div>
       <div><label>Inverter (kW each)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}"></div>
       <div><label>Inverter pcs</label><input id="q-ipcs" type="number" step="1" value="${esc(g('d-ipcs'))}"></div>
-      <div><label>Inverter total (kW)</label><input id="q-ikwt" type="number" step="0.01" value="${esc(g('d-ikwt'))}"></div>
+      <div><label>Battery (pcs)</label><input id="q-bpcs" type="number" step="1" value="${esc(g('d-bpcs'))}"></div>
       <div><label>Battery brand</label><select id="q-bbrand">${optList(BATTERY_BRANDS,g('d-bbrand'))}</select></div>
       <div><label>Battery (kWh)</label><input id="q-batt" value="${esc(g('d-batt'))}"></div>
       <div><label>Price (USD) *</label><input id="q-price" type="number" step="0.01" autofocus></div>
@@ -1108,7 +1168,9 @@ async function addQuot(leadId){
     price_usd:price,panel_pcs:$('q-pcs').value||null,panel_brand:$('q-pbrand').value||null,
     panel_watt:$('q-pwatt').value||null,panel_kwp:$('q-kwp').value||null,
     inverter_kw:$('q-inv').value||null,inverter_brand:$('q-ibrand').value||null,
-    inverter_pcs:$('q-ipcs').value||null,inverter_kw_total:$('q-ikwt').value||null,
+    inverter_pcs:$('q-ipcs').value||null,
+    inverter_kw_total:(Number($('q-inv').value||0)*Number($('q-ipcs').value||0))||null,
+    battery_pcs:$('q-bpcs').value||null,
     battery_kwh:$('q-batt').value.trim()||null,battery_brand:$('q-bbrand').value||null
   });
   if(error){toast('Could not save quotation');console.error(error);return;}
