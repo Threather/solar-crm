@@ -313,7 +313,7 @@ td.nowrap{white-space:nowrap}
    ============================================================ */
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
-let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null;
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[];
 /* the Leads tab shows only live work; won and lost have their own tabs */
 let LEADSCOPE='active';
 let FINROWS=[];
@@ -856,6 +856,239 @@ function siteBox(l,canSite,first){
       </div>
     </div>`;
 }
+/* ---------------- QUOTATION DOCUMENT ----------------
+   Every Khmer string lives here so corrections are one edit, not thirty.
+   Anything the app cannot work out is printed as a fill-in box. */
+const QT={
+  company:'SOLARWORKS SOLUTIONS CO., LTD.',
+  addr1:'#Plot A, VTRUST Tower, F1 Office, 2nd Floor, Street 169',
+  addr2:'Village 12, Sangkat Veal Vong, Khan 7 Makara, Phnom Penh',
+  tel:'Tel : (855) 85 200 222',
+  title:'សម្រង់តម្លៃ',
+  cust:'ឈ្មោះអតិថិជន', addr:'អាស័យដ្ឋាន', phone:'លេខទូរស័ព្ទ', date:'កាលបរិច្ឆេទ',
+  vat:'លេខអត្តសញ្ញាណកម្ម (VATTIN)', systype:'ប្រភេទប្រព័ន្ធសូឡា',
+  valid:'សុពលភាព', days:'ថ្ងៃ', size:'ទំហំប្រព័ន្ធសូឡា', battsize:'ទំហំអាគុយសូឡា',
+  project:'គម្រោង', projectref:'លេខសម្គាល់គម្រោង', teamref:'លេខសម្គាល់ក្រុម',
+  no:'ល.រ', desc:'បរិយាយ', img:'រូបភាព', qty:'ចំនួន', warranty:'ការធានា', years:'ឆ្នាំ',
+  s1:'ការគ្រប់គ្រង',
+  s1a:'ជូនដំណឹងដល់ អគ្គិសនីកម្ពុជា (EDC) ឬ អាជ្ញាធរអគ្គិសនីមូលដ្ឋាន',
+  s1b:'រួមបញ្ចូលថ្លៃសេវាសម្រាប់៖',
+  s1c:'ក.ប្លង់បច្ចេកទេសអគ្គិសនី AC/DC',
+  s1d:'ខ. ការគ្រប់គ្រងគម្រោង ការរៀបចំឯកសារ និងការដាក់ពាក្យស្នើសុំទៅកាន់អាជ្ញាធរពាក់ព័ន្ធ',
+  s1e:'គ. ការធ្វើតេស្តប្រព័ន្ធ និងការដាក់ឱ្យដំណើរការ',
+  s1f:'ឃ. សេវាកម្មការតម្លើង កម្លាំងពលកម្ម ការដឹកជញ្ជូន ការស្នាក់នៅ និងអាហារ',
+  s2:'គ្រឿងបង្គំសំខាន់ៗ',
+  s2a:'ក. ផ្ទាំងសូឡា', s2b:'ខ. អាំងវឺទ័រ', s2c:'គ. អាគុយ', s2d:'ឃ. គ្រឿងបង្គុំប្រព័ន្ធសូឡា',
+  model:'ម៉ូដែល', panelsize:'ទំហំផ្ទាំងសូឡា', invsize:'ទំហំអាំងវឺទ័រ', battcap:'ទំហំអាគុយ',
+  perfwarranty:'ធានាលើប្រសិទ្ធភាព',
+  s3:'គ្រឿងបង្គុំប្រព័ន្ធអគ្គិសនី',
+  pay:'ការទូទាត់',
+  pay1:'ក. ទូទាត់ ៤០% នៅថ្ងៃដែលអតិថិជនចុះហត្ថលេខាលើសម្រង់តម្លៃ',
+  pay2:'ខ. ទូទាត់ ៥០% នៅថ្ងៃដែលសម្ភារៈសូឡាបានដឹកជញ្ជូនទៅដល់ទីតាំងរបស់អតិថិជន',
+  pay3:'គ. ទូទាត់ ១០% នៅថ្ងៃដែលប្រព័ន្ធសូឡាបានតម្លើងរួចរាល់ ដោយបានបញ្ចប់ការតេស្ត និងដាក់ឱ្យដំណើរការប្រព័ន្ធសូឡាបានជោគជ័យ',
+  sysprice:'តម្លៃប្រព័ន្ធ', total:'តម្លៃសរុប (ដុល្លារ)',
+  eff:'ប្រសិទ្ធភាពប្រព័ន្ធសូឡា',
+  bill:'ថ្លៃវិក័យបត្រអគ្គិសនី', perMonth:'ដុល្លារ/ខែ',
+  tariff:'តម្លៃឯកតា (វិក័យបត្រអគ្គិសនី)', perKwh:'ដុល្លារ/kWh',
+  yearly:'បរិមាណថាមពលសូឡាផលិតបានប្រចាំឆ្នាំ', perYear:'kWh/ឆ្នាំ',
+  produced:'តម្លៃថាមពលដែលបានផលិត', usdYear:'USD/ឆ្នាំ',
+  exported:'ថ្លៃបញ្ជូនទៅអគ្គិសនីកម្ពុជា',
+  saved:'ប្រាក់សន្សំបាន', savedMonth:'ប្រាក់សន្សំបានប្រចាំខែ', usdMonth:'USD/ខែ',
+  payback:'រយៈពេលសង្គ្រោះដើមត្រឡប់មកវិញ', months:'ខែ',
+  note:'*ចំណាំ៖',
+  f1:'១. លទ្ធផលដែលបានបង្ហាញ គឺជាការប៉ាន់ស្មានពី PVsyst ដោយផ្អែកលើទិន្នន័យប្រវត្តិសាស្ត្រ។ ប្រសិទ្ធភាពពិតប្រាកដនៃប្រព័ន្ធអាចខុសគ្នា អាស្រ័យលើអាកាសធាតុ លក្ខខណ្ឌទីតាំង និងកត្តាផ្សេងៗ។',
+  f2:'២. ប្រាក់សន្សំជាក់ស្តែងអាចខុសគ្នា អាស្រ័យលើឥរិយាបថប្រើប្រាស់អគ្គិសនីរបស់អតិថិជន។',
+  f3:'៣. តម្លៃដែលបានបង្ហាញក្នុងសម្រង់តម្លៃនេះ គ្រាន់តែជាការប៉ាន់ស្មានប៉ុណ្ណោះ។ តម្លៃចុងក្រោយនឹងផ្តល់ជូនបន្ទាប់ពីការត្រួតពិនិត្យជាក់ស្តែងនៅទីតាំងផ្ទាល់របស់អតិថិជន។',
+  f4:'៤. វិក័យបត្រអគ្គិសនី ការប្រើប្រាស់អគ្គិសនីជាមធ្យមរបស់អតិថិជន គឺផ្អែកលើព័ត៌មានដែលអតិថិជនបានផ្តល់ជូន។',
+  terms:'លក្ខខណ្ឌផ្សេងៗ',
+  t1:'សេវាថែទាំ', t1w:'ធានា ១ ឆ្នាំ',
+  t1a:'ការត្រួតពិនិត្យទូទៅ ១ ដងរួមមាន៖',
+  t1b:'ក. ត្រួតពិនិត្យហ្វុយហ្ស៊ីប (DC), តង់ស្យុង AC/DC',
+  t1c:'ខ. ត្រួតពិនិត្យប្រអប់ភ្លើង, MCB, តភ្ជាប់ចរន្ត និង ខ្សែរដី',
+  t1d:'គ. ត្រួតពិនិត្យចរន្ត និង តង់ស្យុង',
+  t1e:'រួមបញ្ចូលការផ្លាស់ប្តូរនូវឧបករណ៍ដូចខាងក្រោមចំនួន ១ដង',
+  t1f:'ក. ហ្វុយហ្ស៊ីប    ខ. គ្រាប់ (ដុំភ្ជាប់) MC4 Connector    គ. AC/DC, MCB',
+  t2:'រយៈពេលដឹកជញ្ជូន',
+  t2a:'ក. សម្រាប់លំនៅឋាន៖ រយៈពេល ៧ ទៅ ១០ ថ្ងៃ បន្ទាប់ពីទទួលបានប្រាក់កក់',
+  t2b:'ខ. សម្រាប់ឧស្សាហកម្ម និង ពាណិជ្ជកម្ម៖ រយៈពេល ៦ ទៅ ៨ សប្តាហ៍ បន្ទាប់ពីទទួលបានប្រាក់កក់',
+  t2c:'*ចំណាំ: រយៈពេលដឹកជញ្ជូនអាចនឹងពន្យារពេល ដោយសារកត្តាដែលមិនអាចរំពឹងទុកបាន ដូចជា ការយឺតយ៉ាវពីអ្នកផ្គត់ផ្គង់ បញ្ហាការដឹកជញ្ជូន ឬស្ថានភាពផ្សេងៗទៀត។',
+  t2d:'ចំណាំ: ការផ្លាស់ប្តូរឧបករណ៍ផ្សេងៗ នឹងធ្វើឡើងតែក្នុងករណីមានការបរាជ័យក្នុងប្រតិបត្តិការប៉ុណ្ណោះ (មិនរាប់បញ្ចូលការខូចខាតដែលបង្កឡើងដោយកំហុសមនុស្ស ការប្រើប្រាស់ខុសបច្ចេកទេស ឬកត្តាខាងក្រៅឡើយ)។',
+  agree:'តាមរយៈសម្រង់តម្លៃនេះ ខ្ញុំសូមឯកភាពទទួលយកការដេញថ្លៃសម្រាប់គម្រោងថាមពលពន្លឺព្រះអាទិត្យ យោងតាមលក្ខខណ្ឌបច្ចេកទេសក្នុងសម្រង់តម្លៃនេះ',
+  approved:'អនុម័តដោយ', name:'ឈ្មោះ', role:'តួនាទី',
+  custSign:'ហត្ថលេខាអតិថិជន និង ត្រា',
+  page:'Page'
+};
+/* a blank the salesperson fills in on screen before printing */
+const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
+const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
+
+function printQuote(quotId,leadId){
+  const q=(QUOTS||[]).find(x=>x.id===quotId)||(LEADQUOTS||[]).find(x=>x.id===quotId);
+  const l=(LEADS||[]).find(x=>x.id===(leadId||q?.lead_id))||q?.leads||{};
+  if(!q){toast('Could not find that quotation');return;}
+  const kwp=Number(q.panel_kwp||0)||((Number(q.panel_watt||0)*Number(q.panel_pcs||0))/1000);
+  const kwac=(Number(q.inverter_kw||0)*Number(q.inverter_pcs||0))||Number(q.inverter_kw_total||0);
+  const addr=[l.site_address,l.commune,l.district,l.province||l.city_province].filter(Boolean).join(', ');
+  const price=Number(q.price_usd||0);
+  /* the sample works out to 1,460 kWh per kWp per year; it is a starting point,
+     not a promise, and the salesperson can overwrite it */
+  const annual=Math.round(kwp*1460);
+  const w=window.open('','_blank');
+  if(!w){toast('Allow pop-ups to print the quotation');return;}
+  w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual}));
+  w.document.close();
+}
+
+function quoteHtml(q,l,c){
+  const row=(no,desc,qty)=>`<tr><td class="n">${no||''}</td><td>${desc}</td><td class="im"></td><td class="q">${qty||''}</td></tr>`;
+  const recalc=`<scr`+`ipt>
+    function recalc(){
+      const g=id=>parseFloat((document.getElementById(id).innerText||'').replace(/[^0-9.]/g,''))||0;
+      const t=g('f-tariff'), a=g('f-annual'), p=${c.price||0};
+      const val=a*t, exp=g('f-export'), year=val+exp, mon=year/12;
+      const f=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      document.getElementById('o-prod').innerText=f(val);
+      document.getElementById('o-year').innerText=f(year);
+      document.getElementById('o-mon').innerText=f(mon);
+      document.getElementById('o-pay').innerText=mon>0?f(p/mon):'';
+    }
+    document.addEventListener('input',recalc);
+    window.addEventListener('load',recalc);
+  </scr`+`ipt>`;
+  return `<!doctype html><html lang="km"><head><meta charset="utf-8">
+<title>${QT.title} ${esc(l.customer_name||'')}</title>
+<style>
+  @page{size:A4;margin:12mm 10mm}
+  body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
+       font-size:10px;color:#111;margin:0;line-height:1.5}
+  .sheet{width:190mm;margin:0 auto;padding:0 0 8mm}
+  .bar{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
+  .bar button{font:inherit;padding:6px 14px;cursor:pointer}
+  h1{font-size:17px;text-align:center;margin:6px 0 2px}
+  .co{text-align:center;font-size:9px;line-height:1.35;color:#333}
+  .co b{font-size:11px}
+  table{width:100%;border-collapse:collapse}
+  .meta td{padding:2px 4px;font-size:10px;vertical-align:top}
+  .meta .lab{color:#333;white-space:nowrap}
+  .items{margin-top:8px;border:1px solid #999}
+  .items th{background:#eee;border:1px solid #999;padding:4px;font-size:10px}
+  .items td{border:1px solid #999;padding:3px 5px;vertical-align:top}
+  .items td.n{width:24px;text-align:center}
+  .items td.im{width:64px}
+  .items td.q{width:74px;text-align:center}
+  .sec{font-weight:bold}
+  .fill{display:inline-block;border-bottom:1px dotted #666;min-height:12px;padding:0 3px;
+        background:#fffbe8;outline:none}
+  .tot{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;font-size:12px}
+  .tot b{min-width:110px;text-align:right;display:inline-block}
+  .sav td{padding:2px 4px;font-size:10px}
+  .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px}
+  .fn{font-size:8.5px;color:#333;margin-top:8px;line-height:1.45}
+  .sign{display:flex;gap:30px;margin-top:22px;font-size:10px}
+  .sign div{flex:1}
+  .dots{border-bottom:1px dotted #333;height:26px;margin-bottom:4px}
+  .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
+  @media print{.bar{display:none}.fill{background:none;border-bottom:1px dotted #666}
+    .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
+</style></head><body>
+<div class="bar">
+  <button onclick="window.print()">Print / Save as PDF</button>
+  <span style="font-size:11px;color:#555;align-self:center">Yellow boxes are editable. Fill them in, then print.</span>
+</div>
+
+<div class="sheet">
+  <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  <h1>${QT.title}</h1>
+  <div style="text-align:center;font-size:9px;margin-bottom:6px">${new Date().toDateString()}</div>
+
+  <table class="meta">
+    <tr><td class="lab">${QT.cust}:</td><td>${esc(l.customer_name||'')}</td>
+        <td class="lab">${QT.systype}:</td><td>${esc(q.system_type||'')}</td></tr>
+    <tr><td class="lab">${QT.addr}:</td><td>${esc(c.addr)}</td>
+        <td class="lab">${QT.valid}:</td><td>${qb(30,7)} ${QT.days}</td></tr>
+    <tr><td class="lab">${QT.phone}:</td><td>${esc(l.phone||'')}</td>
+        <td class="lab">${QT.size}:</td><td>${c.kwp?c.kwp.toFixed(2):''} kWp</td></tr>
+    <tr><td class="lab">${QT.vat}:</td><td>${qb(110)}</td>
+        <td class="lab">${QT.battsize}:</td><td>${esc(q.battery_kwh||'')} kWh</td></tr>
+    <tr><td class="lab">${QT.project}:</td><td>${qb(150)}</td>
+        <td class="lab">${QT.projectref}:</td><td>${qb(90)}</td></tr>
+    <tr><td class="lab">${QT.date}:</td><td>${fmtDate(q.released_date||q.created_at)}</td>
+        <td class="lab">${QT.teamref}:</td><td>${qb(90)}</td></tr>
+  </table>
+
+  <table class="items">
+    <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.qty}</th></tr></thead>
+    <tbody>
+      ${row('១','<span class="sec">'+QT.s1+'</span><br>'+QT.s1a+'<br>'+QT.s1b+'<br>'+QT.s1c+'<br>'+QT.s1d+'<br>'+QT.s1e+'<br>'+QT.s1f,'')}
+      ${row('២','<span class="sec">'+QT.s2+'</span>','')}
+      ${row('',QT.s2a+'<br>* '+QT.model+' : '+qb(150,q.panel_brand||'')+' &nbsp; '+QT.warranty+': '+qb(24)+' '+QT.years
+             +'<br>* '+QT.panelsize+' : '+(q.panel_watt||'')+'Wp &nbsp; '+QT.perfwarranty+': '+qb(24)+' '+QT.years,
+             (q.panel_pcs||'')+' ផ្ទាំង')}
+      ${row('',QT.s2b+'<br>* '+QT.model+' : '+qb(150,q.inverter_brand||'')+' &nbsp; '+QT.warranty+': '+qb(24)+' '+QT.years
+             +'<br>* '+QT.invsize+' : '+(c.kwac?c.kwac.toFixed(2):'')+' kWac',
+             (q.inverter_pcs||'')+' គ្រឿង')}
+      ${row('',QT.s2c+'<br>* '+QT.model+' : '+qb(150,q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(24)+' '+QT.years
+             +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh||'')+' kWh',
+             (q.battery_pcs||'')+' គ្រឿង')}
+      ${row('',QT.s2d+'<br>* '+qb(300)+'<br>* '+qb(300)+'<br>* '+qb(300),qb(60))}
+      ${row('៣','<span class="sec">'+QT.s3+'</span><br>* '+qb(300)+'<br>* '+qb(300)+'<br>* '+qb(300)+'<br>* '+qb(300),qb(60))}
+      ${row('',QT.pay1+'<br>'+QT.pay2+'<br>'+QT.pay3,'')}
+    </tbody>
+  </table>
+
+  <div class="tot"><span>${QT.sysprice}</span><b>$${qnum(c.price)}</b></div>
+  <div class="tot"><span><b style="min-width:auto">${QT.total}</b></span><b>$${qnum(c.price)}</b></div>
+
+  <table class="sav" style="margin-top:8px;width:auto">
+    <tr><td>${QT.eff}:</td><td class="v">${qb(60)}</td><td></td></tr>
+    <tr><td>${QT.bill}:</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
+    <tr><td>${QT.tariff}:</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
+    <tr><td>${QT.yearly}:</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td>${QT.perYear}</td></tr>
+    <tr><td>${QT.produced}:</td><td class="v" id="o-prod"></td><td>${QT.usdYear}</td></tr>
+    <tr><td>${QT.exported}:</td><td class="v"><span class="fill" id="f-export" contenteditable="true">0</span></td><td>${QT.usdYear}</td></tr>
+    <tr><td>${QT.saved}:</td><td class="v" id="o-year"></td><td>${QT.usdYear}</td></tr>
+    <tr><td>${QT.savedMonth}:</td><td class="v" id="o-mon"></td><td>${QT.usdMonth}</td></tr>
+    <tr><td>${QT.payback}:</td><td class="v" id="o-pay"></td><td>${QT.months}</td></tr>
+  </table>
+
+  <div class="fn">${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
+  <div class="pg">${QT.page} 1/2</div>
+</div>
+
+<div class="sheet">
+  <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  <h1 style="font-size:14px">${QT.terms}</h1>
+  <table class="items">
+    <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.warranty}</th></tr></thead>
+    <tbody>
+      ${row('១','<span class="sec">'+QT.t1+'</span><br>* '+QT.t1a+'<br>'+QT.t1b+'<br>'+QT.t1c+'<br>'+QT.t1d
+             +'<br>* '+QT.t1e+'<br>'+QT.t1f,QT.t1w)}
+      ${row('២','<span class="sec">'+QT.t2+'</span><br>'+QT.t2a+'<br>'+QT.t2b+'<br>'+QT.t2c+'<br>'+QT.t2d,'')}
+    </tbody>
+  </table>
+
+  <p style="margin-top:16px;font-size:10px">${QT.agree}</p>
+  <div class="sign">
+    <div>
+      <div style="margin-bottom:6px">${QT.approved}:</div>
+      <div class="dots"></div>
+      <div>${QT.name}៖ ${qb(140)}</div>
+      <div>${QT.role}៖ ${qb(140)}</div>
+      <div>${QT.company}</div>
+    </div>
+    <div>
+      <div style="margin-bottom:6px">${QT.custSign}</div>
+      <div class="dots"></div>
+      <div>${QT.name} : ${qb(140)}</div>
+      <div>${QT.date} : ${qb(140)}</div>
+    </div>
+  </div>
+  <div class="pg">${QT.page} 2/2</div>
+</div>
+${recalc}
+</body></html>`;
+}
+
 /* ---------------- LEAD DETAIL ---------------- */
 async function openLead(id){
   const [{data:l,error},{data:acts},{data:quots},{data:fin}]=await Promise.all([
@@ -888,6 +1121,7 @@ async function openLead(id){
   const canMoney=isAdmin||ME.role==='manager'||isSales;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
   /* what sales asks first: how old, how stale, what was quoted, what was said */
+  LEADQUOTS=quots||[];
   const lastQuot=(quots||[])[0];
   /* newest first, by the day the contact happened rather than the day it was typed */
   const allRemarks=(acts||[]).filter(a=>a.note).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
@@ -1007,7 +1241,7 @@ async function openLead(id){
 
     ${seeEng?`<div class="section sec-quote"><h4>Quotations (${(quots||[]).length})</h4>
       ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
-        <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
+        <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span><button class="btn-mini" style="margin-top:8px" onclick="printQuote('${q.id}','${l.id}')">Quotation document</button></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
       ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
     </div>`:''}
 
@@ -1451,7 +1685,7 @@ function drawQuots(){
     ?blank('No matches','No quotation fits the current search or dates.')
     :blank('No quotations yet','An engineer releases a quotation from inside a lead, and it is logged here.');return;}
   $('quotwrap').innerHTML=`<table><thead><tr>
-      <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th>
+      <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th><th></th>
     </tr></thead><tbody>`+rows.map(q=>`
       <tr><td class="refid">${esc(q.leads?.ref_id||'—')}</td>
       <td><b>${esc(q.leads?.customer_name||'?')}</b></td>
@@ -1461,7 +1695,8 @@ function drawQuots(){
       <td>${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}</td>
       <td><b>${fmtMoney(q.price_usd)}</b></td>
       <td>${fmtDate(q.released_date)}</td>
-      <td>${esc(staffName(q.provided_by))}</td></tr>`).join('')+`</tbody></table>`;
+      <td>${esc(staffName(q.provided_by))}</td>
+      <td><button class="btn-mini" onclick="printQuote('${q.id}')">Document</button></td></tr>`).join('')+`</tbody></table>`;
 }
 
 /* ---------------- EDC (admin) ----------------
