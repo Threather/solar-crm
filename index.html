@@ -448,6 +448,9 @@ async function boot(){
     $('li-err').textContent='Your account has no active CRM profile. Contact your admin.';
     await sb.auth.signOut();return;
   }
+  /* sales and engineer are one role now. An account still marked engineer in
+     the database behaves as a salesperson until the profile is converted. */
+  if(prof.role==='engineer')prof.role='sales';
   ME=prof;
   const [stg,stf]=await Promise.all([
     sb.from('lead_stages').select('*').eq('is_active',true).order('sort_order'),
@@ -492,10 +495,10 @@ function buildNav(){
     $('nav').innerHTML=`<button id="nav-fin" onclick="go('fin')">Finance</button>`;
     return;
   }
-  const tabs=[['leads', ME.role==='engineer'?'My jobs':'Leads']];
+  const tabs=[['leads','Leads']];
   if(['manager','admin'].includes(ME.role)) tabs.push(['pool','Unassigned']);
   if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
-  if(['engineer','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
+  if(['sales','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
   if(['marketing','manager','admin'].includes(ME.role)) tabs.push(['reports','Reports']);
   if(ME.role==='admin') tabs.push(['edc','EDC']);
   if(canFinance()) tabs.push(['fin','Finance']);
@@ -532,7 +535,6 @@ async function renderLeads(scope){
   $('main').innerHTML=SKEL;
   LEADS=await fetchLeads(q=>{
     if(ME.role==='sales')return q.eq('assigned_to',ME.id);
-    if(ME.role==='engineer')return q.eq('current_engineer_id',ME.id);
     if(ME.role==='site_engineer')return q.eq('site_engineer_id',ME.id);
     /* marketing is left to RLS, which gives them their own leads plus every
        lead not yet handed to sales — the ones they are meant to be working */
@@ -656,7 +658,7 @@ function drawTable(){
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sales'}</th><th>Engineer</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
+    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
@@ -667,7 +669,6 @@ function drawTable(){
       <td>${ME.role==='sales'
         ?(l.last_quot?`<b>${fmtMoney(l.last_quot.price_usd)}</b><span class="days">${fmtDate(l.last_quot.created_at)}</span>`:'—')
         :(l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>')}</td>
-      <td>${l.current_engineer_id?esc(staffName(l.current_engineer_id)):'—'}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
       <td class="nowrap"><b>${daysIn(l.created_at)}d</b> old<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
       ${showRemarks()?`<td class="rem">${remarkStack(l)}</td>`:''}</tr>`;
@@ -868,23 +869,21 @@ async function openLead(id){
   if(error||!l){toast('Could not open lead');return;}
   const isAdmin=ME.role==='admin';
   const isSales=ME.role==='sales'&&l.assigned_to===ME.id;
-  const isEng=ME.role==='engineer'&&l.current_engineer_id===ME.id;
   /* marketing owns their own leads, plus anything still in an early stage */
   const isMkt=ME.role==='marketing'&&(l.created_by===ME.id||EARLY_STAGES.includes(l.stage_code));
   const isSiteEng=ME.role==='site_engineer'&&l.site_engineer_id===ME.id;
   const canAssign=isAdmin||ME.role==='manager';
-  /* the engineering box belongs to engineering again; marketing never sees it */
-  const canEng=isAdmin||isEng;
+  /* sales and engineering are one role now, so the owner does the key-in too */
+  const canEng=isAdmin||isSales;
   const seeEng=ME.role!=='marketing';
   /* stage, follow-up and remarks are the day-to-day, open to whoever works the lead */
-  const canSales=isAdmin||ME.role==='manager'||isSales||isMkt||isEng;
+  const canSales=isAdmin||ME.role==='manager'||isSales||isMkt;
   /* customer identity is marketing's to keep. Sales get one pass at it, then it
      locks; admin can reopen it. */
   const canCustomer=isAdmin||isMkt||(isSales&&!l.customer_locked);
   const custLocked=isSales&&l.customer_locked;
-  /* the database only lets an engineer or admin insert a quotation, so the
-     button follows that rather than the shared key-in rule */
-  const canQuote=isAdmin||isEng;
+  /* matches quotations_insert: the salesperson on the lead, or admin */
+  const canQuote=isAdmin||isSales;
   const canSite=isAdmin||isSiteEng;
   const canMoney=isAdmin||ME.role==='manager'||isSales;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
@@ -904,8 +903,6 @@ async function openLead(id){
   const salesPeople=STAFF.filter(s=>(s.role==='sales'&&s.is_active)||s.id===l.assigned_to);
   const salesOpts=`<option value="">Pool (unassigned)</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
   const PV=l.province||l.city_province||'Phnom Penh';
-  const engPeople=STAFF.filter(s=>(s.role==='engineer'&&s.is_active)||s.id===l.current_engineer_id);
-  const engOpts=`<option value="">None</option>`+engPeople.map(s=>`<option value="${s.id}" ${s.id===l.current_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('');
 
   /* each role opens on the part of the lead that is theirs to fill in */
   const workHtml=canSales?`<div class="section sec-sales"><h4>Working</h4>
@@ -934,8 +931,7 @@ async function openLead(id){
         <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
         <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canCustomer?'':'disabled'}></div>
         <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Quotation Sent onwards."></div>
-        <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
-        <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
+        <div><label>Assigned sale engineer</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
         ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
         ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
@@ -990,7 +986,7 @@ async function openLead(id){
 
     ${custFirst?'':custHtml}
 
-    ${seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.current_engineer_id?('· '+esc(staffName(l.current_engineer_id))):''}${l.original_engineer_id&&l.original_engineer_id!==l.current_engineer_id?(' (original: '+esc(staffName(l.original_engineer_id))+')'):''}</h4>
+    ${seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.assigned_to?('· '+esc(staffName(l.assigned_to))):''}</h4>
       <div class="grid3">
         <div><label>Roof type</label><select id="d-roof" ${canEng?'':'disabled'}>${optList(ROOF_TYPES,l.roof_type)}</select></div>
         <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
@@ -1127,8 +1123,6 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   if(canAssign){
     const a=val('d-assign');
     if(a!==undefined&&a!==(oldAssign||'')){upd.assigned_to=a||null;upd.assigned_at=a?new Date().toISOString():null;}
-    const e=val('d-eng');
-    if(e!==undefined&&e!==(oldEng||''))upd.current_engineer_id=e||null;
   }
   /* the name is the one field that must never be blanked */
   if(upd.customer_name===null){toast('Customer name cannot be empty');return;}
@@ -1150,7 +1144,6 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   if(upd.stage_code&&upd.stage_code!==oldStage)await logActivity(id,'stage_change',oldStage,upd.stage_code,note||null,nd);
   else if(note)await logActivity(id,'note',null,null,note,nd);
   else await logActivity(id,'edit',null,null,null);
-  if(upd.current_engineer_id!==undefined)await logActivity(id,'assigned',null,null,upd.current_engineer_id?('Engineer: '+staffName(upd.current_engineer_id)):'Engineer removed');
 
   toast(newStage===WON&&oldStage!==WON?'Saved. Commissions created for this deal.'
        :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved. This lead is now qualified.'
@@ -1253,7 +1246,7 @@ function exportLeads(){
     l.ref_id,l.customer_name,l.phone,l.customer_type,stageName(l.stage_code),
     l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
-    l.monthly_bill_usd,staffName(l.assigned_to),staffName(l.current_engineer_id),
+    l.monthly_bill_usd,staffName(l.assigned_to),
     l.next_follow_up,qualText(l),
     ...(money?[l.final_sale_usd]:[]),
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
@@ -1270,7 +1263,7 @@ function exportLeads(){
     ['Ref ID','Customer','Phone','Customer type','Stage',
     'Channel','Sub-channel','Event name','Event date',
     'Address','Commune','District','Province','Type of site',
-    'Monthly bill (USD)','Salesperson','Engineer',
+    'Monthly bill (USD)','Sale engineer',
     'Next follow-up','Qualification',
     ...(money?['Final sale (USD)']:[]),
     'Roof type','System type','Ampere & phase','Panel brand','Panel watt','Panel pcs','Panel kWp',
@@ -1779,8 +1772,7 @@ async function renderUsers(){
         <div><label>Staff ID</label><input id="u-staff" placeholder="e.g. ENG001"></div>
         <div><label>Full name</label><input id="u-name"></div>
         <div><label>Role</label><select id="u-role">
-          <option value="marketing">marketing</option><option value="sales">sales</option>
-          <option value="engineer">engineer (quotes)</option>
+          <option value="marketing">marketing</option><option value="sales">sale engineer</option>
           <option value="site_engineer">site_engineer (installation)</option>
           <option value="finance">finance</option>
           <option value="manager">manager</option><option value="admin">admin</option></select></div>
