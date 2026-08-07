@@ -764,7 +764,7 @@ function renderNew(){
         <div><label>Customer type *</label><select id="f-ctype">${optList(CUSTOMER_TYPES,'Residential',false)}</select></div>
         <div><label>Monthly electricity bill (USD)</label><input id="f-bill" type="number" min="0" step="0.01"></div>
         <div><label>Lead channel *</label><select id="f-chan" onchange="subChan()">${optList(Object.keys(CHANNELS),'Digital_Marketing',false)}</select></div>
-        <div><label>Sub-channel</label><select id="f-sub"></select></div>
+        <div><label>Sub-channel *</label><select id="f-sub"></select></div>
       </div>
       <div id="f-refwrap" style="display:none" class="grid2">
         <div><label>Referrer name</label><input id="f-refname"></div>
@@ -776,14 +776,14 @@ function renderNew(){
       </div>
       <div class="grid2">
         <div style="grid-column:1/-1"><label>Site address (home no. &amp; street)</label><input id="f-addr"></div>
-        <div><label>Province / City</label><select id="f-prov" onchange="geoProv()">${optList(PROVINCES,'Phnom Penh',false)}</select></div>
+        <div><label>Province / City</label><select id="f-prov" onchange="geoProv()">${optList(PROVINCES,'')}</select></div>
         <div><label>District</label><select id="f-district" onchange="geoDist()"></select></div>
         <div><label>Commune</label><select id="f-commune"></select></div>
         <div><label>Type of site</label><input id="f-sitetype" placeholder="e.g. 3-Storey House"></div>
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Only the name is required. Add the phone later and a salesperson is assigned automatically. Admin or manager picks the sale engineer. A lead counts as qualified from Telling Price onwards.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a salesperson is assigned automatically. Admin or manager picks the sale engineer. A lead counts as qualified from Quotation Sent onwards.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -807,6 +807,7 @@ function geoDist(){
 async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
   if(!name){toast('Customer name is required');return;}
+  if(!$('f-sub').value){toast('Pick a sub-channel');return;}
   const row={
     customer_name:name,phone:phone||null,
     customer_type:$('f-ctype').value,
@@ -839,15 +840,14 @@ async function createLead(){
 /* installation and BOQ: the site engineer's whole job, so for them it sits
    first and everything else is context they scroll past */
 function siteBox(l,canSite,first){
-  const d=l.boq_status==='Done';
   return `<div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
       <div class="grid3">
         <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
         <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
         <div><label>Installation end</label><input id="d-cend" type="date" value="${l.installation_end||''}" ${canSite?'':'disabled'}></div>
         <div><label>Installation team</label><select id="d-team" ${canSite?'':'disabled'}>${optList(INSTALL_TEAMS,l.installation_team)}</select></div>
-        <div><label>BOQ release</label><select id="d-boq" ${canSite?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
-        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canSite?'':'disabled'} ${d?'':'title="Fill this in once the BOQ is Done"'}></div>
+        <div><label>BOQ release</label><input value="${esc(l.boq_status||'not set yet')}" disabled title="Set by the sale engineer"></div>
+        <div><label>BOQ date</label><input value="${l.boq_date?fmtDate(l.boq_date):'—'}" disabled></div>
         <div style="grid-column:1/-1"><label>Location</label>${l.site_link
           ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
@@ -907,6 +907,53 @@ async function openLead(id){
   const engPeople=STAFF.filter(s=>(s.role==='engineer'&&s.is_active)||s.id===l.current_engineer_id);
   const engOpts=`<option value="">None</option>`+engPeople.map(s=>`<option value="${s.id}" ${s.id===l.current_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('');
 
+  /* each role opens on the part of the lead that is theirs to fill in */
+  const workHtml=canSales?`<div class="section sec-sales"><h4>Working</h4>
+      <div class="grid2">
+        <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
+        <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
+        ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
+          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
+        <div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
+        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
+      </div>
+      <label style="margin-top:10px;display:block">Add remark</label>
+      <div class="noterow">
+        <input id="d-notedate" type="date" value="${localDay(new Date())}" title="The day it happened">
+        <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
+      </div>
+    </div>`:'';
+  const remarkHtml=recentNotes.length?`<div class="recent"><h4>Remarks (${allRemarks.length})</h4>${recentNotes.map(a=>`
+      <div class="r-item"><div class="r-meta">${fmtDate(remarkDate(a))} · ${esc(staffName(a.actor_id))}</div>
+      <div class="r-note">${esc(a.note)}</div></div>`).join('')}
+      ${allRemarks.length>recentNotes.length?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:'';
+  const custHtml=`<div class="section sec-cust"><h4>Customer${custLocked?' · locked':''}</h4>
+      ${custLocked?'<p class="lockmsg">Already corrected once. Ask an admin to reopen it.</p>':''}
+      <div class="grid2">
+        <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
+        <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canCustomer?'':'disabled'}></div>
+        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Quotation Sent onwards."></div>
+        <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
+        <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
+        <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
+        ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
+        ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
+      </div>
+    </div>
+
+    <div class="section sec-addr"><h4>Site</h4>
+      <div class="grid2">
+        <div style="grid-column:1/-1"><label>Address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Province / City</label><select id="d-prov" onchange="dProv()" ${canCustomer?'':'disabled'}>${optList(PROVINCES,PV,false)}</select></div>
+        <div><label>District</label><select id="d-district" onchange="dDist()" ${canCustomer?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
+        <div><label>Commune</label><select id="d-commune" ${canCustomer?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
+        <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canCustomer?'':'disabled'}></div>
+      </div>
+    </div>`;
+  const custFirst=ME.role==='marketing';
+
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
     <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))} · contacted ${contacted}×</div>
@@ -935,50 +982,13 @@ async function openLead(id){
     <div id="tab-detail">
     ${isSiteEng?siteBox(l,canSite,true):''}
 
-    ${canSales?`<div class="section sec-sales"><h4>Working</h4>
-      <div class="grid2">
-        <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
-        <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
-        ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
-          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
-      </div>
-      <label style="margin-top:10px;display:block">Add remark</label>
-      <div class="noterow">
-        <input id="d-notedate" type="date" value="${localDay(new Date())}" title="The day it happened">
-        <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
-      </div>
-    </div>`:''}
+    ${custFirst?custHtml:''}
 
-    ${recentNotes.length?`<div class="recent"><h4>Remarks (${allRemarks.length})</h4>${recentNotes.map(a=>`
-      <div class="r-item"><div class="r-meta">${fmtDate(remarkDate(a))} · ${esc(staffName(a.actor_id))}</div>
-      <div class="r-note">${esc(a.note)}</div></div>`).join('')}
-      ${allRemarks.length>recentNotes.length?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:''}
+    ${workHtml}
 
-    <div class="section sec-cust"><h4>Customer${custLocked?' · locked':''}</h4>
-      ${custLocked?'<p class="lockmsg">Already corrected once. Ask an admin to reopen it.</p>':''}
-      <div class="grid2">
-        <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canCustomer?'':'disabled'}></div>
-        <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
-        <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canCustomer?'':'disabled'}></div>
-        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Quotation Sent onwards."></div>
-        <div><label>Assigned salesperson</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
-        <div><label>Assigned engineer</label><select id="d-eng" ${canAssign?'':'disabled'}>${engOpts}</select></div>
-        <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
-        ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
-        ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
-      </div>
-    </div>
+    ${remarkHtml}
 
-    <div class="section sec-addr"><h4>Site</h4>
-      <div class="grid2">
-        <div style="grid-column:1/-1"><label>Address</label><input id="d-addr" value="${esc(l.site_address||'')}" ${canCustomer?'':'disabled'}></div>
-        <div><label>Province / City</label><select id="d-prov" onchange="dProv()" ${canCustomer?'':'disabled'}>${optList(PROVINCES,PV,false)}</select></div>
-        <div><label>District</label><select id="d-district" onchange="dDist()" ${canCustomer?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
-        <div><label>Commune</label><select id="d-commune" ${canCustomer?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
-        <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canCustomer?'':'disabled'}></div>
-        <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canCustomer?'':'disabled'}></div>
-      </div>
-    </div>
+    ${custFirst?'':custHtml}
 
     ${seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.current_engineer_id?('· '+esc(staffName(l.current_engineer_id))):''}${l.original_engineer_id&&l.original_engineer_id!==l.current_engineer_id?(' (original: '+esc(staffName(l.original_engineer_id))+')'):''}</h4>
       <div class="grid3">
@@ -1007,7 +1017,7 @@ async function openLead(id){
 
     ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false):''}
 
-    ${(isAdmin||isSales)?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
+    ${isAdmin?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
 
     </div>
 
