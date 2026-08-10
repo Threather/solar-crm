@@ -233,7 +233,7 @@ function drawQuots(){
     ?blank('No matches','No quotation fits the current search or dates.')
     :blank('No quotations yet','An engineer releases a quotation from inside a lead, and it is logged here.');return;}
   $('quotwrap').innerHTML=`<table><thead><tr>
-      <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th><th></th>
+      <th>Ref ID</th><th>Customer</th><th>System</th><th>Panels</th><th>Inverter</th><th>Battery</th><th>Price</th><th>Released</th><th>By</th><th>Document</th>
     </tr></thead><tbody>`+rows.map(q=>`
       <tr><td class="refid">${esc(q.leads?.ref_id||'—')}</td>
       <td><b>${esc(q.leads?.customer_name||'?')}</b></td>
@@ -244,5 +244,5 @@ function drawQuots(){
       <td><b>${fmtMoney(q.price_usd)}</b></td>
       <td>${fmtDate(q.released_date)}</td>
       <td>${esc(staffName(q.provided_by))}</td>
-      <td><button class="btn-mini" onclick="printQuote('${q.id}')">Document</button></td></tr>`).join('')+`</tbody></table>`;
+      <td><button class="btn-line" onclick="printQuote('${q.id}')">Document</button></td></tr>`).join('')+`</tbody></table>`;
 }
