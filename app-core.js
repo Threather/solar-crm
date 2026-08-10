@@ -1,0 +1,219 @@
+/* ============================================================
+   SOLAR CRM — frontend v2 (Phase 1)
+   ============================================================ */
+const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
+
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[], FINSCOPE='owing', EDCSCOPE='work';
+/* the Leads tab shows only live work; won and lost have their own tabs */
+let LEADSCOPE='active';
+let FINROWS=[];
+let FILTER={stage:'',q:'',qual:''};
+let QFILTER={q:'',month:'',date:''};
+/* local YYYY-MM-DD, so a late-evening lead in Cambodia isn't filed under tomorrow */
+const localDay=d=>d?new Date(d).toLocaleDateString('sv'):'';
+const monthName=m=>{const[y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleDateString('en-GB',{month:'short',year:'numeric'});};
+
+/* Vocabularies from the client's Excel (Drop Down List sheet) */
+const CHANNELS = {
+  'Digital_Marketing': ['Facebook','Telegram','Tik Tok','Call','Walk-In'],
+  'Third_Party':       ['Staff','Non-Staff'],
+  'Direct_Sales':      [],   /* filled from the active sales staff at render time */
+  'Offline_Marketing': ['Ground Activation']
+};
+const ROOF_TYPES = ['RC Roof/Awning','Zinc Roof','Tile Roof','Ground Mount','Other'];
+const SYSTEM_TYPES = ['On-Grid','Hybrid','Off-Grid'];
+const PHASE_TYPES = ['10A x 1P','20A x 1P','32A x 1P','63A x 1P','32A x 3P','40A x 3P','63A x 3P','100A x 3P'];
+const CUSTOMER_TYPES = ['Residential','C & I'];
+const PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other'];
+const INVERTER_BRANDS = ['Deye','Growatt','Huawei','Sungrow','Solis','Other'];
+const BATTERY_BRANDS = ['Deye','BYD','Pylontech','Growatt','Other'];
+
+/* Cambodia geography comes from geo.js (NCDD official gazetteer):
+   25 provinces, every district, every commune. */
+const GEO = CRM_GEO;
+const PROVINCES = Object.keys(GEO);
+
+const $=id=>document.getElementById(id);
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtMoney=v=>v==null||v===''?'—':'$'+Number(v).toLocaleString(undefined,{maximumFractionDigits:2});
+const fmtDate=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+const fmtDT=d=>d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+const daysIn=d=>Math.floor((Date.now()-new Date(d).getTime())/86400000);
+const staffName=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'—';
+const opt=(v,cur)=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}</option>`;
+const optList=(arr,cur,blank=true)=>(blank?`<option value="">—</option>`:'')+arr.map(v=>opt(v,cur)).join('');
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
+/* a shape where the content will be, rather than the word "Loading" */
+const SKEL=`<div class="skel"><i></i><i></i><i></i><i></i><i></i></div>`;
+/* an empty list should say what would put something in it */
+const blank=(title,why)=>`<div class="empty"><b>${title}</b><span>${why}</span></div>`;
+
+/* warm pills; follow_up is deliberately coral and quotation_sent gold so
+   the two neighbouring stages don't blur together in a long list */
+const STAGE_COLORS={info_gathering:'#eae7dd|#5c574c',telling_price:'#dce6e9|#3d6376',
+pending_quotation:'#e8dfea|#6c4f7b',quotation_sent:'#f5e7c4|#7d6015',follow_up:'#f9d5c7|#b04a2e',
+agreement_signoff:'#dde4da|#4a6b4f',closed_won:'#d9e8dc|#2f6b41',closed_lost:'#f0ddd9|#a8412f'};
+const TERMINAL=['closed_won','closed_lost'];
+const WON='closed_won';
+const LOST='closed_lost';
+/* Qualification follows the stage: a lead is qualified from Quotation sent
+   onwards, and moving it back makes it unqualified again. The one exception
+   is a lost lead, where the current stage tells you nothing — there we fall
+   back to the database column, which records whether it ever got that far. */
+const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
+const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
+const CONTRACT_STATUS=['Not signed','Pending','Signed'];
+const BOQ_STATUS=['Pending','Done'];
+/* a follow-up lands on the same day of the month; February keeps the last day */
+function addMonths(d,n){
+  if(!d)return '';
+  const [y,m,day]=d.split('-').map(Number);
+  const t=new Date(y,m-1+n,1);
+  const last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();
+  t.setDate(Math.min(day,last));
+  return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+}
+/* sale values live in lead_financials, which only these roles can read —
+   this just keeps the interface honest about it */
+const canSeeMoney=()=>['admin','manager','sales'].includes(ME.role);
+const canFinance=()=>['admin','finance'].includes(ME.role);
+
+/* EDC paperwork. Which form applies is decided by the inverter's AC output,
+   not by anyone choosing: 10 kWac or under takes the short form, above it
+   takes the long one. Small systems may be installed before submitting;
+   large ones must be submitted first. */
+/* short header, then the official wording for the tooltip — nobody reads a
+   nine-word column head twice, they learn the position */
+const EDC_SMALL=[['edc_doc_date','Submitted','Document submission date'],
+                 ['edc_inspection_date','Inspection','Inspection date']];
+const EDC_LARGE=[['edc_portal_date','Submitted','Document submission date via web portal'],
+                 ['edc_approval_date','Approval','EDC approval letter received date'],
+                 ['edc_meter_date','Smart meter','Smart meter installation & grid connection date'],
+                 ['edc_provincial_date','Provincial','EDC provincial inspection date'],
+                 ['edc_pp_date','Phnom Penh','EDC Phnom Penh inspection date']];
+const kwac=l=>(Number(l.inverter_kw||0)*Number(l.inverter_pcs||0))||Number(l.inverter_kw_total||0);
+/* three states, not two: EDC applies to on-grid and hybrid, off-grid is
+   genuinely exempt, and a blank system type means nobody has said yet —
+   which must not be silently treated as exempt */
+const edcApplies=l=>l.system_type==='On-Grid'||l.system_type==='Hybrid';
+const edcExempt=l=>l.system_type==='Off-Grid';
+/* null means we cannot tell yet, because the inverter spec is missing */
+const edcFields=l=>!edcApplies(l)||kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LARGE);
+const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;};
+/* marketing keeps ownership of these stages even after a salesperson is
+   assigned — must match the leads_select / leads_update policies */
+const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
+function qualText(l){
+  if(QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
+  if(l.stage_code===LOST)return l.qualification==='qualified'?'Qualified':'Disqualified';
+  return 'Not qualified yet';
+}
+function qualPill(l){
+  const t=qualText(l);
+  if(t==='Qualified')return '<span class="badge b-on">qualified</span>';
+  if(t==='Disqualified')return '<span class="badge b-off">disqualified</span>';
+  return '<span class="days" style="display:inline">not yet</span>';
+}
+function stagePill(code){
+  const st=STAGES.find(s=>s.stage_code===code)||{stage_name:code};
+  const [bg,fg]=(STAGE_COLORS[code]||'#eee|#555').split('|');
+  return `<span class="stagepill" style="background:${bg};color:${fg}">${esc(st.stage_name)}</span>`;
+}
+
+/* ---------------- auth ---------------- */
+async function doLogin(){
+  const btn=$('li-btn');btn.disabled=true;$('li-err').textContent='';
+  const {error}=await sb.auth.signInWithPassword({email:$('li-email').value.trim(),password:$('li-pass').value});
+  btn.disabled=false;
+  if(error){$('li-err').textContent='Sign in failed. Check your email and password.';return;}
+  boot();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+
+async function boot(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){$('login-view').style.display='flex';$('app-view').style.display='none';return;}
+  const {data:prof,error}=await sb.from('profiles').select('*').eq('id',session.user.id).single();
+  if(error||!prof||!prof.is_active){
+    $('li-err').textContent='Your account has no active CRM profile. Contact your admin.';
+    await sb.auth.signOut();return;
+  }
+  /* sales and engineer are one role now. An account still marked engineer in
+     the database behaves as a salesperson until the profile is converted. */
+  if(prof.role==='engineer')prof.role='sales';
+  ME=prof;
+  loadBells();watchBells();
+  setInterval(loadBells,120000);
+  const [stg,stf]=await Promise.all([
+    sb.from('lead_stages').select('*').eq('is_active',true).order('sort_order'),
+    sb.from('profiles').select('id,full_name,staff_id,role,is_active').order('full_name')
+  ]);
+  STAGES=stg.data||[];STAFF=stf.data||[];
+  $('login-view').style.display='none';$('app-view').style.display='block';
+  $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
+  if(ME.role==='site_engineer')LEADSCOPE='won';
+  buildNav();go(ME.role==='finance'?'fin':'leads');followUpToday();
+}
+
+/* Leads whose follow-up date is today. Shown once, at login. */
+async function followUpToday(){
+  if(!['sales','manager','admin'].includes(ME.role))return;
+  const today=new Date().toISOString().slice(0,10);
+  let q=sb.from('leads').select('id,ref_id,customer_name,phone,stage_code')
+    .eq('is_deleted',false).eq('next_follow_up',today);
+  if(ME.role==='sales')q=q.eq('assigned_to',ME.id);
+  const {data}=await q;
+  if(!data||!data.length)return;
+  $('lead-modal').innerHTML=`
+    <h2>Follow up today</h2>
+    <div class="sub">${data.length} lead${data.length>1?'s':''} due for follow-up today.</div>
+    <div class="timeline">${data.map(l=>`
+      <div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
+        <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
+        <div class="t-meta">${esc(l.phone||'no phone')} · ${stagePill(l.stage_code)}</div>
+      </div>`).join('')}</div>
+    <div class="modal-actions"><button class="btn-sun" onclick="closeLead()">Got it</button></div>`;
+  $('lead-overlay').classList.add('open');
+}
+
+function buildNav(){
+  /* the site engineer only ever works won deals, so that is all they get */
+  if(ME.role==='site_engineer'){
+    $('nav').innerHTML=`<button id="nav-leads" onclick="go('leads')">My jobs</button>`;
+    return;
+  }
+  /* finance only ever works won deals and their money */
+  if(ME.role==='finance'){
+    $('nav').innerHTML=`<button id="nav-fin" onclick="go('fin')">Finance</button>`;
+    return;
+  }
+  const tabs=[['leads','Leads']];
+  if(['manager','admin'].includes(ME.role)) tabs.push(['pool','Unassigned']);
+  if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
+  if(['sales','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
+  if(['marketing','manager','admin'].includes(ME.role)) tabs.push(['reports','Reports']);
+  if(ME.role==='admin') tabs.push(['edc','EDC']);
+  if(canFinance()) tabs.push(['fin','Finance']);
+  tabs.push(['comm','Commissions']);
+  if(ME.role==='admin') tabs.push(['users','Users']);
+  $('nav').innerHTML=tabs.map(([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">${l}</button>`).join('');
+}
+function go(v){
+  VIEW=v;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  const nb=$('nav-'+v);if(nb)nb.classList.add('active');
+  /* Leads keeps whichever slice you were last looking at, so closing a won
+     deal drops you back on Won rather than bouncing you to Active */
+  ({leads:()=>renderLeads(LEADSCOPE),
+    pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
+    edc:renderEdc,fin:renderFinance,comm:renderComm,users:renderUsers}[v])();
+}
+
+/* ---------------- data ---------------- */
+async function fetchLeads(extra){
+  let q=sb.from('leads').select('*').eq('is_deleted',false).order('created_at',{ascending:false});
+  if(extra)q=extra(q);
+  const {data,error}=await q;
+  if(error){toast('Could not load leads');console.error(error);return[];}
+  return data||[];
+}
