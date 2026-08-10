@@ -173,7 +173,8 @@ tr.rowlink:hover{background:var(--card-alt)}
 .sec-addr{border-left-color:var(--own-site)}     .sec-addr h4{color:var(--own-site)}
 .sec-eng{border-left-color:var(--own-eng)}       .sec-eng h4{color:var(--own-eng)}
 .sec-install{border-left-color:var(--own-install)} .sec-install h4{color:var(--own-install)}
-.sec-quote{border-left-color:var(--sky)}         .sec-quote h4{color:var(--sky)}
+.sec-quote{border-left-color:var(--sky)}
+.sec-edc{border-left-color:var(--own-edc)}       .sec-edc h4{color:var(--own-edc)}         .sec-quote h4{color:var(--sky)}
 .sec-fin{border-left-color:var(--own-fin)}       .sec-fin h4{color:var(--own-fin)}
 
 .timeline{border-left:1px solid var(--line);margin:14px 0 0 8px;padding-left:20px}
@@ -192,6 +193,31 @@ tr.rowlink:hover{background:var(--card-alt)}
   font-size:var(--t-meta);color:var(--ink-soft)}
 .leadbar .facts b{color:var(--ink);font-weight:600}
 .leadbar .barbtns{display:flex;gap:8px;align-items:center}
+/* the bell is the only thing in the app that interrupts you, so it stays quiet
+   until it has something, and it only shouts with a count */
+.bell{position:relative;background:transparent;color:#b8b2a7;font-size:15px;
+  padding:6px 9px;border-radius:var(--r-sm)}
+.bell:hover{background:rgba(255,255,255,.08);color:#fff}
+.bell span{position:absolute;top:0;right:0;min-width:16px;height:16px;padding:0 4px;
+  border-radius:99px;background:var(--sun);color:#fff;font-size:10px;font-weight:700;
+  line-height:16px;display:none}
+.bell span.on{display:block}
+.bell-item{padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.bell-item:last-child{border-bottom:0}
+/* the worklist stays the focus; the record of what was submitted sits beside it */
+.edc-split{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start}
+.edc-side{background:var(--card-alt);border-radius:var(--r);padding:14px;
+  border-left:3px solid var(--own-edc)}
+.edc-card{background:var(--card);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:8px;
+  cursor:pointer;box-shadow:var(--lift)}
+.edc-card:hover{box-shadow:var(--lift-2)}
+.edc-card b{font-size:var(--t-body)}
+.edc-steps{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap}
+.edc-steps span{font-size:9px;padding:2px 5px;border-radius:99px;background:var(--sunk);color:var(--ink-mute)}
+.edc-steps span.ok{background:var(--own-edc);color:#fff}
+@media(max-width:1100px){.edc-split{grid-template-columns:1fr}}
+.bell-item b{display:block;font-size:var(--t-body)}
+.bell-item span{font-size:var(--t-cap);color:var(--ink-mute)}
 /* one control, two states: slide it to edit, slide it back to lock */
 .switch{width:44px;height:26px;border-radius:99px;background:var(--ink-mute);
   position:relative;cursor:pointer;flex:none;transition:background .18s var(--ease)}
@@ -298,6 +324,7 @@ td.nowrap{white-space:nowrap}
   <header>
     <div class="brand"><span class="dot"></span>Solar CRM</div>
     <nav id="nav"></nav>
+    <button class="bell" id="bell" onclick="openBells()" title="Notifications">🔔<span id="bell-n"></span></button>
     <div class="who" id="who"></div>
     <button class="btn-ghost" onclick="doLogout()">Sign out</button>
   </header>
@@ -313,7 +340,7 @@ td.nowrap{white-space:nowrap}
    ============================================================ */
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
-let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[];
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[], FINSCOPE='owing';
 /* the Leads tab shows only live work; won and lost have their own tabs */
 let LEADSCOPE='active';
 let FINROWS=[];
@@ -370,7 +397,7 @@ const LOST='closed_lost';
    onwards, and moving it back makes it unqualified again. The one exception
    is a lost lead, where the current stage tells you nothing — there we fall
    back to the database column, which records whether it ever got that far. */
-const QUALIFIED_STAGES=['quotation_sent','follow_up','agreement_signoff','closed_won'];
+const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
 const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
 const BOQ_STATUS=['Pending','Done'];
@@ -452,6 +479,8 @@ async function boot(){
      the database behaves as a salesperson until the profile is converted. */
   if(prof.role==='engineer')prof.role='sales';
   ME=prof;
+  loadBells();
+  setInterval(loadBells,120000);
   const [stg,stf]=await Promise.all([
     sb.from('lead_stages').select('*').eq('is_active',true).order('sort_order'),
     sb.from('profiles').select('id,full_name,staff_id,role,is_active').order('full_name')
@@ -784,7 +813,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a salesperson is assigned automatically. Admin or manager picks the sale engineer. A lead counts as qualified from Quotation Sent onwards.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a salesperson is assigned automatically. Admin or manager picks the sale engineer. A lead counts as qualified from Telling Price onwards.</p>
     </div>`;
   subChan(); geoProv();
 }
@@ -840,7 +869,7 @@ async function createLead(){
 
 /* installation and BOQ: the site engineer's whole job, so for them it sits
    first and everything else is context they scroll past */
-function siteBox(l,canSite,first){
+function siteBox(l,canSite,first,isAdmin){
   return `<div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
       <div class="grid3">
         <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
@@ -849,6 +878,8 @@ function siteBox(l,canSite,first){
         <div><label>Installation team</label><select id="d-team" ${canSite?'':'disabled'}>${optList(INSTALL_TEAMS,l.installation_team)}</select></div>
         <div><label>BOQ release</label><input value="${esc(l.boq_status||'not set yet')}" disabled title="Set by the sale engineer"></div>
         <div><label>BOQ date</label><input value="${l.boq_date?fmtDate(l.boq_date):'—'}" disabled></div>
+        <div><label>Arrived at the customer</label><input value="${l.delivery_confirmed_at?fmtDT(l.delivery_confirmed_at):'not confirmed'}" disabled></div>
+        <div style="align-self:end">${(isAdmin&&!l.delivery_confirmed_at)?`<button class="btn-line" onclick="confirmArrived('${l.id}',${JSON.stringify(l.customer_name||'')})">Confirm it arrived</button>`:''}</div>
         <div style="grid-column:1/-1"><label>Location</label>${l.site_link
           ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
@@ -856,6 +887,38 @@ function siteBox(l,canSite,first){
       </div>
     </div>`;
 }
+
+/* ---------------- NOTIFICATIONS ----------------
+   Everyone in the company sees the same feed. What each person has already
+   read is kept in their own browser, because letting a user write to their own
+   profile row to store it would also let them change their own role. */
+let BELLS=[];
+const bellSeen=()=>localStorage.getItem('crm-bell-seen')||'1970-01-01';
+async function loadBells(){
+  const {data}=await sb.from('notifications').select('*').order('created_at',{ascending:false}).limit(40);
+  BELLS=data||[];
+  const n=BELLS.filter(b=>b.created_at>bellSeen()).length;
+  const dot=$('bell-n');
+  if(dot){dot.textContent=n>9?'9+':n;dot.classList.toggle('on',n>0);}
+}
+async function notify(kind,leadId,message){
+  await sb.from('notifications').insert({kind,lead_id:leadId,message,created_by:ME.id});
+}
+function openBells(){
+  localStorage.setItem('crm-bell-seen',new Date().toISOString());
+  const dot=$('bell-n'); if(dot)dot.classList.remove('on');
+  $('lead-modal').innerHTML=`
+    <h2>Notifications</h2>
+    <div class="sub">${BELLS.length} most recent, newest first.</div>
+    ${BELLS.length?BELLS.map(b=>`<div class="bell-item">
+      <b>${esc(b.message)}</b>
+      <span>${fmtDT(b.created_at)} · ${esc(staffName(b.created_by))}</span>
+      ${b.lead_id?`<button class="btn-mini" style="margin-top:6px" onclick="closeLead();openLead('${b.lead_id}')">Open the lead</button>`:''}
+    </div>`).join(''):blank('Nothing yet','Wins and deliveries appear here for everyone.')}
+    <div class="modal-actions"><button class="btn-line" onclick="closeLead()">Close</button></div>`;
+  $('lead-overlay').classList.add('open');
+}
+
 /* ---------------- QUOTATION DOCUMENT ----------------
    Khmer taken from the client's own workbook, so it is their wording, not a
    translation. Every string lives here: corrections are one edit, not thirty.
@@ -1013,10 +1076,10 @@ function quoteHtml(q,l,c){
 </style></head><body>
 <div class="bar">
   <button onclick="window.print()">Print / Save as PDF</button>
-  <span style="font-size:11px;color:#555;align-self:center">Yellow boxes are editable. Fill them in, then print.</span>
+  <span style="font-size:11px;color:#555;align-self:center">Every line can be edited. Yellow marks what changes on each quotation.</span>
 </div>
 
-<div class="sheet">
+<div class="sheet" contenteditable="true">
   <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
   <h1>${QT.title}</h1>
 
@@ -1053,7 +1116,7 @@ function quoteHtml(q,l,c){
              (q.inverter_pcs||'')+' '+QT.unitPiece)}
       ${row('',QT.s2c
              +'<br>* '+QT.model+' : '+qb(170,q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
-             +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh||'')+' kWh',
+             +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh',
              (q.battery_pcs||'')+' '+QT.unitPiece)}
       ${row('',QT.s2d+'<br>* '+QT.mount1+'<br>* '+QT.mount2+'<br>* '+QT.mount3+'<br>* '+QT.mount4+'<br>* '+QT.mount5,
              qb(60,'1 '+QT.unitSet))}
@@ -1086,7 +1149,7 @@ function quoteHtml(q,l,c){
   <div class="pg">${QT.page} 1/2</div>
 </div>
 
-<div class="sheet">
+<div class="sheet" contenteditable="true">
   <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
   <h1 style="font-size:14px">${QT.terms}</h1>
   <table class="items">
@@ -1195,7 +1258,7 @@ async function openLead(id){
         <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canCustomer?'':'disabled'}></div>
         <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
         <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canCustomer?'':'disabled'}></div>
-        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Quotation Sent onwards."></div>
+        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>
         <div><label>Assigned sale engineer</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
         ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
@@ -1241,7 +1304,7 @@ async function openLead(id){
     </div>
 
     <div id="tab-detail">
-    ${isSiteEng?siteBox(l,canSite,true):''}
+    ${isSiteEng?siteBox(l,canSite,true,isAdmin):''}
 
     ${custFirst?custHtml:''}
 
@@ -1264,8 +1327,9 @@ async function openLead(id){
         <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
         <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
         <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
-        <div><label>Battery (pcs)</label><input id="d-bpcs" type="number" step="1" value="${l.battery_pcs??''}" ${canEng?'':'disabled'}></div>
-        <div><label>Battery (kWh)</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" ${canEng?'':'disabled'}></div>
+        <div><label>Battery (kWh each)</label><input id="d-beach" type="number" step="0.01" value="${l.battery_kwh_each??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
+        <div><label>Battery (pcs)</label><input id="d-bpcs" type="number" step="1" value="${l.battery_pcs??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
+        <div><label>Battery total (kWh), auto</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" readonly title="kWh each x pcs"></div>
         <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
       </div>
     </div>`:''}
@@ -1276,7 +1340,7 @@ async function openLead(id){
       ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
     </div>`:''}
 
-    ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false):''}
+    ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false,isAdmin):''}
 
     ${isAdmin?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
 
@@ -1329,6 +1393,8 @@ document.addEventListener('keydown',e=>{
 /* panel kWp = watt × pcs ÷ 1000 */
 function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(2):'';}
 function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
+/* battery total is each x pcs, the same shape as the inverter */
+function dBatt(){const n=(Number($('d-beach').value)||0)*(Number($('d-bpcs').value)||0);$('d-batt').value=n?n.toFixed(2):'';}
 function qKwp(){$('q-kwp').value=kwp($('q-pwatt').value,$('q-pcs').value);}
 /* inverters are quoted in kW each, so the total is a plain multiply */
 function dProv(){
@@ -1360,7 +1426,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
            roof_type:'d-roof',system_type:'d-sys',phase_type:'d-phase',panel_pcs:'d-pcs',
            panel_watt:'d-pwatt',panel_brand:'d-pbrand',inverter_kw:'d-inv',inverter_pcs:'d-ipcs',
            inverter_brand:'d-ibrand',
-           battery_kwh:'d-batt',battery_brand:'d-bbrand',battery_pcs:'d-bpcs',
+           battery_brand:'d-bbrand',battery_pcs:'d-bpcs',battery_kwh_each:'d-beach',
            site_link:'d-sitelink',
            delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
            installation_team:'d-team',site_notes:'d-sitenotes',
@@ -1369,6 +1435,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
   /* panel kWp is derived, and its input is readonly so val() skips it */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
+  const bt=$('d-batt'); if(bt&&$('d-beach')&&!$('d-beach').disabled)upd.battery_kwh=bt.value||null;
   /* the inverter total has no box any more, but EDC still needs the number */
   if(upd.inverter_kw!==undefined||upd.inverter_pcs!==undefined){
     const t=(Number(upd.inverter_kw??0)||0)*(Number(upd.inverter_pcs??0)||0);
@@ -1410,8 +1477,12 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   else if(note)await logActivity(id,'note',null,null,note,nd);
   else await logActivity(id,'edit',null,null,null);
 
+  if(newStage===WON&&oldStage!==WON){
+    const who=$('d-name')?$('d-name').value:'a customer';
+    await notify('won',id,`Deal won: ${who}, by ${staffName(ME.id)}`);
+  }
   toast(newStage===WON&&oldStage!==WON?'Saved. Commissions created for this deal.'
-       :upd.stage_code==='quotation_sent'&&oldStage!=='quotation_sent'?'Saved. This lead is now qualified.'
+       :upd.stage_code==='telling_price'&&oldStage!=='telling_price'?'Saved. This lead is now qualified.'
        :'Saved');
   /* saving is not leaving: the lead stays open, locked, showing what was saved */
   go(VIEW);
@@ -1744,6 +1815,9 @@ async function renderEdc(){
      the system type, or there is no inverter total to give a kWac */
   const pending=rows.filter(l=>!edcExempt(l)&&!edcFields(l));
   const outstanding=[...small,...large].filter(l=>edcDone(l)<edcFields(l).length);
+  /* anything with at least one date filled in, kept as a record to look back on */
+  const started=[...small,...large].filter(l=>edcDone(l)>0)
+    .sort((a,b)=>edcDone(b)/edcFields(b).length-edcDone(a)/edcFields(a).length);
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">EDC approval letter</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
@@ -1753,8 +1827,24 @@ async function renderEdc(){
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
     </div>
-    ${edcTable('Inverter ≤ 10 kWac',small,EDC_SMALL)}
-    ${edcTable('Inverter &gt; 10 kWac',large,EDC_LARGE)}
+    <div class="edc-split">
+      <div>
+        ${edcTable('Inverter ≤ 10 kWac',small,EDC_SMALL)}
+        ${edcTable('Inverter &gt; 10 kWac',large,EDC_LARGE)}
+      </div>
+      <aside class="edc-side">
+        <h3 style="font-size:15px;margin:0 0 6px">Submitted (${started.length})</h3>
+        <p style="color:var(--ink-soft);font-size:12px;margin-bottom:10px">Anything with at least one EDC date recorded. Open one to see its full history.</p>
+        ${started.length?started.map(l=>{
+          const fl=edcFields(l),d=edcDone(l);
+          return `<div class="edc-card" onclick="edcReview('${l.id}')">
+            <b>${esc(l.customer_name)}</b><span class="refid">${esc(l.ref_id||'')}</span>
+            <div class="days">${d} of ${fl.length} steps · ${esc(staffName(l.assigned_to))}</div>
+            <div class="edc-steps">${fl.map(([k,short])=>`<span class="${l[k]?'ok':''}" title="${short}${l[k]?': '+fmtDate(l[k]):''}">${short}</span>`).join('')}</div>
+          </div>`;}).join('')
+        :blank('Nothing submitted yet','A deal appears here as soon as its first EDC date is recorded.')}
+      </aside>
+    </div>
     ${pending.length?`<h3 style="font-size:15px;margin:0 0 6px">Missing information (${pending.length})</h3>
       <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">Not placed yet. The sale engineer needs to finish the spec.</p>
       <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Missing</th><th>Salesperson</th><th>Won</th></tr></thead><tbody>`
@@ -1764,6 +1854,53 @@ async function renderEdc(){
         <td>${esc(staffName(l.assigned_to))}</td><td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')
       +`</tbody></table></div>`:''}`;
 }
+
+/* a submitted EDC file, with every date and the lead's own history beside it */
+async function edcReview(id){
+  const [{data:l},{data:acts}]=await Promise.all([
+    sb.from('leads').select('*').eq('id',id).single(),
+    sb.from('lead_activities').select('*').eq('lead_id',id).order('created_at',{ascending:false})
+  ]);
+  if(!l){toast('Could not open it');return;}
+  const fl=edcFields(l)||[];
+  $('lead-modal').innerHTML=`
+    <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
+    <div class="sub">${esc(sysLine(l))} · won ${fmtDate(l.stage_entered_at)} · ${esc(staffName(l.assigned_to))}</div>
+
+    <div class="section sec-edc"><h4>EDC steps</h4>
+      <div class="grid2">
+        ${fl.map(([k,short,full])=>`<div><label title="${esc(full)}">${short}</label>
+          <input value="${l[k]?fmtDate(l[k]):'not yet'}" disabled></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="section sec-install"><h4>Installation</h4>
+      <div class="grid3">
+        <div><label>Delivery</label><input value="${l.delivery_date?fmtDate(l.delivery_date):'not set'}" disabled></div>
+        <div><label>Install start</label><input value="${l.installation_start?fmtDate(l.installation_start):'not set'}" disabled></div>
+        <div><label>Install end</label><input value="${l.installation_end?fmtDate(l.installation_end):'not set'}" disabled></div>
+        <div><label>Team</label><input value="${esc(l.installation_team||'not set')}" disabled></div>
+        <div><label>BOQ</label><input value="${esc(l.boq_status||'not set')}" disabled></div>
+        <div><label>BOQ date</label><input value="${l.boq_date?fmtDate(l.boq_date):'—'}" disabled></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-line" onclick="closeLead();openLead('${l.id}')">Open the full lead</button>
+      <button class="btn-line" onclick="closeLead()">Close</button>
+    </div>
+
+    <h3 style="margin-top:22px;font-size:15px">History</h3>
+    <div class="timeline">${(acts||[]).map(a=>`
+      <div class="tl-item">
+        <div class="t-head">${esc(a.activity_type==='stage_change'?`Stage: ${a.from_stage||'—'} → ${a.to_stage}`:a.activity_type)}</div>
+        <div class="t-meta">${a.note_date?fmtDate(a.note_date)+' · ':''}${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
+        ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
+      </div>`).join('')||blank('No history yet','Nothing has been recorded on this lead.')}
+    </div>`;
+  $('lead-overlay').classList.add('open');
+}
+
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
     <div class="empty" style="margin-bottom:22px"><b>Nothing in this band</b><span>Won deals land here once their inverter total puts them in this size.</span></div>`;
@@ -1827,6 +1964,10 @@ async function renderFinance(){
       <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
     </div>
     <div class="toolbar">
+      <div class="scope">
+        <button class="${FINSCOPE==='owing'?'on':''}" onclick="setFinScope('owing')">Still owing</button>
+        <button class="${FINSCOPE==='paid'?'on':''}" onclick="setFinScope('paid')">Paid in full</button>
+      </div>
       <input placeholder="Search customer or ref ID…" oninput="FILTER.q=this.value;drawFinance()" value="${esc(FILTER.q||'')}">
       <button class="btn-line" onclick="FILTER.q='';renderFinance()">Clear</button>
       <span class="spacer"></span>
@@ -1835,16 +1976,21 @@ async function renderFinance(){
     <div class="tablewrap" id="finwrap"></div>`;
   drawFinance();
 }
+/* a deal that owes nothing is finished work, not today's work */
+const finSettled=r=>finDue(r)>0&&finDue(r)-finPaid(r)<=0;
 function filteredFin(){
-  if(!FILTER.q)return FINROWS;
-  const s=FILTER.q.toLowerCase();
-  return FINROWS.filter(r=>(r.customer_name||'').toLowerCase().includes(s)||(r.ref_id||'').toLowerCase().includes(s));
+  let rows=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
+  if(FILTER.q){const s=FILTER.q.toLowerCase();
+    rows=rows.filter(r=>(r.customer_name||'').toLowerCase().includes(s)||(r.ref_id||'').toLowerCase().includes(s));}
+  return rows;
 }
+function setFinScope(v){FINSCOPE=v;renderFinance();}
 function drawFinance(){
   const rows=filteredFin();
-  if(!rows.length){$('finwrap').innerHTML=FINROWS.length
+  if(!rows.length){$('finwrap').innerHTML=FILTER.q
     ?blank('No matches','No deal fits the current search.')
-    :blank('No won deals yet','Contracts and payments can be recorded here once a deal is closed.');return;}
+    :FINSCOPE==='paid'?blank('Nothing settled yet','Deals move here once the balance reaches zero.')
+    :blank('Nothing outstanding','Every won deal has been paid in full.');return;}
   $('finwrap').innerHTML=`<table><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Won</th><th>Received</th><th>Salesperson</th>
     <th>Channel</th><th>System</th><th>Sale value</th><th>Contract</th><th>Status</th>
@@ -1911,6 +2057,13 @@ function openFinance(id){
       <div class="modal-actions"><button class="btn-line" onclick="addPayment('${r.id}')">Add payment</button></div>
     </div>
 
+    <div class="section sec-fin"><h4>Delivery</h4>
+      <div class="grid2">
+        <div><label>Planned by the site engineer</label><input value="${r.delivery_date?fmtDate(r.delivery_date):'not set'}" disabled></div>
+        <div><label>Arrived at the customer</label><input value="${r.delivery_confirmed_at?fmtDT(r.delivery_confirmed_at):'not confirmed by admin yet'}" disabled></div>
+      </div>
+    </div>
+
     <div class="section sec-fin"><h4>Next follow-up</h4>
       <div class="grid3">
         <div><label>Date</label><input id="f-follow" type="date" value="${f.follow_up_date||''}"></div>
@@ -1942,6 +2095,14 @@ async function saveFinance(id){
   const {error}=await sb.from('lead_finance').upsert(row,{onConflict:'lead_id'});
   if(error){toast('Could not save the contract');console.error(error);return;}
   toast('Contract saved');closeLead();renderFinance();
+}
+/* admin confirms the goods reached the customer, and everyone hears about it */
+async function confirmArrived(id,name){
+  const {error}=await sb.from('leads').update({delivery_confirmed_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Could not confirm it');console.error(error);return;}
+  await notify('delivered',id,`Delivered: ${name||'a customer'} received their system`);
+  await logActivity(id,'edit',null,null,'Delivery confirmed as arrived');
+  toast('Delivery confirmed');closeLead();go(VIEW);
 }
 /* the customer paid ahead, so this month's follow-up is not needed */
 async function skipFollowUp(id){
