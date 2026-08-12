@@ -126,7 +126,7 @@ function edcTable(title,rows,fields){
 }
 async function setEdcDate(id,col,v){
   const {error}=await sb.from('leads').update({[col]:v||null}).eq('id',id);
-  if(error){toast('Could not save that date');console.error(error);return;}
+  if(error){toast('Could not save that date. '+why(error));console.error(error);return;}
   await logActivity(id,'edit',null,null,'EDC '+col.replace(/^edc_/,'').replace(/_/g,' ')+': '+(v||'cleared'));
   toast('Saved');
 }

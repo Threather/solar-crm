@@ -279,7 +279,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
 
   if(Object.keys(upd).length){
     const {error}=await sb.from('leads').update(upd).eq('id',id);
-    if(error){toast('Save failed');console.error(error);return;}
+    if(error){toast('Save failed. '+why(error));console.error(error);return;}
   }
   if(sale!==undefined){
     const {error}=await sb.from('lead_financials')
@@ -362,7 +362,7 @@ async function addQuot(leadId){
     battery_pcs:$('q-bpcs').value||null,
     battery_kwh:$('q-batt').value.trim()||null,battery_brand:$('q-bbrand').value||null
   });
-  if(error){toast('Could not save quotation');console.error(error);return;}
+  if(error){toast('Could not save quotation. '+why(error));console.error(error);return;}
   await logActivity(leadId,'note',null,null,'Quotation released: $'+price);
   toast('Quotation saved');openLead(leadId);
 }

@@ -34,6 +34,16 @@ const GEO = CRM_GEO;
 const PROVINCES = Object.keys(GEO);
 
 const $=id=>document.getElementById(id);
+/* a failed write should say what the database actually objected to, not
+   leave someone guessing at a friendly sentence */
+function why(e){
+  if(!e)return '';
+  const m=e.message||'';
+  if(e.code==='42703')return 'A column is missing from the database.';
+  if(e.code==='23505')return 'That already exists.';
+  if(e.code==='42501'||/row-level security/i.test(m))return 'Your role is not allowed to do that.';
+  return m.slice(0,90);
+}
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtMoney=v=>v==null||v===''?'—':'$'+Number(v).toLocaleString(undefined,{maximumFractionDigits:2});
 const fmtDate=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';

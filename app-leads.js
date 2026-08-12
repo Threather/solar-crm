@@ -302,7 +302,7 @@ async function createLead(){
     row.event_date=$('f-eventdate').value||null;
   }
   const {data,error}=await sb.from('leads').insert(row).select().single();
-  if(error){toast('Create failed');console.error(error);return;}
+  if(error){toast('Create failed. '+why(error));console.error(error);return;}
   await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
   toast((data.ref_id?'Lead '+data.ref_id+' created':'Lead created')
     +(data.assigned_to?', assigned to '+staffName(data.assigned_to)

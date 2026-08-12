@@ -168,7 +168,7 @@ async function saveFinance(id){
     follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
   const {error}=await sb.from('lead_finance').upsert(row,{onConflict:'lead_id'});
-  if(error){toast('Could not save the contract');console.error(error);return;}
+  if(error){toast('Could not save the contract. '+why(error));console.error(error);return;}
   toast('Contract saved');closeLead();renderFinance();
 }
 /* admin confirms the goods reached the customer, and everyone hears about it */
@@ -195,7 +195,7 @@ async function addPayment(id){
   const {error}=await sb.from('lead_payments').insert({lead_id:id,
     paid_on:$('p-date').value||null,amount_usd:amt,
     note:$('p-note').value.trim()||null,created_by:ME.id});
-  if(error){toast('Could not add the payment');console.error(error);return;}
+  if(error){toast('Could not add the payment. '+why(error));console.error(error);return;}
   /* this month is settled, so the follow-up rolls to the same day next month */
   const cur=$('f-follow')?$('f-follow').value:'';
   if(cur)await sb.from('lead_finance')
