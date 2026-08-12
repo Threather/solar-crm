@@ -159,10 +159,10 @@ async function boot(){
     sb.from('profiles').select('id,full_name,staff_id,role,is_active').order('full_name')
   ]);
   STAGES=stg.data||[];STAFF=stf.data||[];
-  $('login-view').style.display='none';$('app-view').style.display='block';
+  $('login-view').style.display='none';$('app-view').style.display='flex';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
   if(ME.role==='site_engineer')LEADSCOPE='won';
-  buildNav();go(ME.role==='finance'?'fin':'leads');followUpToday();
+  buildNav();go('home');followUpToday();
 }
 
 /* Leads whose follow-up date is today. Shown once, at login. */
@@ -186,35 +186,58 @@ async function followUpToday(){
   $('lead-overlay').classList.add('open');
 }
 
+/* 16px stroke glyphs, inline so the app keeps its one-request, no-dependency
+   shape. Drawn at 24 and scaled by the stylesheet. */
+const ICON={
+  home:'M3 11l9-7 9 7v8a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
+  leads:'M3 20v-1a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v1M11 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7M17 13a4 4 0 0 1 4 4v1',
+  pool:'M4 6h16v12H4zM4 10h16M9 6v12',
+  new:'M12 5v14M5 12h14',
+  quots:'M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h4',
+  reports:'M4 20V11M10 20V4M16 20v-6M21 20H3',
+  edc:'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
+  fin:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
+  comm:'M12 3l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9L9.5 8z',
+  users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1'
+};
+const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
+  +`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]||ICON.home}"/></svg>${l}</button>`;
+/* Grouped rather than folded away. Nesting would cost the four-item roles a
+   click to save the nine-item one some room, which is the wrong trade. */
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=`<button id="nav-leads" onclick="go('leads')">My jobs</button>`;
+    $('nav').innerHTML=[['home','Today'],['leads','My jobs']].map(navBtn).join('');
     return;
   }
   /* finance only ever works won deals and their money */
   if(ME.role==='finance'){
-    $('nav').innerHTML=`<button id="nav-fin" onclick="go('fin')">Finance</button>`;
+    $('nav').innerHTML=[['home','Today'],['fin','Finance']].map(navBtn).join('');
     return;
   }
-  const tabs=[['leads','Leads']];
-  if(['manager','admin'].includes(ME.role)) tabs.push(['pool','Unassigned']);
-  if(['marketing','sales','admin'].includes(ME.role)) tabs.push(['new','New lead']);
-  if(['sales','manager','admin'].includes(ME.role)) tabs.push(['quots','Quotations']);
-  if(['marketing','manager','admin'].includes(ME.role)) tabs.push(['reports','Reports']);
-  if(ME.role==='admin') tabs.push(['edc','EDC']);
-  if(canFinance()) tabs.push(['fin','Finance']);
-  tabs.push(['comm','Commissions']);
-  if(ME.role==='admin') tabs.push(['users','Users']);
-  $('nav').innerHTML=tabs.map(([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">${l}</button>`).join('');
+  const work=[['home','Today'],['leads','Leads']];
+  if(['manager','admin'].includes(ME.role)) work.push(['pool','Unassigned']);
+  if(['marketing','sales','admin'].includes(ME.role)) work.push(['new','New lead']);
+  const money=[];
+  if(['sales','manager','admin'].includes(ME.role)) money.push(['quots','Quotations']);
+  if(canFinance()) money.push(['fin','Finance']);
+  money.push(['comm','Commissions']);
+  const admin=[];
+  if(ME.role==='admin') admin.push(['edc','EDC']);
+  if(['marketing','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
+  if(ME.role==='admin') admin.push(['users','Users']);
+  const group=(label,items)=>items.length
+    ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
+  $('nav').innerHTML=group('Work',work)+group('Money',money)+group('Company',admin);
 }
 function go(v){
   VIEW=v;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
+  const crumb=$('crumb');if(crumb)crumb.textContent=nb?nb.textContent.trim():'';
   /* Leads keeps whichever slice you were last looking at, so closing a won
      deal drops you back on Won rather than bouncing you to Active */
-  ({leads:()=>renderLeads(LEADSCOPE),
+  ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,comm:renderComm,users:renderUsers}[v])();
 }

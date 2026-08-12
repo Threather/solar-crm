@@ -29,14 +29,21 @@
 </div>
 
 <div id="app-view">
-  <header>
+  <aside id="side">
     <div class="brand"><span class="dot"></span>Solar CRM</div>
     <nav id="nav"></nav>
-    <button class="bell" id="bell" onclick="openBells()" title="Notifications">🔔<span id="bell-n"></span></button>
-    <div class="who" id="who"></div>
-    <button class="btn-ghost" onclick="doLogout()">Sign out</button>
-  </header>
-  <main id="main"></main>
+    <div class="sidefoot">
+      <div class="who" id="who"></div>
+      <button class="btn-ghost" onclick="doLogout()">Sign out</button>
+    </div>
+  </aside>
+  <div class="shell">
+    <div class="topbar">
+      <div class="crumb" id="crumb"></div>
+      <button class="bell" id="bell" onclick="openBells()" title="Notifications">🔔<span id="bell-n"></span></button>
+    </div>
+    <main id="main"></main>
+  </div>
 </div>
 
 <div class="overlay" id="lead-overlay"><div class="modal" id="lead-modal"></div></div>
@@ -44,6 +51,7 @@
 <div class="pop" id="pop"></div>
 
 <script src="app-core.js"></script>
+<script src="app-home.js"></script>
 <script src="app-leads.js"></script>
 <script src="app-notify.js"></script>
 <script src="app-quotation.js"></script>
