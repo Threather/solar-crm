@@ -92,9 +92,10 @@ async function openLead(id){
       </div>
     </div>`;
   const custFirst=ME.role==='marketing';
-  /* Since the key-in box became where quotations are built, it is a working
-     surface for whoever can price one, and it rises to meet them. For everyone
-     else it is reference and stays where it was. */
+  /* The sale engineer and the salesperson are the same person here, and the
+     key-in box is what they open a lead to do: build the spec and price it.
+     So it goes first for anyone who can quote, ahead of the Working box.
+     For everyone else it is reference and stays at the bottom. */
   const engFirst=canQuote;
   const engHtml=seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.assigned_to?('· '+esc(staffName(l.assigned_to))):''}</h4>
       <div class="grid3">
@@ -155,11 +156,11 @@ async function openLead(id){
 
     ${custFirst?custHtml:''}
 
+    ${engFirst?engHtml:''}
+
     ${workHtml}
 
     ${remarkHtml}
-
-    ${engFirst?engHtml:''}
 
     ${custFirst?'':custHtml}
 
