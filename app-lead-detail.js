@@ -17,7 +17,15 @@ async function openLead(id){
   const canAssign=isAdmin||ME.role==='manager';
   /* sales and engineering are one role now, so the owner does the key-in too */
   const canEng=isAdmin||isSales;
-  const seeEng=ME.role!=='marketing';
+  /* Each role gets its own part of the lead and nothing else. The
+     specification box belongs to whoever builds and prices a system, so
+     marketing, finance and the site engineer do not see it — the site
+     engineer reads BOQ and the map link from their own Installation box,
+     which carries both already. */
+  const seeEng=['sales','manager','admin'].includes(ME.role);
+  /* installation belongs to the site engineer and the roles that hand work
+     to them. Finance read the delivery confirmation on their own screen. */
+  const seeInstall=['sales','manager','admin','site_engineer'].includes(ME.role);
   /* stage, follow-up and remarks are the day-to-day, open to whoever works the lead */
   const canSales=isAdmin||ME.role==='manager'||isSales||isMkt;
   /* customer identity is marketing's to keep. Sales get one pass at it, then it
@@ -54,8 +62,8 @@ async function openLead(id){
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
         ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
           <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
-        <div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
-        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
+        ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
+        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>`:''}
       </div>
       <label style="margin-top:10px;display:block">Add remark</label>
       <div class="noterow">
@@ -166,7 +174,7 @@ async function openLead(id){
 
     ${engFirst?'':engHtml}
 
-    ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false,isAdmin):''}
+    ${(l.stage_code===WON&&!isSiteEng&&seeInstall)?siteBox(l,canSite,false,isAdmin):''}
 
     ${isAdmin?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
 

@@ -219,12 +219,14 @@ function buildNav(){
   if(['manager','admin'].includes(ME.role)) work.push(['pool','Unassigned']);
   if(['marketing','sales','admin'].includes(ME.role)) work.push(['new','New lead']);
   const money=[];
-  if(['sales','manager','admin'].includes(ME.role)) money.push(['quots','Quotations']);
+  /* the quotation log carries prices, so it follows quotations_select rather
+     than being a wider list that happens to look harmless */
+  if(['sales','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
   money.push(['comm','Commissions']);
   const admin=[];
   if(ME.role==='admin') admin.push(['edc','EDC']);
-  if(['marketing','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
+  if(['marketing','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
   const group=(label,items)=>items.length
     ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
