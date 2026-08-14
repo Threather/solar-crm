@@ -92,6 +92,38 @@ async function openLead(id){
       </div>
     </div>`;
   const custFirst=ME.role==='marketing';
+  /* Since the key-in box became where quotations are built, it is a working
+     surface for whoever can price one, and it rises to meet them. For everyone
+     else it is reference and stays where it was. */
+  const engFirst=canQuote;
+  const engHtml=seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.assigned_to?('· '+esc(staffName(l.assigned_to))):''}</h4>
+      <div class="grid3">
+        <div><label>Roof type</label><select id="d-roof" ${canEng?'':'disabled'}>${optList(ROOF_TYPES,l.roof_type)}</select></div>
+        <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
+        <div><label>Ampere &amp; phase</label><select id="d-phase" ${canEng?'':'disabled'}>${optList(PHASE_TYPES,l.phase_type)}</select></div>
+        <div><label>Panel brand</label><select id="d-pbrand" ${canEng?'':'disabled'}>${optList(PANEL_BRANDS,l.panel_brand)}</select></div>
+        <div><label>Panel watt (W)</label><input id="d-pwatt" type="number" step="1" value="${l.panel_watt??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
+        <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
+        <div><label>Panel (kWp), auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
+        <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
+        <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
+        <div><label>Battery (kWh each)</label><input id="d-beach" type="number" step="0.01" value="${l.battery_kwh_each??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
+        <div><label>Battery (pcs)</label><input id="d-bpcs" type="number" step="1" value="${l.battery_pcs??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
+        <div><label>Battery total (kWh), auto</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" readonly title="kWh each x pcs"></div>
+        <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
+      </div>
+
+      ${canQuote?`<div class="quotbar">
+        <div><label>Price (USD)</label><input id="q-price" type="number" step="0.01" placeholder="Price for this option"></div>
+        <button class="btn-sun" onclick="addQuot('${l.id}')" title="Saves the specification above as a quotation, priced">Save as quotation</button>
+      </div>`:''}
+
+      <div class="quothead">Quotations (<span id="quot-n">${(quots||[]).length}</span>)</div>
+      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng)).join('')
+        ||'<p class="quot-none">No quotations yet.</p>'}</div>
+    </div>`:'';
 
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
@@ -127,36 +159,11 @@ async function openLead(id){
 
     ${remarkHtml}
 
+    ${engFirst?engHtml:''}
+
     ${custFirst?'':custHtml}
 
-    ${seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.assigned_to?('· '+esc(staffName(l.assigned_to))):''}</h4>
-      <div class="grid3">
-        <div><label>Roof type</label><select id="d-roof" ${canEng?'':'disabled'}>${optList(ROOF_TYPES,l.roof_type)}</select></div>
-        <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
-        <div><label>Ampere &amp; phase</label><select id="d-phase" ${canEng?'':'disabled'}>${optList(PHASE_TYPES,l.phase_type)}</select></div>
-        <div><label>Panel brand</label><select id="d-pbrand" ${canEng?'':'disabled'}>${optList(PANEL_BRANDS,l.panel_brand)}</select></div>
-        <div><label>Panel watt (W)</label><input id="d-pwatt" type="number" step="1" value="${l.panel_watt??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
-        <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
-        <div><label>Panel (kWp), auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
-        <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
-        <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
-        <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
-        <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
-        <div><label>Battery (kWh each)</label><input id="d-beach" type="number" step="0.01" value="${l.battery_kwh_each??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
-        <div><label>Battery (pcs)</label><input id="d-bpcs" type="number" step="1" value="${l.battery_pcs??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
-        <div><label>Battery total (kWh), auto</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" readonly title="kWh each x pcs"></div>
-        <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
-      </div>
-
-      ${canQuote?`<div class="quotbar">
-        <div><label>Price (USD)</label><input id="q-price" type="number" step="0.01" placeholder="Price for this option"></div>
-        <button class="btn-sun" onclick="addQuot('${l.id}')" title="Saves the specification above as a quotation, priced">Save as quotation</button>
-      </div>`:''}
-
-      <div class="quothead">Quotations (<span id="quot-n">${(quots||[]).length}</span>)</div>
-      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng)).join('')
-        ||'<p class="quot-none">No quotations yet.</p>'}</div>
-    </div>`:''}
+    ${engFirst?'':engHtml}
 
     ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false,isAdmin):''}
 
