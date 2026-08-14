@@ -6,7 +6,11 @@
 const sysLine=l=>[l.system_type,l.panel_kwp?l.panel_kwp+' kWp':null,
   l.inverter_kw_total?l.inverter_kw_total+' kW':null].filter(Boolean).join(' · ')||'—';
 const finPaid=r=>(r.payments||[]).reduce((a,p)=>a+Number(p.amount_usd||0),0);
-const finDue=r=>Number(r.fin?.contract_total_usd??r.final_sale_usd??0)+Number(r.fin?.other_fee_usd||0);
+/* An extra charge belongs to the payment it turned up with, not to the
+   contract: one deal can pick up several, and one flat field on the contract
+   could only ever hold the last one. */
+const finFees=r=>(r.payments||[]).reduce((a,p)=>a+Number(p.other_fee_usd||0),0);
+const finDue=r=>Number(r.fin?.contract_total_usd??r.final_sale_usd??0)+finFees(r);
 /* due today or overdue, and only while there is still money outstanding */
 const finFollowDue=r=>!!r.fin?.follow_up_date&&r.fin.follow_up_date<=localDay(new Date())&&finDue(r)-finPaid(r)>0;
 
@@ -109,27 +113,33 @@ function openFinance(id){
         <div><label>Contract status</label><select id="f-status">${optList(CONTRACT_STATUS,f.contract_status)}</select></div>
         <div><label>Date signed</label><input id="f-signed" type="date" value="${f.contract_signed_date||''}"></div>
         <div><label>Contract total (USD)</label><input id="f-total" type="number" step="0.01" value="${f.contract_total_usd??''}"></div>
-        <div><label>Other fee (USD)</label><input id="f-fee" type="number" step="0.01" value="${f.other_fee_usd??''}"></div>
-        <div style="grid-column:2/-1"><label>What the fee is for</label><input id="f-feenote" value="${esc(f.other_fee_note||'')}"></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
     </div>
 
-    <div class="section sec-fin"><h4>Payments (${r.payments.length})</h4>
-      ${r.payments.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
-        <th style="width:34px">#</th><th style="width:130px">Date</th><th style="width:110px">Amount</th><th>Note</th><th style="width:86px"></th></tr></thead><tbody>`
-        +r.payments.map((p,i)=>`<tr>
-          <td>${i+1}</td><td>${fmtDate(p.paid_on)}</td>
-          <td><b>${fmtMoney(p.amount_usd)}</b></td><td>${esc(p.note||'')}</td>
-          <td><button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
-        </tr>`).join('')+`</tbody></table></div>`
-        :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
-      <div class="grid3" style="margin-top:10px">
+    <div class="section sec-fin"><h4>Record a payment</h4>
+      <div class="grid3">
         <div><label>Date</label><input id="p-date" type="date"></div>
         <div><label>Amount (USD)</label><input id="p-amt" type="number" step="0.01"></div>
         <div><label>Note</label><input id="p-note" placeholder="Deposit, second instalment…"></div>
+        <div><label>Other fee (USD)</label><input id="p-fee" type="number" step="0.01" placeholder="Only if there is one"></div>
+        <div style="grid-column:2/-1"><label>What the fee is for</label><input id="p-feenote" placeholder="Extra battery, longer cable run…"></div>
       </div>
-      <div class="modal-actions"><button class="btn-line" onclick="addPayment('${r.id}')">Add payment</button></div>
+      <div class="modal-actions"><button class="btn-sun" onclick="addPayment('${r.id}')">Add payment</button></div>
+    </div>
+
+    <div class="section sec-fin"><h4>Payments (${r.payments.length})</h4>
+      ${r.payments.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
+        <th style="width:34px">#</th><th style="width:120px">Date</th><th style="width:100px">Amount</th>
+        <th style="width:100px">Other fee</th><th>Note</th><th style="width:86px"></th></tr></thead><tbody>`
+        +r.payments.map((p,i)=>`<tr>
+          <td>${i+1}</td><td>${fmtDate(p.paid_on)}</td>
+          <td><b>${fmtMoney(p.amount_usd)}</b></td>
+          <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
+          <td>${esc(p.note||'')}${p.other_fee_note?`<span class="days">fee: ${esc(p.other_fee_note)}</span>`:''}</td>
+          <td><button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
+        </tr>`).join('')+`</tbody></table></div>`
+        :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
     </div>
 
     <div class="section sec-fin"><h4>Delivery</h4>
@@ -163,8 +173,6 @@ async function saveFinance(id){
     contract_status:$('f-status').value||null,
     contract_signed_date:$('f-signed').value||null,
     contract_total_usd:$('f-total').value||null,
-    other_fee_usd:$('f-fee').value||null,
-    other_fee_note:$('f-feenote').value.trim()||null,
     follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
   const {error}=await sb.from('lead_finance').upsert(row,{onConflict:'lead_id'});
@@ -192,8 +200,11 @@ async function skipFollowUp(id){
 async function addPayment(id){
   const amt=$('p-amt').value;
   if(!amt){toast('Enter the amount');return;}
+  /* the fee is optional: most payments carry none */
   const {error}=await sb.from('lead_payments').insert({lead_id:id,
     paid_on:$('p-date').value||null,amount_usd:amt,
+    other_fee_usd:$('p-fee').value||null,
+    other_fee_note:$('p-feenote').value.trim()||null,
     note:$('p-note').value.trim()||null,created_by:ME.id});
   if(error){toast('Could not add the payment. '+why(error));console.error(error);return;}
   /* this month is settled, so the follow-up rolls to the same day next month */
@@ -212,13 +223,14 @@ function exportFinance(){
   downloadCSV('finance',['Ref ID','Customer','Won month','Received','Salesperson',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed','Next follow-up',
-    'Other fee (USD)','Fee note',
+    'Other fees (USD)','What the fees were for',
     'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)'],
     filteredFin().map(r=>[r.ref_id,r.customer_name,
       r.stage_entered_at?localDay(r.stage_entered_at).slice(0,7):'',
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
       r.final_sale_usd,r.fin?.contract_total_usd,r.fin?.contract_status,r.fin?.contract_signed_date,
-      r.fin?.follow_up_date,r.fin?.other_fee_usd,r.fin?.other_fee_note,
+      r.fin?.follow_up_date,finFees(r)||'',
+      (r.payments||[]).map(p=>p.other_fee_note).filter(Boolean).join('; '),
       r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r)]));
 }
