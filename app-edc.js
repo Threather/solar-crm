@@ -11,7 +11,11 @@ async function renderEdc(){
   /* anything not off-grid that we still cannot place: either nobody has set
      the system type, or there is no inverter total to give a kWac */
   const pending=rows.filter(l=>!edcExempt(l)&&!edcFields(l));
-  const outstanding=[...small,...large].filter(l=>edcDone(l)<edcFields(l).length);
+  /* the worklist is what is left to do, so a deal leaves it the moment its
+     last date is recorded. The full record stays under Submitted. */
+  const smallOpen=small.filter(l=>edcDone(l)<EDC_SMALL.length);
+  const largeOpen=large.filter(l=>edcDone(l)<EDC_LARGE.length);
+  const outstanding=[...smallOpen,...largeOpen];
   /* anything with at least one date filled in, kept as a record to look back on */
   const started=[...small,...large].filter(l=>edcDone(l)>0)
     .sort((a,b)=>edcDone(b)/edcFields(b).length-edcDone(a)/edcFields(a).length);
@@ -32,9 +36,10 @@ async function renderEdc(){
       </div>
     </div>
 
-    ${EDCSCOPE==='work'?`
-      ${edcTable('Inverter ≤ 10 kWac',small,EDC_SMALL)}
-      ${edcTable('Inverter &gt; 10 kWac',large,EDC_LARGE)}`:''}
+    ${EDCSCOPE==='work'?(outstanding.length?`
+      ${edcTable('Inverter ≤ 10 kWac',smallOpen,EDC_SMALL)}
+      ${edcTable('Inverter &gt; 10 kWac',largeOpen,EDC_LARGE)}`
+      :blank('Every date is in','Nothing is waiting on EDC. A deal returns here if a new one is won, and every date already recorded is under Submitted.')):''}
 
     ${EDCSCOPE==='sent'?(started.length?`<div class="tablewrap"><table><thead><tr>
         <th>Ref ID</th><th>Customer</th><th>System</th><th>Steps done</th><th>Progress</th><th>Salesperson</th><th>Won</th>
@@ -111,7 +116,7 @@ async function edcReview(id){
 function setEdcScope(v){EDCSCOPE=v;renderEdc();}
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
-    <div class="empty" style="margin-bottom:22px"><b>Nothing in this band</b><span>Won deals land here once their inverter total puts them in this size.</span></div>`;
+    <div class="empty" style="margin-bottom:22px"><b>Nothing outstanding here</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
