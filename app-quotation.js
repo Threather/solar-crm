@@ -111,10 +111,20 @@ function quoteHtml(q,l,c){
       document.getElementById('o-prod').innerText=f(val);
       document.getElementById('o-year').innerText=f(year);
       document.getElementById('o-mon').innerText=f(mon);
+      /* payback is worked from the price before VAT either way, which is what
+         their own workbook does */
       document.getElementById('o-pay').innerText=mon>0?f(price/mon):'';
     }
+    /* some customers are quoted with VAT and some without, so the two lines
+       come off the sheet rather than being crossed out by hand */
+    function vatToggle(){
+      const on=document.getElementById('vat-on').checked;
+      document.getElementById('r-vat').style.display=on?'':'none';
+      document.getElementById('r-grand').style.display=on?'':'none';
+    }
     document.addEventListener('input',recalc);
-    window.addEventListener('load',recalc);
+    document.getElementById('vat-on').addEventListener('change',vatToggle);
+    window.addEventListener('load',function(){recalc();vatToggle();});
   </scr`+`ipt>`;
   const kwpTxt=c.kwp?c.kwp.toFixed(2):'';
   return `<!doctype html><html lang="km"><head><meta charset="utf-8">
@@ -124,8 +134,9 @@ function quoteHtml(q,l,c){
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
        font-size:10px;color:#111;margin:0;line-height:1.55}
   .sheet{width:190mm;margin:0 auto;padding:0 0 8mm}
-  .bar{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
+  .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
+  .bar label{display:flex;align-items:center;gap:5px;font-size:12px;color:#333;cursor:pointer;white-space:nowrap}
   h1{font-size:17px;text-align:center;margin:6px 0 2px}
   .co{text-align:center;font-size:9px;line-height:1.35;color:#333}
   .co b{font-size:11px}
@@ -155,6 +166,7 @@ function quoteHtml(q,l,c){
 </style></head><body>
 <div class="bar">
   <button onclick="window.print()">Print / Save as PDF</button>
+  <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
   <span style="font-size:11px;color:#555;align-self:center">Every line can be edited. Yellow marks what changes on each quotation.</span>
 </div>
 
@@ -208,8 +220,8 @@ function quoteHtml(q,l,c){
 
   <table class="money">
     <tr><td>${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
-    <tr><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
-    <tr><td>${QT.grand}</td><td class="v" id="o-grand"></td></tr>
+    <tr id="r-vat"><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
+    <tr id="r-grand"><td>${QT.grand}</td><td class="v" id="o-grand"></td></tr>
   </table>
 
   <div style="margin-top:8px">${QT.eff} ${qb(60)}</div>

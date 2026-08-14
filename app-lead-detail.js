@@ -147,12 +147,15 @@ async function openLead(id){
         <div><label>Battery total (kWh), auto</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" readonly title="kWh each x pcs"></div>
         <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
       </div>
-    </div>`:''}
 
-    ${seeEng?`<div class="section sec-quote"><h4>Quotations (${(quots||[]).length})</h4>
-      ${(quots||[]).map(q=>`<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
-        <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date)} by ${esc(staffName(q.provided_by))}</span><button class="btn-mini" style="margin-top:8px" onclick="printQuote('${q.id}','${l.id}')">Quotation document</button></div>`).join('')||'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No quotations yet.</p>'}
-      ${canQuote?`<button class="btn-line" style="margin-top:10px" onclick="quotForm('${l.id}')">+ Add quotation</button><div id="quot-form"></div>`:''}
+      ${canQuote?`<div class="quotbar">
+        <div><label>Price (USD)</label><input id="q-price" type="number" step="0.01" placeholder="Price for this option"></div>
+        <button class="btn-sun" onclick="addQuot('${l.id}')" title="Saves the specification above as a quotation, priced">Save as quotation</button>
+      </div>`:''}
+
+      <div class="quothead">Quotations (<span id="quot-n">${(quots||[]).length}</span>)</div>
+      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng)).join('')
+        ||'<p class="quot-none">No quotations yet.</p>'}</div>
     </div>`:''}
 
     ${(l.stage_code===WON&&!isSiteEng)?siteBox(l,canSite,false,isAdmin):''}
@@ -210,7 +213,6 @@ function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(
 function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
 /* battery total is each x pcs, the same shape as the inverter */
 function dBatt(){const n=(Number($('d-beach').value)||0)*(Number($('d-bpcs').value)||0);$('d-batt').value=n?n.toFixed(2):'';}
-function qKwp(){$('q-kwp').value=kwp($('q-pwatt').value,$('q-pcs').value);}
 /* inverters are quoted in kW each, so the total is a plain multiply */
 function dProv(){
   const d=GEO[$('d-prov').value]||{};
@@ -322,47 +324,70 @@ async function logActivity(leadId,type,from,to,note,noteDate){
     from_stage:from,to_stage:to,note,note_date:note?(noteDate||localDay(new Date())):null});
 }
 
-/* ---------------- QUOTATION FORM ---------------- */
-/* Pre-filled from the Sale Engineer key-in above, so a quotation is
-   usually just a price. Edit here to quote something different without
-   changing the lead's working spec. */
-function quotForm(leadId){
-  const g=id=>{const e=$(id);return e?e.value:'';};
-  $('quot-form').innerHTML=`
-    <div class="grid3" style="margin-top:8px">
-      <div><label>Roof type</label><select id="q-roof">${optList(ROOF_TYPES,g('d-roof'))}</select></div>
-      <div><label>System type</label><select id="q-sys">${optList(SYSTEM_TYPES,g('d-sys'))}</select></div>
-      <div><label>Ampere &amp; phase</label><select id="q-amp">${optList(PHASE_TYPES,g('d-phase'))}</select></div>
-      <div><label>Panel brand</label><select id="q-pbrand">${optList(PANEL_BRANDS,g('d-pbrand'))}</select></div>
-      <div><label>Panel watt (W)</label><input id="q-pwatt" type="number" step="1" value="${esc(g('d-pwatt'))}" oninput="qKwp()"></div>
-      <div><label>Panel pcs</label><input id="q-pcs" type="number" step="1" value="${esc(g('d-pcs'))}" oninput="qKwp()"></div>
-      <div><label>Panel (kWp), auto</label><input id="q-kwp" type="number" step="0.01" value="${esc(g('d-kwp'))}" readonly></div>
-      <div><label>Inverter brand</label><select id="q-ibrand">${optList(INVERTER_BRANDS,g('d-ibrand'))}</select></div>
-      <div><label>Inverter (kW each)</label><input id="q-inv" type="number" step="0.01" value="${esc(g('d-inv'))}"></div>
-      <div><label>Inverter pcs</label><input id="q-ipcs" type="number" step="1" value="${esc(g('d-ipcs'))}"></div>
-      <div><label>Battery (pcs)</label><input id="q-bpcs" type="number" step="1" value="${esc(g('d-bpcs'))}"></div>
-      <div><label>Battery brand</label><select id="q-bbrand">${optList(BATTERY_BRANDS,g('d-bbrand'))}</select></div>
-      <div><label>Battery (kWh)</label><input id="q-batt" value="${esc(g('d-batt'))}"></div>
-      <div><label>Price (USD) *</label><input id="q-price" type="number" step="0.01" autofocus></div>
-    </div>
-    <div class="modal-actions"><button class="btn-sun" onclick="addQuot('${leadId}')">Save quotation</button></div>`;
+/* ---------------- QUOTATIONS ----------------
+   The specification is keyed in once, in the box above. A quotation is that
+   specification plus a price, so releasing one is a price and a button —
+   there is no second copy of the fourteen fields to fill in. */
+function quotCard(q,leadId,canUse){
+  return `<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
+    <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date||q.created_at)} by ${esc(staffName(q.provided_by))}</span>
+    <div class="acts">
+      <button class="btn-mini" onclick="printQuote('${q.id}','${leadId}')">Quotation document</button>
+      ${canUse?`<button class="btn-mini" onclick="useQuot('${q.id}','${leadId}')" title="Copy this option's specification onto the lead, so EDC, installation and the export all follow it">Use this one</button>`:''}
+    </div></div>`;
 }
 async function addQuot(leadId){
   const price=$('q-price').value;
   if(!price){toast('Price is required');return;}
-  const {error}=await sb.from('quotations').insert({
-    lead_id:leadId,provided_by:ME.id,
-    roof_type:$('q-roof').value||null,
-    system_type:$('q-sys').value||null,ampere_phase:$('q-amp').value||null,
-    price_usd:price,panel_pcs:$('q-pcs').value||null,panel_brand:$('q-pbrand').value||null,
-    panel_watt:$('q-pwatt').value||null,panel_kwp:$('q-kwp').value||null,
-    inverter_kw:$('q-inv').value||null,inverter_brand:$('q-ibrand').value||null,
-    inverter_pcs:$('q-ipcs').value||null,
-    inverter_kw_total:(Number($('q-inv').value||0)*Number($('q-ipcs').value||0))||null,
-    battery_pcs:$('q-bpcs').value||null,
-    battery_kwh:$('q-batt').value.trim()||null,battery_brand:$('q-bbrand').value||null
-  });
+  const g=id=>{const e=$(id);return e?e.value:'';};
+  /* the quotation keeps its own copy of the numbers, so an option still says
+     what it was quoted with even if the lead changes afterwards */
+  const {data,error}=await sb.from('quotations').insert({
+    lead_id:leadId,provided_by:ME.id,price_usd:price,
+    roof_type:g('d-roof')||null,
+    system_type:g('d-sys')||null,ampere_phase:g('d-phase')||null,
+    panel_pcs:g('d-pcs')||null,panel_brand:g('d-pbrand')||null,
+    panel_watt:g('d-pwatt')||null,panel_kwp:g('d-kwp')||null,
+    inverter_kw:g('d-inv')||null,inverter_brand:g('d-ibrand')||null,
+    inverter_pcs:g('d-ipcs')||null,
+    inverter_kw_total:(Number(g('d-inv')||0)*Number(g('d-ipcs')||0))||null,
+    battery_pcs:g('d-bpcs')||null,battery_kwh_each:g('d-beach')||null,
+    battery_kwh:g('d-batt').trim()||null,battery_brand:g('d-bbrand')||null
+  }).select().single();
   if(error){toast('Could not save quotation. '+why(error));console.error(error);return;}
   await logActivity(leadId,'note',null,null,'Quotation released: $'+price);
-  toast('Quotation saved');openLead(leadId);
+  /* the card goes in where it stands. Re-rendering the lead here would throw
+     away specification edits not yet saved, which is the whole point of
+     keying in and quoting in the one box. */
+  LEADQUOTS=[data,...(LEADQUOTS||[])];
+  const list=$('quot-list');
+  if(list){
+    const none=list.querySelector('.quot-none');if(none)none.remove();
+    list.insertAdjacentHTML('afterbegin',quotCard(data,leadId,true));
+  }
+  const n=$('quot-n');if(n)n.textContent=LEADQUOTS.length;
+  $('q-price').value='';
+  toast('Quotation saved');
+}
+/* Which option is real. The lead carries the specification that EDC, the
+   installation screen and the CSV all read, so with several options saved,
+   this is what says which one the customer took. */
+async function useQuot(quotId,leadId){
+  const q=(LEADQUOTS||[]).find(x=>x.id===quotId);
+  if(!q){toast('Could not find that quotation');return;}
+  if(!confirm('Use the '+fmtMoney(q.price_usd)+' option as this lead\'s specification?\n\n'
+    +'EDC, installation and the export all read the lead, so they will follow this one.'))return;
+  const {error}=await sb.from('leads').update({
+    roof_type:q.roof_type,system_type:q.system_type,phase_type:q.ampere_phase,
+    panel_brand:q.panel_brand,panel_watt:q.panel_watt,panel_pcs:q.panel_pcs,panel_kwp:q.panel_kwp,
+    inverter_brand:q.inverter_brand,inverter_kw:q.inverter_kw,inverter_pcs:q.inverter_pcs,
+    inverter_kw_total:q.inverter_kw_total,
+    battery_brand:q.battery_brand,battery_pcs:q.battery_pcs,
+    battery_kwh_each:q.battery_kwh_each,battery_kwh:q.battery_kwh
+  }).eq('id',leadId);
+  if(error){toast('Could not apply it. '+why(error));console.error(error);return;}
+  await logActivity(leadId,'edit',null,null,
+    'Lead specification set from the '+fmtMoney(q.price_usd)+' quotation');
+  toast('This lead now follows that option');
+  openLead(leadId);
 }

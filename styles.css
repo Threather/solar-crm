@@ -328,6 +328,17 @@ td.nowrap{white-space:nowrap}
 .qcard{border-radius:var(--r-sm);padding:11px 13px;margin-top:8px;font-size:var(--t-meta);
   background:var(--card);box-shadow:inset 0 0 0 1px var(--line-soft);color:var(--ink-2)}
 .qcard b{font-family:'Source Serif 4',Georgia,serif;font-size:var(--t-lg);color:var(--ink)}
+.qcard .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+/* the specification above becomes a quotation here: one price, one button.
+   The rule marks where the lead stops and the priced options begin. */
+.quotbar{display:flex;gap:12px;align-items:flex-end;margin-top:16px;padding-top:14px;
+  border-top:1px solid var(--line)}
+.quotbar>div{flex:0 1 190px}
+.quotbar label{margin-top:0}
+.quotbar button{flex:none}
+.quothead{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.09em;
+  color:var(--ink-mute);font-weight:600;margin-top:16px}
+.quot-none{font-size:var(--t-meta);color:var(--ink-soft);margin:6px 0}
 
 /* ---------- home ----------
    The day, then the one number that needs answering, then the work itself.
