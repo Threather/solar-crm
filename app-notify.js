@@ -35,13 +35,17 @@ let POPTIMER=null;
 function popNotice(b){
   const el=$('pop'); if(!el)return;
   el.innerHTML=`<h5>${b.kind==='won'?'Deal won':b.kind==='delivered'?'Delivered'
-      :b.kind==='installed'?'Installation finished':'Notification'}</h5>
+      :b.kind==='installed'?'Installation finished'
+      :b.kind==='boq'?'BOQ not released':'Notification'}</h5>
     <p>${esc(b.message)}</p>
     <div class="row">
       ${b.lead_id?`<button class="btn-sun" onclick="hidePop();openLead('${b.lead_id}')">Open the lead</button>`:''}
       <button class="btn-line" onclick="hidePop()">Dismiss</button>
     </div>`;
   el.classList.add('on');
+  /* a reminder about your own outstanding work is not an arrival, so it does
+     not make a sound or raise a desktop notification */
+  if(b.kind==='boq'){clearTimeout(POPTIMER);POPTIMER=setTimeout(hidePop,12000);return;}
   bellSound();
   if(window.Notification&&Notification.permission==='granted')
     try{new Notification('Solar CRM',{body:b.message});}catch(e){}

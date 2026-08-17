@@ -130,6 +130,7 @@ async function openLead(id){
         <div><label>Battery total (kWh), auto</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" readonly title="kWh each x pcs"></div>
         <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
       </div>
+      <div id="d-kit" class="kit"></div>
 
       ${canQuote?`<div class="quotbar">
         <div><label>Price (USD)</label><input id="q-price" type="number" step="0.01" placeholder="Price for this option"></div>
@@ -201,6 +202,10 @@ async function openLead(id){
   if(stSel)stSel.onchange=()=>{const w=$('d-salewrap');if(w)w.style.display=stSel.value===WON?'block':'none';};
   /* a lead opens read-only: one stray click must not move a stage */
   LEADSAVE={id:l.id,stage:l.stage_code,assign:l.assigned_to||'',eng:l.current_engineer_id||''};
+  /* the brand and phase pickers have no oninput of their own, so the kit strip
+     listens to the whole box rather than each field restating it */
+  const eng=$('lead-modal').querySelector('.sec-eng');
+  if(eng){eng.addEventListener('change',dKit);dKit();}
   markLockable();setLock(true);
 }
 /* everything openLead left enabled is what Edit unlocks and Lock puts back */
@@ -233,9 +238,29 @@ document.addEventListener('keydown',e=>{
 });
 /* panel kWp = watt × pcs ÷ 1000 */
 function kwp(w,p){const n=(Number(w)||0)*(Number(p)||0)/1000;return n?n.toFixed(2):'';}
-function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);}
+function dKwp(){$('d-kwp').value=kwp($('d-pwatt').value,$('d-pcs').value);dKit();}
 /* battery total is each x pcs, the same shape as the inverter */
-function dBatt(){const n=(Number($('d-beach').value)||0)*(Number($('d-bpcs').value)||0);$('d-batt').value=n?n.toFixed(2):'';}
+function dBatt(){const n=(Number($('d-beach').value)||0)*(Number($('d-bpcs').value)||0);$('d-batt').value=n?n.toFixed(2):'';dKit();}
+/* What is actually being sold, shown as it is keyed in. The part number is
+   the same one the quotation document prints, so a wrong brand or a size
+   nobody stocks is visible here rather than on a customer's sheet. */
+function dKit(){
+  const box=$('d-kit'); if(!box)return;
+  const g=id=>{const e=$(id);return e?e.value:'';};
+  const parts=[
+    ['Panel',  panelModel(g('d-pbrand'),g('d-pwatt')),   g('d-pbrand'), g('d-pcs')],
+    ['Inverter',inverterModel(g('d-ibrand'),g('d-inv'),g('d-phase')), g('d-ibrand'), g('d-ipcs')],
+    ['Battery', batteryModel(g('d-bbrand'),g('d-beach')), g('d-bbrand'), g('d-bpcs')]
+  ].filter(([,,brand])=>brand);
+  if(!parts.length){box.innerHTML='';return;}
+  box.innerHTML=parts.map(([kind,model,brand,pcs])=>{
+    const img=imgFor(model);
+    return `<div class="kit-item">
+      <div class="kit-pic">${img?`<img src="${esc(img)}" alt="" onerror="this.remove()">`:''}</div>
+      <div class="kit-txt"><b>${esc(model||brand)}</b>
+        <span>${esc(kind)}${pcs?' · '+esc(pcs)+' pcs':''}${model?'':' · no part number'}</span></div>
+    </div>`;}).join('');
+}
 /* inverters are quoted in kW each, so the total is a plain multiply */
 function dProv(){
   const d=GEO[$('d-prov').value]||{};

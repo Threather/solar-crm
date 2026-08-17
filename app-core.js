@@ -200,6 +200,11 @@ async function followUpToday(){
     </div>`:''}
     <div class="modal-actions"><button class="btn-sun" onclick="closeLead()">Got it</button></div>`;
   $('lead-overlay').classList.add('open');
+  /* the second reminder: the card is read once and dismissed, so an
+     outstanding BOQ comes back as a pop a moment later */
+  if(nBoq)setTimeout(()=>popNotice({kind:'boq',lead_id:boq[0].id,
+    message:nBoq===1?`${boq[0].customer_name} is won with no BOQ released.`
+      :`${nBoq} won deals have no BOQ released. ${boq[0].customer_name} is the oldest.`}),4000);
 }
 
 /* 16px stroke glyphs, inline so the app keeps its one-request, no-dependency
