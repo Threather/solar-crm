@@ -76,7 +76,7 @@ function drawFinance(){
      sideways to reach them. */
   $('finwrap').innerHTML=`<table class="table-compact"><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Paid</th>
-    <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Salesperson</th>
+    <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
     return `<tr class="rowlink" onclick="openFinance('${r.id}')">
@@ -238,7 +238,7 @@ async function deletePayment(pid,leadId){
   toast('Payment removed');closeLead();renderFinance();
 }
 function exportFinance(){
-  downloadCSV('finance',['Ref ID','Customer','Won month','Received','Salesperson',
+  downloadCSV('finance',['Ref ID','Customer','Won month','Received','Sale engineer',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed','Next follow-up',
     'Other fees (USD)','What the fees were for',

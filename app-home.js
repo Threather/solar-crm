@@ -109,7 +109,7 @@ function homeMarketing(rows){
       ${panel('No phone number yet',nophone.length
         ?`<div class="qlist">${nophone.slice(0,8).map(l=>
             qrow(l.id,l.customer_name,daysIn(l.created_at)+'d old',daysIn(l.created_at)>7)).join('')}</div>`
-        :blank('Every lead has a number','A salesperson is assigned automatically as soon as the number is captured.'))}
+        :blank('Every lead has a number','A sale engineer is assigned automatically as soon as the number is captured.'))}
     </div>`;
 }
 

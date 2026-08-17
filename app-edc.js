@@ -42,7 +42,7 @@ async function renderEdc(){
       :blank('Every date is in','Nothing is waiting on EDC. A deal returns here if a new one is won, and every date already recorded is under Submitted.')):''}
 
     ${EDCSCOPE==='sent'?(started.length?`<div class="tablewrap"><table><thead><tr>
-        <th>Ref ID</th><th>Customer</th><th>System</th><th>Steps done</th><th>Progress</th><th>Salesperson</th><th>Won</th>
+        <th>Ref ID</th><th>Customer</th><th>System</th><th>Steps done</th><th>Progress</th><th>Sale engineer</th><th>Won</th>
       </tr></thead><tbody>`+started.map(l=>{
         const fl=edcFields(l),d=edcDone(l);
         return `<tr class="rowlink" onclick="edcReview('${l.id}')">
@@ -58,7 +58,7 @@ async function renderEdc(){
 
     ${EDCSCOPE==='miss'?(pending.length?`<h3 style="font-size:15px;margin:0 0 6px">Missing information (${pending.length})</h3>
       <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">Not placed yet. The sale engineer needs to finish the spec.</p>
-      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Missing</th><th>Salesperson</th><th>Won</th></tr></thead><tbody>`
+      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Missing</th><th>Sale engineer</th><th>Won</th></tr></thead><tbody>`
       +pending.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')">
         <td class="refid">${esc(l.ref_id||'—')}</td><td><b>${esc(l.customer_name)}</b></td>
         <td>${!edcApplies(l)?'System type':'Inverter total'}</td>

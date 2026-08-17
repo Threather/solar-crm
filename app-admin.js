@@ -12,7 +12,7 @@ async function renderComm(){
     <h2 style="margin-bottom:6px">Commissions</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Created automatically when a deal is marked Won. ${isAdmin?'Fill in amounts and mark paid.':'You see only your own.'}</p>
     <div class="toolbar"><button class="btn-line" onclick="exportComms()">Export CSV</button></div>
-    ${!comms||!comms.length?blank('No commissions yet','A commission is created automatically for the salesperson, the marketer and any referrer when a deal is won.'):`
+    ${!comms||!comms.length?blank('No commissions yet','A commission is created automatically for the sale engineer, the marketer and any referrer when a deal is won.'):`
     <div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Deal</th><th>Sale value</th><th>Who</th><th>Type</th><th>Amount</th><th>Status</th>${isAdmin?'<th></th>':''}
     </tr></thead><tbody>`+comms.map(c=>`

@@ -8,8 +8,8 @@ async function renderLeads(scope){
   LEADS=await fetchLeads(q=>{
     if(ME.role==='sales')return q.eq('assigned_to',ME.id);
     if(ME.role==='site_engineer')return q.eq('site_engineer_id',ME.id);
-    /* marketing is left to RLS, which gives them their own leads plus every
-       lead not yet handed to sales — the ones they are meant to be working */
+    /* marketing is left to RLS, which since 17 Aug 2026 gives them the leads
+       they created and nothing else */
     return q;
   });
   /* sale values come from their own table, and only for roles the database
@@ -124,7 +124,7 @@ function drawTable(){
   const rows=filteredLeads();
   if(!rows.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual
     ?blank('No matches','Nothing in this list fits the current search or filters. Clear them to see everything.')
-    :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a salesperson marks them Closed-Won.')
+    :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a sale engineer marks them Closed-Won.')
     :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
     :blank('No active leads','New leads land here as soon as they are created.');return;}
   if(LEADSCOPE==='won')return drawWonTable(rows);
@@ -168,7 +168,7 @@ function toggleRemarks(btn){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Sale engineer</th><th>Site engineer</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -187,7 +187,7 @@ function drawWonTable(rows){
 }
 function drawLostTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Qualified</th><th>Salesperson</th><th>Lost</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Qualified</th><th>Sale engineer</th><th>Lost</th><th>Created</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -209,7 +209,7 @@ async function renderPool(){
     .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">No phone number yet, so no salesperson. Add a number and one gets assigned automatically. Assign by hand only if you need to.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">No phone number yet, so no sale engineer. Add a number and one gets assigned automatically. Assign by hand only if you need to.</p>
     ${pool.length?`<div class="tablewrap"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
     </tr></thead><tbody>`+pool.map(l=>`
@@ -219,7 +219,7 @@ async function renderPool(){
       <td>${daysIn(l.created_at)}d</td><td>${esc(staffName(l.created_by))}</td>
       <td>${canAssign?`<div style="display:flex;gap:6px"><select id="as-${l.id}">${salesOpts}</select>
             <button class="btn-sun" onclick="assignLead('${l.id}',document.getElementById('as-${l.id}').value)">Assign</button></div>`:'—'}</td>
-      </tr>`).join('')+`</tbody></table></div>`:blank('Everything is with sales','Leads appear here only while they have no phone number. Adding one assigns a salesperson automatically.')}`;
+      </tr>`).join('')+`</tbody></table></div>`:blank('Everything is with sales','Leads appear here only while they have no phone number. Adding one assigns a sale engineer automatically.')}`;
 }
 async function assignLead(leadId,staffId){
   if(!staffId)return;
@@ -259,7 +259,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a salesperson is assigned automatically. Admin or manager picks the sale engineer. A lead counts as qualified from Telling Price onwards.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a sale engineer is assigned automatically. A lead counts as qualified from Telling Price onwards.</p>
     </div>`;
   subChan(); geoProv();
 }
