@@ -119,15 +119,24 @@ function edcTable(title,rows,fields){
     <div class="empty" style="margin-bottom:22px"><b>Nothing outstanding here</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
-      <th>Ref ID</th><th>Customer</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
+      <th>Ref ID</th><th>Customer</th><th>Branch</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
     </tr></thead><tbody>`+rows.map(l=>{
       const next=fields.find(([k])=>!l[k]);
       return `<tr>
       <td class="refid" style="cursor:pointer" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${kwac(l)} kWac · ${esc(staffName(l.site_engineer_id))}</span></td>
+      <td><select style="min-width:170px" onchange="setEdcBranch('${l.id}',this.value)">${optList(EDC_BRANCHES,l.edc_branch)}</select></td>
       ${fields.map(([k])=>`<td class="${next&&next[0]===k?'edc-next':''}"><input type="date" style="min-width:130px" value="${l[k]||''}" onchange="setEdcDate('${l.id}','${k}',this.value)"></td>`).join('')}
       <td><b>${edcDone(l)}/${fields.length}</b></td>
     </tr>`;}).join('')+`</tbody></table></div>`;
+}
+/* which EDC office the file goes to, saved the moment it is picked, the same
+   as the dates beside it */
+async function setEdcBranch(id,v){
+  const {error}=await sb.from('leads').update({edc_branch:v||null}).eq('id',id);
+  if(error){toast('Could not save the branch. '+why(error));console.error(error);return;}
+  await logActivity(id,'edit',null,null,'EDC branch: '+(v||'cleared'));
+  toast('Saved');
 }
 async function setEdcDate(id,col,v){
   const {error}=await sb.from('leads').update({[col]:v||null}).eq('id',id);

@@ -102,6 +102,9 @@ const EDC_LARGE=[['edc_portal_date','Submitted','Document submission date via we
                  ['edc_provincial_date','Provincial','EDC provincial inspection date'],
                  ['edc_pp_date','Phnom Penh','EDC Phnom Penh inspection date']];
 const kwac=l=>(Number(l.inverter_kw||0)*Number(l.inverter_pcs||0))||Number(l.inverter_kw_total||0);
+/* the EDC office the paperwork actually goes to. Admin picks it per deal. */
+const EDC_BRANCHES=['អគ្គិសនីកម្ពុជា សាខាវត្តភ្នំ','អគ្គិសនីកម្ពុជា សាខាអូបែកក្អម',
+  'អគ្គិសនីកម្ពុជា សាខាចាក់អង្រែក្រោម','អគ្គិសនីកម្ពុជា សាខាទួលពង្រ','អគ្គិសនីកម្ពុជា សាខាអូដឹម'];
 /* three states, not two: EDC applies to on-grid and hybrid, off-grid is
    genuinely exempt, and a blank system type means nobody has said yet —
    which must not be silently treated as exempt */

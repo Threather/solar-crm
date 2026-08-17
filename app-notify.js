@@ -34,7 +34,8 @@ function bellSound(){
 let POPTIMER=null;
 function popNotice(b){
   const el=$('pop'); if(!el)return;
-  el.innerHTML=`<h5>${b.kind==='won'?'Deal won':b.kind==='delivered'?'Delivered':'Notification'}</h5>
+  el.innerHTML=`<h5>${b.kind==='won'?'Deal won':b.kind==='delivered'?'Delivered'
+      :b.kind==='installed'?'Installation finished':'Notification'}</h5>
     <p>${esc(b.message)}</p>
     <div class="row">
       ${b.lead_id?`<button class="btn-sun" onclick="hidePop();openLead('${b.lead_id}')">Open the lead</button>`:''}

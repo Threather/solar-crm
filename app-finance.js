@@ -141,10 +141,15 @@ function openFinance(id){
         :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
     </div>
 
-    <div class="section sec-fin"><h4>Delivery</h4>
+    <div class="section sec-fin"><h4>Delivery and installation</h4>
       <div class="grid2">
         <div><label>Planned by the site engineer</label><input value="${r.delivery_date?fmtDate(r.delivery_date):'not set'}" disabled></div>
-        <div><label>Arrived at the customer</label><input value="${r.delivery_confirmed_at?fmtDT(r.delivery_confirmed_at):'not confirmed by admin yet'}" disabled></div>
+        <div><label>Arrived at the customer</label><input value="${r.delivery_confirmed_at?fmtDT(r.delivery_confirmed_at):'not confirmed yet'}" disabled></div>
+        <div><label>Installation finished</label><input value="${r.installation_confirmed_at?fmtDT(r.installation_confirmed_at)+' · '+staffName(r.installation_confirmed_by):'not confirmed yet'}" disabled></div>
+        <div style="align-self:end;display:flex;gap:8px;flex-wrap:wrap">
+          ${!r.delivery_confirmed_at?`<button class="btn-line" onclick="confirmArrived('${r.id}',${JSON.stringify(r.customer_name||'')})">Confirm it arrived</button>`:''}
+          ${!r.installation_confirmed_at?`<button class="btn-line" onclick="confirmInstalled('${r.id}',${JSON.stringify(r.customer_name||'')})">Confirm install finished</button>`:''}
+        </div>
       </div>
     </div>
 
@@ -178,13 +183,27 @@ async function saveFinance(id){
   if(error){toast('Could not save the contract. '+why(error));console.error(error);return;}
   toast('Contract saved');closeLead();renderFinance();
 }
-/* admin confirms the goods reached the customer, and everyone hears about it */
+/* whoever is standing there when the goods land confirms it, and everyone
+   hears about it — this used to be admin only, which meant the person who
+   actually saw the delivery had to go and find someone */
 async function confirmArrived(id,name){
   const {error}=await sb.from('leads').update({delivery_confirmed_at:new Date().toISOString()}).eq('id',id);
-  if(error){toast('Could not confirm it');console.error(error);return;}
+  if(error){toast('Could not confirm it. '+why(error));console.error(error);return;}
   await notify('delivered',id,`Delivered: ${name||'a customer'} received their system`);
   await logActivity(id,'edit',null,null,'Delivery confirmed as arrived');
   toast('Delivery confirmed');closeLead();go(VIEW);
+}
+/* the install being finished is what finance are waiting on to chase the last
+   payment, so it is a company-wide notification like the delivery */
+async function confirmInstalled(id,name){
+  if(!confirm('Confirm the installation is finished?\n\nEveryone is notified, and it cannot be undone from the app.'))return;
+  const {error}=await sb.from('leads').update({
+    installation_confirmed_at:new Date().toISOString(),
+    installation_confirmed_by:ME.id}).eq('id',id);
+  if(error){toast('Could not confirm it. '+why(error));console.error(error);return;}
+  await notify('installed',id,`Installation finished: ${name||'a customer'}, confirmed by ${staffName(ME.id)}`);
+  await logActivity(id,'edit',null,null,'Installation confirmed as finished');
+  toast('Installation confirmed');closeLead();go(VIEW);
 }
 /* the customer paid ahead, so this month's follow-up is not needed */
 async function skipFollowUp(id){

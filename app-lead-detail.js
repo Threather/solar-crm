@@ -68,7 +68,9 @@ async function openLead(id){
         ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
           <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
         ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
-        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>`:''}
+        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
+        <div><label>Estimated close date</label><input id="d-closedate" type="date" value="${l.expected_close_date||''}" ${canEng?'':'disabled'} title="Optional. When you expect this to be signed — usually set once the quotation has gone out."></div>`:''}
+        ${(isMkt||isAdmin||ME.role==='manager')?`<div><label>Marketing follow-up</label><input id="d-mktfollow" type="date" value="${l.mkt_follow_up_date||''}" ${(isMkt||isAdmin)?'':'disabled'} title="Marketing's own date, separate from the sales follow-up"></div>`:''}
       </div>
       <label style="margin-top:10px;display:block">Add remark</label>
       <div class="noterow">
@@ -268,7 +270,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
            site_link:'d-sitelink',
            delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
            installation_team:'d-team',site_notes:'d-sitenotes',
-           boq_status:'d-boq',boq_date:'d-boqdate'};
+           boq_status:'d-boq',boq_date:'d-boqdate',
+           expected_close_date:'d-closedate',mkt_follow_up_date:'d-mktfollow'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
   /* panel kWp is derived, and its input is readonly so val() skips it */

@@ -337,6 +337,8 @@ function siteBox(l,canSite,first,isAdmin){
         <div><label>BOQ date</label><input value="${l.boq_date?fmtDate(l.boq_date):'—'}" disabled></div>
         <div><label>Arrived at the customer</label><input value="${l.delivery_confirmed_at?fmtDT(l.delivery_confirmed_at):'not confirmed'}" disabled></div>
         <div style="align-self:end">${!l.delivery_confirmed_at?`<button class="btn-line" onclick="confirmArrived('${l.id}',${JSON.stringify(l.customer_name||'')})">Confirm it arrived</button>`:''}</div>
+        <div><label>Installation finished</label><input value="${l.installation_confirmed_at?fmtDT(l.installation_confirmed_at)+' · '+staffName(l.installation_confirmed_by):'not confirmed'}" disabled></div>
+        <div style="align-self:end">${!l.installation_confirmed_at?`<button class="btn-line" onclick="confirmInstalled('${l.id}',${JSON.stringify(l.customer_name||'')})">Confirm it is finished</button>`:''}</div>
         <div style="grid-column:1/-1"><label>Location</label>${l.site_link
           ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
