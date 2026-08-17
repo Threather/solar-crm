@@ -89,6 +89,52 @@ function edcRate(kwac){
   for(const [ceiling,rate] of EDC_RATES) if(k<=ceiling) return rate;
   return 0.06;
 }
+/* Deye's SG05LP hybrid range is named by size and phase, so the part number is
+   a formula. The sizes are listed rather than derived because inventing a
+   SUN-9K would put a part number on a customer's quotation that cannot be
+   ordered. Phase comes from the ampere/phase field, which already carries
+   1P or 3P. */
+const DEYE_SG05LP={'1':[7,8,10],'3':[5,6,8,10,12]};
+function inverterModel(brand,kw,phaseType){
+  if(brand!=='Deye')return '';
+  const p=/3P/.test(phaseType||'')?'3':/1P/.test(phaseType||'')?'1':'';
+  const n=Number(kw||0);
+  if(!p||!n||!DEYE_SG05LP[p].includes(n))return '';
+  return 'SUN-'+n+'K-SG05LP'+p+'-EU-SM2';
+}
+/* ANTI-DARK's SCAE-A rack is 51.2V throughout, so the part number is the
+   amp-hour rating and the capacity follows from it: 100Ah is 5.12 kWh, 200Ah
+   is 10.24, 300Ah is 15.36. Listed rather than derived for the same reason as
+   the inverters — only these three are stocked. */
+const SCAE_A=[[5.12,100],[10.24,200],[15.36,300]];
+function batteryModel(brand,kwhEach){
+  if(!/anti.?dark/i.test(brand||''))return '';
+  const k=Number(kwhEach||0);
+  const hit=SCAE_A.find(([kwh])=>Math.abs(kwh-k)<0.01);
+  return hit?'SCAE-A-51.2-'+hit[1]:'';
+}
+/* LONGi's part numbers are not a formula — HGD at 625W, HYD at 645W — so this
+   stays a plain lookup on the wattage the app already stores. */
+const LONGI_LR8={625:'LR8-66HGD-625M',645:'LR8-66HYD-645M'};
+function panelModel(brand,watt){
+  if(!/longi/i.test(brand||''))return '';
+  return LONGI_LR8[Number(watt||0)]||'';
+}
+/* One photo per product family. The Deye SG05LP units share a casing and the
+   LONGi LR8 panels are shot as a set, so those are one file each; the
+   ANTI-DARK racks differ by size and get one apiece. Files live in img/. A
+   file that is not there hides its own cell rather than printing a broken
+   image on a customer's quotation. */
+const PRODUCT_IMG={
+  'LR8-66HGD-625M':'img/longi-lr8.png',
+  'LR8-66HYD-645M':'img/longi-lr8.png',
+  'SCAE-A-51.2-100':'img/scae-a-51-2-100.png',
+  'SCAE-A-51.2-200':'img/scae-a-51-2-200.png',
+  'SCAE-A-51.2-300':'img/scae-a-51-2-300.png'
+};
+const imgFor=model=>!model?''
+  :/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model)?'img/deye-sg05lp.png'
+  :(PRODUCT_IMG[model]||'');
 /* a blank the salesperson fills in on screen before printing */
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
 const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
@@ -105,14 +151,25 @@ function printQuote(quotId,leadId){
   const annual=Math.round(kwp*4*365);
   /* the band comes from the inverter, which is why kWac is worked out above */
   const edcRateUsd=edcRate(kwac);
+  /* the document opens on about:blank, so a relative img src would resolve
+     against nothing — every picture needs the app's own address in front */
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
   const w=window.open('','_blank');
   if(!w){toast('Allow pop-ups to print the quotation');return;}
-  w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual,edcRate:edcRateUsd}));
+  w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual,edcRate:edcRateUsd,base}));
   w.document.close();
 }
 
 function quoteHtml(q,l,c){
-  const row=(no,desc,qty)=>`<tr><td class="n">${no||''}</td><td>${desc}</td><td class="im"></td><td class="q">${qty||''}</td></tr>`;
+  /* onerror empties the cell, so a photo that has not been added yet leaves a
+     blank box on the sheet instead of a broken-image icon */
+  const row=(no,desc,qty,img)=>`<tr><td class="n">${no||''}</td><td>${desc}</td>`
+    +`<td class="im">${img?`<img src="${esc((c.base||'')+img)}" alt="" onerror="this.remove()">`:''}</td>`
+    +`<td class="q">${qty||''}</td></tr>`;
+  /* the part number, worked out from what the salesperson already keyed in */
+  const mPanel=panelModel(q.panel_brand,q.panel_watt);
+  const mInv=inverterModel(q.inverter_brand,q.inverter_kw,q.ampere_phase);
+  const mBatt=batteryModel(q.battery_brand,q.battery_kwh_each||q.battery_kwh);
   const recalc=`<scr`+`ipt>
     function recalc(){
       const g=id=>parseFloat((document.getElementById(id).innerText||'').replace(/[^0-9.]/g,''))||0;
@@ -166,7 +223,8 @@ function quoteHtml(q,l,c){
   .items th{background:#eee;border:1px solid #999;padding:4px;font-size:10px}
   .items td{border:1px solid #999;padding:3px 5px;vertical-align:top}
   .items td.n{width:24px;text-align:center}
-  .items td.im{width:64px}
+  .items td.im{width:64px;text-align:center;vertical-align:middle}
+  .items td.im img{max-width:56px;max-height:60px;display:inline-block}
   .items td.q{width:80px;text-align:center}
   .sec{font-weight:bold}
   .fill{display:inline-block;border-bottom:1px dotted #666;min-height:12px;padding:0 3px;
@@ -218,17 +276,17 @@ function quoteHtml(q,l,c){
       ${row('១','<span class="sec">'+QT.s1+'</span><br>ក. '+QT.s1a+'<br>'+QT.s1b+'<br>'+QT.s1c+'<br>'+QT.s1d+'<br>'+QT.s1e+'<br>'+QT.s1f,'')}
       ${row('២','<span class="sec">'+QT.s2+'</span>','')}
       ${row('',QT.s2a
-             +'<br>* '+QT.model+' : '+qb(170,q.panel_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
+             +'<br>* '+QT.model+' : '+qb(170,mPanel||q.panel_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.panelsize+' : '+(q.panel_watt||'')+'Wp &nbsp; ធានាលើប្រសិទ្ធភាព: '+qb(22)+' ឆ្នាំ',
-             (q.panel_pcs||'')+' '+QT.unitPanel)}
+             (q.panel_pcs||'')+' '+QT.unitPanel, imgFor(mPanel))}
       ${row('',QT.s2b
-             +'<br>* '+QT.model+' : '+qb(170,q.inverter_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
+             +'<br>* '+QT.model+' : '+qb(170,mInv||q.inverter_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.invsize+' : '+(c.kwac?c.kwac.toFixed(2):'')+' kWac',
-             (q.inverter_pcs||'')+' '+QT.unitPiece)}
+             (q.inverter_pcs||'')+' '+QT.unitPiece, imgFor(mInv))}
       ${row('',QT.s2c
-             +'<br>* '+QT.model+' : '+qb(170,q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
+             +'<br>* '+QT.model+' : '+qb(170,mBatt||q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh',
-             (q.battery_pcs||'')+' '+QT.unitPiece)}
+             (q.battery_pcs||'')+' '+QT.unitPiece, imgFor(mBatt))}
       ${row('',QT.s2d+'<br>* '+QT.mount1+'<br>* '+QT.mount2+'<br>* '+QT.mount3+'<br>* '+QT.mount4+'<br>* '+QT.mount5,
              qb(60,'1 '+QT.unitSet))}
       ${row('៣','<span class="sec">'+QT.s3+'</span><br>* '+QT.e1+'<br>* '+QT.e2+'<br>* '+QT.e3+' &nbsp; '+QT.warrantyN(7)
