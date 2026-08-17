@@ -31,6 +31,11 @@ async function openLead(id){
   /* customer identity is marketing's to keep. Sales get one pass at it, then it
      locks; admin can reopen it. */
   const canCustomer=isAdmin||isMkt||(isSales&&!l.customer_locked);
+  /* Marketing capture a phone number once. After that only admin can change
+     it: a number quietly corrected is a lead that silently becomes a
+     different customer, and the round-robin has already assigned it. */
+  const canPhone=isAdmin||(isMkt&&!l.phone)||(isSales&&!l.customer_locked);
+  const phoneLocked=isMkt&&!!l.phone;
   const custLocked=isSales&&l.customer_locked;
   /* matches quotations_insert: the salesperson on the lead, or admin */
   const canQuote=isAdmin||isSales;
@@ -80,7 +85,7 @@ async function openLead(id){
       <div class="grid2">
         <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canCustomer?'':'disabled'}></div>
         <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
-        <div><label>Phone</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canCustomer?'':'disabled'}></div>
+        <div><label>Phone${phoneLocked?' · captured':''}</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canPhone?'':'disabled'}${phoneLocked?' title="Already captured. Ask an admin to change it."':''}></div>
         <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>
         <div><label>Assigned sale engineer</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
@@ -100,10 +105,10 @@ async function openLead(id){
       </div>
     </div>`;
   const custFirst=ME.role==='marketing';
-  /* The sale engineer and the salesperson are the same person here, and the
-     key-in box is what they open a lead to do: build the spec and price it.
-     So it goes first for anyone who can quote, ahead of the Working box.
-     For everyone else it is reference and stays at the bottom. */
+  /* Working comes first for whoever can quote — stage, follow-up and the
+     remark box are the daily touch — and the key-in box sits directly under
+     it, above customer and site. For everyone else the key-in box is
+     reference and stays at the bottom. */
   const engFirst=canQuote;
   const engHtml=seeEng?`<div class="section sec-eng"><h4>Sale Engineer key-in ${l.assigned_to?('· '+esc(staffName(l.assigned_to))):''}</h4>
       <div class="grid3">
@@ -164,9 +169,9 @@ async function openLead(id){
 
     ${custFirst?custHtml:''}
 
-    ${engFirst?engHtml:''}
-
     ${workHtml}
+
+    ${engFirst?engHtml:''}
 
     ${remarkHtml}
 
@@ -392,7 +397,8 @@ async function useQuot(quotId,leadId){
   const q=(LEADQUOTS||[]).find(x=>x.id===quotId);
   if(!q){toast('Could not find that quotation');return;}
   if(!confirm('Use the '+fmtMoney(q.price_usd)+' option as this lead\'s specification?\n\n'
-    +'EDC, installation and the export all read the lead, so they will follow this one.'))return;
+    +'EDC, installation and the export all read the lead, so they will follow this one.\n'
+    +'The final sale value is set to '+fmtMoney(q.price_usd)+' as well, and stays editable.'))return;
   const {error}=await sb.from('leads').update({
     roof_type:q.roof_type,system_type:q.system_type,phase_type:q.ampere_phase,
     panel_brand:q.panel_brand,panel_watt:q.panel_watt,panel_pcs:q.panel_pcs,panel_kwp:q.panel_kwp,
@@ -402,8 +408,14 @@ async function useQuot(quotId,leadId){
     battery_kwh_each:q.battery_kwh_each,battery_kwh:q.battery_kwh
   }).eq('id',leadId);
   if(error){toast('Could not apply it. '+why(error));console.error(error);return;}
+  /* the option the customer took is also what the deal is worth, so the sale
+     value follows it rather than being typed again from the same number */
+  const {error:fe}=await sb.from('lead_financials').upsert(
+    {lead_id:leadId,final_sale_usd:q.price_usd,updated_by:ME.id,updated_at:new Date().toISOString()},
+    {onConflict:'lead_id'});
+  if(fe)console.error(fe);
   await logActivity(leadId,'edit',null,null,
-    'Lead specification set from the '+fmtMoney(q.price_usd)+' quotation');
-  toast('This lead now follows that option');
+    'Lead specification and sale value set from the '+fmtMoney(q.price_usd)+' quotation');
+  toast(fe?'Specification set, but the sale value did not save':'This lead now follows that option');
   openLead(leadId);
 }

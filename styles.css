@@ -153,6 +153,9 @@ tr.rowlink:hover{background:var(--card-alt)}
 .days{font-size:var(--t-cap);color:var(--ink-mute);display:block;margin-top:2px;font-weight:400}
 .pooltag{color:var(--pool);font-weight:700;font-size:var(--t-cap);letter-spacing:.04em}
 .refid{font-size:var(--t-meta);color:var(--ink-mute);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* the number people actually dial, in a column of its own rather than as
+   small print under the name */
+td.phone{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink)}
 .overdue{color:var(--bad);font-weight:600}
 .quiet{color:var(--ink-mute)}
 /* compact status marker — a column that is mostly one glyph wide */

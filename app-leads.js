@@ -130,12 +130,13 @@ function drawTable(){
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
+    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
-      <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'no phone yet')}${l.customer_type?' · '+esc(l.customer_type):''}</span></td>
+      <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
+      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${stagePill(l.stage_code)}</td>
       <td>${qualPill(l)}</td>
       <td>${ME.role==='sales'
@@ -167,11 +168,12 @@ function toggleRemarks(btn){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Salesperson</th><th>Site engineer</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
-      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
+      <td><b>${esc(l.customer_name)}</b></td>
+      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${esc(staffName(l.assigned_to))}</td>
       <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
@@ -185,11 +187,12 @@ function drawWonTable(rows){
 }
 function drawLostTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Channel</th><th>Qualified</th><th>Salesperson</th><th>Lost</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Qualified</th><th>Salesperson</th><th>Lost</th><th>Created</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
-      <td><b>${esc(l.customer_name)}</b><span class="days">${esc(l.phone||'')}</span></td>
+      <td><b>${esc(l.customer_name)}</b></td>
+      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
       <td>${qualPill(l)}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'—'}</td>
@@ -281,6 +284,17 @@ async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
   if(!name){toast('Customer name is required');return;}
   if(!$('f-sub').value){toast('Pick a sub-channel');return;}
+  /* the same number turning up twice is usually a customer who called back,
+     not a mistake — so this says so and lets it through. It only sees leads
+     the person is allowed to see, so a silent no would be worse than this. */
+  if(phone){
+    const {data:dupes}=await sb.from('leads').select('ref_id,customer_name,created_at')
+      .eq('phone',phone).eq('is_deleted',false).order('created_at').limit(3);
+    if(dupes&&dupes.length){
+      const lines=dupes.map(d=>`  ${d.ref_id||'no ref'} — ${d.customer_name} (${fmtDate(d.created_at)})`).join('\n');
+      if(!confirm(`This phone number is already on ${dupes.length} lead${dupes.length>1?'s':''}:\n\n${lines}\n\nCreate this one anyway?`))return;
+    }
+  }
   const row={
     customer_name:name,phone:phone||null,
     customer_type:$('f-ctype').value,
@@ -322,7 +336,7 @@ function siteBox(l,canSite,first,isAdmin){
         <div><label>BOQ release</label><input value="${esc(l.boq_status||'not set yet')}" disabled title="Set by the sale engineer"></div>
         <div><label>BOQ date</label><input value="${l.boq_date?fmtDate(l.boq_date):'—'}" disabled></div>
         <div><label>Arrived at the customer</label><input value="${l.delivery_confirmed_at?fmtDT(l.delivery_confirmed_at):'not confirmed'}" disabled></div>
-        <div style="align-self:end">${(isAdmin&&!l.delivery_confirmed_at)?`<button class="btn-line" onclick="confirmArrived('${l.id}',${JSON.stringify(l.customer_name||'')})">Confirm it arrived</button>`:''}</div>
+        <div style="align-self:end">${!l.delivery_confirmed_at?`<button class="btn-line" onclick="confirmArrived('${l.id}',${JSON.stringify(l.customer_name||'')})">Confirm it arrived</button>`:''}</div>
         <div style="grid-column:1/-1"><label>Location</label>${l.site_link
           ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>

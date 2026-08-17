@@ -70,26 +70,25 @@ function drawFinance(){
     ?blank('No matches','No deal fits the current search.')
     :FINSCOPE==='paid'?blank('Nothing settled yet','Deals move here once the balance reaches zero.')
     :blank('Nothing outstanding','Every won deal has been paid in full.');return;}
-  $('finwrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Won</th><th>Received</th><th>Salesperson</th>
-    <th>Channel</th><th>System</th><th>Sale value</th><th>Contract</th><th>Status</th>
-    <th>Follow-up</th><th>Paid</th><th>Balance</th>
+  /* Nine columns, not thirteen. What is still owed leads, because that is the
+     question this page exists to answer; won month, channel, system and the
+     sale value moved to the card and the CSV, where nobody had to scroll
+     sideways to reach them. */
+  $('finwrap').innerHTML=`<table class="table-compact"><thead><tr>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Paid</th>
+    <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Salesperson</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
     return `<tr class="rowlink" onclick="openFinance('${r.id}')">
       <td class="refid">${esc(r.ref_id||'—')}</td>
       <td><b>${esc(r.customer_name)}</b></td>
-      <td>${r.stage_entered_at?monthName(localDay(r.stage_entered_at).slice(0,7)):'—'}</td>
-      <td>${fmtDate(r.created_at)}</td>
-      <td>${esc(staffName(r.assigned_to))}</td>
-      <td>${esc(r.lead_channel||r.lead_source||'—')}<span class="days">${esc(r.lead_sub_channel||'')}</span></td>
-      <td>${esc(sysLine(r))}</td>
-      <td>${fmtMoney(r.final_sale_usd)}</td>
-      <td>${fmtMoney(r.fin?.contract_total_usd)}</td>
-      <td>${esc(r.fin?.contract_status||'—')}<span class="days">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
-      <td>${r.fin?.follow_up_date?`<b style="color:${dueNow?'var(--bad)':'inherit'}">${fmtDate(r.fin.follow_up_date)}</b>`:'—'}</td>
+      <td class="phone">${r.phone?esc(r.phone):'<span class="quiet">—</span>'}</td>
+      <td><b class="${bal>0.005?'overdue':''}">${fmtMoney(bal)}</b></td>
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
-      <td><b style="color:${bal>0?'var(--bad)':'inherit'}">${fmtMoney(bal)}</b></td>
+      <td>${fmtMoney(due)}</td>
+      <td>${esc(r.fin?.contract_status||'—')}<span class="days">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
+      <td class="nowrap">${r.fin?.follow_up_date?`<b class="${dueNow?'overdue':''}">${fmtDate(r.fin.follow_up_date)}</b>`:'—'}</td>
+      <td>${esc(staffName(r.assigned_to))}</td>
     </tr>`;}).join('')+`</tbody></table>`;
 }
 

@@ -165,23 +165,36 @@ async function boot(){
   buildNav();go('home');followUpToday();
 }
 
-/* Leads whose follow-up date is today. Shown once, at login. */
+/* What is waiting on you, shown once at login: leads due for follow-up today,
+   and won deals whose BOQ has never been released. A won deal with no BOQ
+   blocks the install, and nothing else in the app shouts about it. */
 async function followUpToday(){
   if(!['sales','manager','admin'].includes(ME.role))return;
   const today=new Date().toISOString().slice(0,10);
-  let q=sb.from('leads').select('id,ref_id,customer_name,phone,stage_code')
-    .eq('is_deleted',false).eq('next_follow_up',today);
-  if(ME.role==='sales')q=q.eq('assigned_to',ME.id);
-  const {data}=await q;
-  if(!data||!data.length)return;
+  const mine=q=>ME.role==='sales'?q.eq('assigned_to',ME.id):q;
+  const [{data:due},{data:boq}]=await Promise.all([
+    mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code')
+      .eq('is_deleted',false).eq('next_follow_up',today)),
+    mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code,boq_status,stage_entered_at')
+      .eq('is_deleted',false).eq('stage_code',WON).or('boq_status.is.null,boq_status.neq.Done'))
+  ]);
+  const nDue=(due||[]).length, nBoq=(boq||[]).length;
+  if(!nDue&&!nBoq)return;
+  const item=(l,meta)=>`<div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
+      <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
+      <div class="t-meta">${meta}</div></div>`;
   $('lead-modal').innerHTML=`
-    <h2>Follow up today</h2>
-    <div class="sub">${data.length} lead${data.length>1?'s':''} due for follow-up today.</div>
-    <div class="timeline">${data.map(l=>`
-      <div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
-        <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
-        <div class="t-meta">${esc(l.phone||'no phone')} · ${stagePill(l.stage_code)}</div>
-      </div>`).join('')}</div>
+    <h2>${nBoq?'Waiting on you':'Follow up today'}</h2>
+    <div class="sub">${[nDue?`${nDue} follow-up${nDue>1?'s':''} due today`:'',
+       nBoq?`${nBoq} won deal${nBoq>1?'s':''} with no BOQ released`:''].filter(Boolean).join(' · ')}.</div>
+    ${nBoq?`<div class="section sec-eng"><h4>BOQ not released</h4>
+      <div class="timeline">${boq.map(l=>item(l,
+        `won ${fmtDate(l.stage_entered_at)} · BOQ ${esc(l.boq_status||'not set')}`)).join('')}</div>
+    </div>`:''}
+    ${nDue?`<div class="section sec-sales"><h4>Follow up today</h4>
+      <div class="timeline">${due.map(l=>item(l,
+        `${esc(l.phone||'no phone')} · ${stagePill(l.stage_code)}`)).join('')}</div>
+    </div>`:''}
     <div class="modal-actions"><button class="btn-sun" onclick="closeLead()">Got it</button></div>`;
   $('lead-overlay').classList.add('open');
 }

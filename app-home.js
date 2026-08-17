@@ -60,6 +60,9 @@ function homeSales(rows){
   const pool=rows.filter(l=>!l.assigned_to&&!TERMINAL.includes(l.stage_code));
   const stale=live.filter(l=>!l.next_follow_up);
   const canPool=['manager','admin'].includes(ME.role);
+  /* a won deal with no BOQ blocks the install, so it is counted here as well
+     as raised at login — one of those is missable, two is not */
+  const noBoq=rows.filter(l=>l.stage_code===WON&&l.boq_status!=='Done');
 
   $('main').innerHTML=dayBar(`${ME.full_name} · ${live.length} lead${live.length===1?'':'s'} in play`)+`
     <div class="stats">
@@ -69,6 +72,11 @@ function homeSales(rows){
       ${canPool?`<div class="stat"><div class="n">${pool.length}</div><div class="l">Unassigned</div></div>`:''}
       <div class="stat"><div class="n">${stale.length}</div><div class="l">No follow-up set</div></div>
     </div>
+    ${noBoq.length?`<div class="hint" style="border-left-color:var(--own-eng);color:var(--own-eng)">
+      <b>${noBoq.length} won deal${noBoq.length>1?'s':''} with no BOQ released.</b>
+      ${noBoq.slice(0,4).map(l=>`<span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${l.id}')">${esc(l.customer_name)}</span>`).join(' · ')}
+      ${noBoq.length>4?` and ${noBoq.length-4} more`:''}
+    </div>`:''}
     <div class="homegrid">
       ${pipePanel(live)}
       ${panel('Needs you today',due.length
