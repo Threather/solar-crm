@@ -187,9 +187,12 @@ function quoteHtml(q,l,c){
       document.getElementById('o-prod').innerText=f(val);
       document.getElementById('o-year').innerText=f(year);
       document.getElementById('o-mon').innerText=f(mon);
-      /* payback is worked from the price before VAT either way, which is what
-         their own workbook does */
-      document.getElementById('o-pay').innerText=mon>0?f(price/mon):'';
+      /* payback runs on what the customer actually pays, so it follows the VAT
+         tick: quoted with VAT it is the grand total, quoted without it is the
+         price. Anything else has the customer paying one number and earning it
+         back against another. */
+      const total=document.getElementById('vat-on').checked?price+vat:price;
+      document.getElementById('o-pay').innerText=mon>0?f(total/mon):'';
     }
     /* some customers are quoted with VAT and some without, so the two lines
        come off the sheet rather than being crossed out by hand */
@@ -197,6 +200,7 @@ function quoteHtml(q,l,c){
       const on=document.getElementById('vat-on').checked;
       document.getElementById('r-vat').style.display=on?'':'none';
       document.getElementById('r-grand').style.display=on?'':'none';
+      recalc();
     }
     document.addEventListener('input',recalc);
     document.getElementById('vat-on').addEventListener('change',vatToggle);
