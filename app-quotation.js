@@ -76,6 +76,19 @@ const QT={
   dots:'………………………………….', dots2:'....................................................................',
   page:'Page'
 };
+/* EDC's published compensation rate card, banded by inverter kWac. The band
+   under 10 kWac is blank on their sheet, which means no fee — the same
+   threshold EDC paperwork already turns on. Ceilings are inclusive: "over 10
+   up to 50" means 10 itself pays nothing. */
+const EDC_RATES=[[10,0],[50,0.037],[100,0.047],[200,0.052],[500,0.055],[1000,0.058],[Infinity,0.06]];
+/* null, not zero, when the size is unknown: a blank box asks to be filled in,
+   a zero looks like an answer */
+function edcRate(kwac){
+  const k=Number(kwac||0);
+  if(!k)return null;
+  for(const [ceiling,rate] of EDC_RATES) if(k<=ceiling) return rate;
+  return 0.06;
+}
 /* a blank the salesperson fills in on screen before printing */
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
 const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
@@ -90,9 +103,11 @@ function printQuote(quotId,leadId){
   const price=Number(q.price_usd||0);
   /* their own workbook: kWp x 4 peak sun hours x 365 days */
   const annual=Math.round(kwp*4*365);
+  /* the band comes from the inverter, which is why kWac is worked out above */
+  const edcRateUsd=edcRate(kwac);
   const w=window.open('','_blank');
   if(!w){toast('Allow pop-ups to print the quotation');return;}
-  w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual}));
+  w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual,edcRate:edcRateUsd}));
   w.document.close();
 }
 
@@ -107,7 +122,11 @@ function quoteHtml(q,l,c){
       document.getElementById('o-vat').innerText='$'+f(vat);
       document.getElementById('o-grand').innerText='$'+f(price+vat);
       const val=g('f-annual')*g('f-tariff');
-      const year=val-g('f-export'), mon=year/12;
+      /* EDC compensation is the band rate on everything produced in the year,
+         so it follows the annual figure instead of being typed again */
+      const exp=g('f-annual')*g('f-edcrate');
+      document.getElementById('o-export').innerText=f(exp);
+      const year=val-exp, mon=year/12;
       document.getElementById('o-prod').innerText=f(val);
       document.getElementById('o-year').innerText=f(year);
       document.getElementById('o-mon').innerText=f(mon);
@@ -157,6 +176,7 @@ function quoteHtml(q,l,c){
   .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
   .sav td{padding:2px 4px;font-size:10px}
   .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px}
+  .rate{font-size:9px;color:#555}
   .fn{font-size:8.5px;color:#333;margin-top:8px;line-height:1.45}
   .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
   .sign > div{flex:1}
@@ -230,7 +250,8 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td>${QT.perYear}</td></tr>
     <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td>${QT.usdYear}</td></tr>
-    <tr><td>${QT.exported}</td><td class="v"><span class="fill" id="f-export" contenteditable="true">0</span></td><td>${QT.usdYear}</td></tr>
+    <tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
+        <td class="v" id="o-export"></td><td>${QT.usdYear}</td></tr>
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td>${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td>${QT.usdMonth}</td></tr>
     <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td>${QT.months}</td></tr>
