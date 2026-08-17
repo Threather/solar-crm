@@ -48,7 +48,7 @@ const QT={
   produced:'តម្លៃថាមពលដែលបានផលិត', usdYear:'USD/ឆ្នាំ',
   exported:'ថ្លៃប៉ះប៉ូវទៅកាន់អគ្គិសនីកម្ពុជា',
   saved:'ប្រាក់សន្សំបាន', savedMonth:'ប្រាក់សន្សំបានប្រចាំខែ', usdMonth:'USD/ខែ',
-  payback:'រយៈពេលស្រង់ដើមត្រលប់មកវិញ', months:'ខែ',
+  payback:'រយៈពេលស្រង់ដើមត្រលប់មកវិញ', months:'ខែ', years:'ឆ្នាំ',
   note:'*ចំណាំ៖',
   f1:'១. លទ្ធផលដែលបានបង្ហាញ គឺជាការប៉ាន់ស្មានពី PVsyst ដោយផ្អែកលើទិន្នន័យប្រវត្តិសាស្រ្ត។ ប្រសិទ្ធភាពពិតប្រាកដនៃប្រព័ន្ធអាចខុសគ្នា អាស្រ័យលើអាកាសធាតុ លក្ខខណ្ឌទីតាំង និងកត្តាផ្សេងៗ។',
   f2:'២. ប្រាក់សន្សំជាក់ស្តែងអាចខុសគ្នា អាស្រ័យលើឥរិយាបថប្រើប្រាស់អគ្គិសនីរបស់អតិថិជន។',
@@ -187,12 +187,12 @@ function quoteHtml(q,l,c){
       document.getElementById('o-prod').innerText=f(val);
       document.getElementById('o-year').innerText=f(year);
       document.getElementById('o-mon').innerText=f(mon);
-      /* payback runs on what the customer actually pays, so it follows the VAT
-         tick: quoted with VAT it is the grand total, quoted without it is the
-         price. Anything else has the customer paying one number and earning it
-         back against another. */
+      /* Kevin's formula: grand total over the ANNUAL saving, so the answer is
+         in years. It follows the VAT tick, because a customer quoted without
+         VAT never pays the grand total and should not be shown earning it
+         back. */
       const total=document.getElementById('vat-on').checked?price+vat:price;
-      document.getElementById('o-pay').innerText=mon>0?f(total/mon):'';
+      document.getElementById('o-pay').innerText=year>0?f(total/year):'';
     }
     /* some customers are quoted with VAT and some without, so the two lines
        come off the sheet rather than being crossed out by hand */
@@ -316,7 +316,7 @@ function quoteHtml(q,l,c){
         <td class="v" id="o-export"></td><td>${QT.usdYear}</td></tr>
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td>${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td>${QT.usdMonth}</td></tr>
-    <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td>${QT.months}</td></tr>
+    <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td>${QT.years}</td></tr>
   </table>
 
   <div class="fn">${QT.note}<br>${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
