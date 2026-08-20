@@ -70,6 +70,8 @@ async function openLead(id){
         ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
         <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
         <div><label>Estimated close date</label><input id="d-closedate" type="date" value="${l.expected_close_date||''}" ${canEng?'':'disabled'} title="Optional. When you expect this to be signed — usually set once the quotation has gone out."></div>`:''}
+        ${l.stage_code===LOST?`<div><label>Why it was lost</label><select id="d-lostreason" ${canSales?'':'disabled'}>${optList(LOST_REASONS,l.lost_reason)}</select></div>
+        <div style="grid-column:2/-1"><label>Detail</label><input id="d-lostnote" value="${esc(l.lost_note||'')}" placeholder="Anything worth remembering" ${canSales?'':'disabled'}></div>`:''}
         ${(isMkt||isAdmin||ME.role==='manager')?`<div><label>Marketing follow-up</label><input id="d-mktfollow" type="date" value="${l.mkt_follow_up_date||''}" ${(isMkt||isAdmin)?'':'disabled'} title="Marketing's own date, separate from the sales follow-up"></div>`:''}
       </div>
       <label style="margin-top:10px;display:block">Add remark</label>
@@ -296,7 +298,8 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
            delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
            installation_team:'d-team',site_notes:'d-sitenotes',
            boq_status:'d-boq',boq_date:'d-boqdate',
-           expected_close_date:'d-closedate',mkt_follow_up_date:'d-mktfollow'};
+           expected_close_date:'d-closedate',mkt_follow_up_date:'d-mktfollow',
+           lost_reason:'d-lostreason',lost_note:'d-lostnote'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
   /* panel kWp is derived, and its input is readonly so val() skips it */
@@ -325,6 +328,20 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   /* the name is the one field that must never be blanked */
   if(upd.customer_name===null){toast('Customer name cannot be empty');return;}
   const newStage=upd.stage_code??oldStage;
+  /* the reason is the whole point of the closed-lost analysis, so it is asked
+     for at the moment the stage moves rather than left for someone to fill in
+     later, which is to say never */
+  if(newStage===LOST&&oldStage!==LOST&&!upd.lost_reason&&!$('d-lostreason')){
+    const pick=prompt('Why was this lost?
+
+'+LOST_REASONS.map((r,i)=>(i+1)+'. '+r).join('
+')
+      +'
+
+Type the number, or leave empty to record it later.');
+    const n=Number(pick);
+    if(n>=1&&n<=LOST_REASONS.length)upd.lost_reason=LOST_REASONS[n-1];
+  }
   if(newStage===WON&&oldStage!==WON&&!sale){toast('Enter the final sale value before marking Closed-Won');return;}
   if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){setLock(true);return;}
 

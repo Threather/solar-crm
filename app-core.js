@@ -74,6 +74,10 @@ const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','fo
 const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
 const BOQ_STATUS=['Pending','Done'];
+/* Why a deal was lost. A dropdown rather than free text, because "Top
+   Closed-Lost Reasons" has to be countable — a column of sentences cannot be
+   charted. The note beside it carries the detail. */
+const LOST_REASONS=['Price','Competitor','No budget','Postponed','No response','Not qualified','Other'];
 /* a follow-up lands on the same day of the month; February keeps the last day */
 function addMonths(d,n){
   if(!d)return '';
