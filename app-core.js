@@ -219,7 +219,8 @@ const ICON={
   edc:'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
   fin:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
   comm:'M12 3l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9L9.5 8z',
-  users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1'
+  users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
+  targets:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 12h.01'
 };
 const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
   +`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]||ICON.home}"/></svg>${l}</button>`;
@@ -251,6 +252,7 @@ function buildNav(){
      inside decides which one they actually see */
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
+  if(ME.role==='admin') admin.push(['targets','Targets']);
   const group=(label,items)=>items.length
     ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
   $('nav').innerHTML=group('Work',work)+group('Money',money)+group('Company',admin);
@@ -264,7 +266,8 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
-    edc:renderEdc,fin:renderFinance,comm:renderComm,users:renderUsers}[v])();
+    edc:renderEdc,fin:renderFinance,comm:renderComm,users:renderUsers,
+    targets:renderTargets}[v])();
 }
 
 /* ---------------- data ---------------- */

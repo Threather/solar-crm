@@ -159,44 +159,49 @@ function repFigs(pairs){
     (note?`<div class="fn">${esc(note)}</div>`:'')+`</div>`).join('')+`</div>`;
 }
 
+/* Targets for a month, read once and shared by whichever report needs them.
+   Company-wide rows carry a null profile_id; per-person rows carry theirs. */
+async function loadTargets(monthISO){
+  const {data,error}=await sb.from('targets').select('*').eq('month',monthISO);
+  if(error){console.error(error);return {company:{},person:{}};}
+  const company={},person={};
+  (data||[]).forEach(t=>{
+    if(t.profile_id){(person[t.profile_id]=person[t.profile_id]||{})[t.metric]=Number(t.value);}
+    else company[t.metric]=Number(t.value);
+  });
+  return {company,person};
+}
+const monthStart=d=>{const x=d?new Date(d):new Date();return localDay(new Date(x.getFullYear(),x.getMonth(),1));};
+
+/* How far a lead actually got. The current stage cannot tell you: a lost lead
+   sitting on closed_lost may have had a quotation out. The stage_change log
+   does know, so "ever reached" is read from there and the current stage is
+   folded in for leads that have not moved since. */
+async function loadStageHistory(ids){
+  const reached={};
+  ids.forEach(id=>reached[id]=new Set());
+  for(let i=0;i<ids.length;i+=200){
+    const {data}=await sb.from('lead_activities')
+      .select('lead_id,to_stage,created_at')
+      .in('lead_id',ids.slice(i,i+200)).eq('activity_type','stage_change');
+    (data||[]).forEach(a=>{if(a.to_stage&&reached[a.lead_id])reached[a.lead_id].add(a.to_stage);});
+  }
+  return reached;
+}
+/* stage order, so "reached quotation sent or beyond" is one comparison */
+const stageRank=code=>{const i=STAGES.findIndex(s=>s.stage_code===code);return i<0?-1:i;};
+function everReached(reached,l,code){
+  if(stageRank(l.stage_code)>=stageRank(code)&&l.stage_code!==LOST)return true;
+  const set=reached[l.id];
+  if(!set)return false;
+  for(const c of set)if(stageRank(c)>=stageRank(code))return true;
+  return false;
+}
+
 const CH_ORDER=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Other'];
 const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'#1baf7a',
                 Offline_Marketing:'#eda100',Other:'#898781'};
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
-
-async function renderMktReport(){
-  LEADS=await fetchLeads(q=>ME.role==='manager'||ME.role==='admin'?q:q.eq('created_by',ME.id));
-  const won=LEADS.filter(l=>l.stage_code===WON);
-  const lost=LEADS.filter(l=>l.stage_code===LOST);
-  const open=LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
-  const decided=won.length+lost.length;
-  const winRate=decided?Math.round(won.length/decided*100):null;
-  /* marketing reaches this tab but cannot read sale values, so the money tile
-     is left out for them rather than shown as zero */
-  let wonValue=null;
-  if(canSeeMoney()&&won.length){
-    const {data:fins}=await sb.from('lead_financials')
-      .select('final_sale_usd').in('lead_id',won.map(l=>l.id));
-    wonValue=(fins||[]).reduce((a,f)=>a+Number(f.final_sale_usd||0),0);
-  }
-
-  const months=[...new Set(LEADS.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean).sort().slice(-12);
-  const counts={};
-  months.forEach(m=>{counts[m]={};CH_ORDER.forEach(c=>counts[m][c]=0);});
-  LEADS.forEach(l=>{const m=localDay(l.created_at).slice(0,7);if(counts[m])counts[m][chOf(l)]++;});
-  const used=CH_ORDER.filter(c=>months.some(m=>counts[m][c]>0));
-
-  $('main').innerHTML=repBar('Marketing report')+`
-    <div class="stats">
-      <div class="stat hero"><div class="n">${winRate===null?'—':winRate+'%'}</div><div class="l">Win rate</div></div>
-      <div class="stat"><div class="n">${LEADS.length}</div><div class="l">Total leads</div></div>
-      <div class="stat"><div class="n">${open.length}</div><div class="l">In pipeline</div></div>
-      <div class="stat"><div class="n">${won.length}</div><div class="l">Closed-Won</div></div>
-      ${wonValue===null?'':`<div class="stat"><div class="n">${fmtMoney(wonValue)}</div><div class="l">Won value</div></div>`}
-    </div>
-    ${months.length?barChart(months,counts,used):blank('Nothing to chart yet','The breakdown by channel appears once leads have been created.')}
-    ${stageTable()}`;
-}
 
 /* Stacked column chart, hand-rolled SVG: no chart library, no build step. */
 function barChart(months,counts,used){
