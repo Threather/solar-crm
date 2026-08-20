@@ -224,7 +224,8 @@ const ICON={
   fin:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
   comm:'M12 3l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9L9.5 8z',
   users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
-  targets:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 12h.01'
+  targets:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 12h.01',
+  inc:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'
 };
 const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
   +`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]||ICON.home}"/></svg>${l}</button>`;
@@ -250,6 +251,7 @@ function buildNav(){
   if(['sales','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
   money.push(['comm','Commissions']);
+  if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
   if(ME.role==='admin') admin.push(['edc','EDC']);
   /* every team with a dashboard of its own reaches it here; the scope switch
@@ -271,7 +273,7 @@ function go(v){
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,comm:renderComm,users:renderUsers,
-    targets:renderTargets}[v])();
+    targets:renderTargets,inc:renderIncentive}[v])();
 }
 
 /* ---------------- data ---------------- */
