@@ -84,13 +84,87 @@ function exportComms(){
    channel fold into a gray "Other" rather than earning a 5th hue.
    Aqua and gold sit under 3:1 on this surface, so the relief rule applies:
    segment values are labelled and the full table sits under the chart. */
+/* ---------------- REPORTS ----------------
+   Three dashboards, one per team, behind a scope switch that shows only what
+   the role is entitled to. The client specified them as three separate
+   documents, so they stay three separate screens rather than one long page. */
+let REPSCOPE='', REPPERIOD='mtd', REPFILTER={person:'',team:'',channel:''};
+/* Which report a role may see, and which one exists yet. The reports land one
+   at a time, so a scope whose renderer has not shipped is left out rather than
+   offered as a button that opens a blank page. */
+const REP_RENDER={sales:'renderSalesReport',ops:'renderOpsReport',mkt:'renderMktReport'};
+function repScopes(){
+  const s=[];
+  if(['sales','manager','admin'].includes(ME.role))s.push(['sales','Sales']);
+  if(['site_engineer','admin'].includes(ME.role))s.push(['ops','Operations']);
+  if(['marketing','admin'].includes(ME.role))s.push(['mkt','Marketing']);
+  return s.filter(([k])=>typeof window[REP_RENDER[k]]==='function');
+}
+const REP_PERIODS=[['today','Today'],['week','This week'],['mtd','This month'],['all','All time']];
+/* every report reads the same window, so the switch means one thing everywhere */
+function repRange(p){
+  const now=new Date(), d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  if(p==='today')return [localDay(d),localDay(d)];
+  if(p==='week'){const s=new Date(d);s.setDate(d.getDate()-((d.getDay()+6)%7));return [localDay(s),localDay(d)];}
+  if(p==='mtd')return [localDay(new Date(now.getFullYear(),now.getMonth(),1)),localDay(d)];
+  return ['1970-01-01',localDay(d)];
+}
+const inRange=(v,r)=>{const d=localDay(v);return !!d&&d>=r[0]&&d<=r[1];};
+/* whole days between two dates, null when either end is missing — an average
+   must never quietly count a blank as zero */
+function daysBetween(a,b){
+  if(!a||!b)return null;
+  const x=new Date(localDay(a)),y=new Date(localDay(b));
+  const n=Math.round((y-x)/86400000);
+  return isNaN(n)?null:n;
+}
+const avgDays=arr=>{const v=arr.filter(n=>n!==null&&n>=0);
+  return v.length?{avg:(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1),n:v.length}:{avg:'—',n:0};};
+
+function setRepScope(v){REPSCOPE=v;REPFILTER={person:'',team:'',channel:''};renderReports();}
+function setRepPeriod(v){REPPERIOD=v;renderReports();}
+function setRepFilter(k,v){REPFILTER[k]=v;renderReports();}
+
+async function renderReports(){
+  const scopes=repScopes();
+  if(!scopes.length){$('main').innerHTML=blank('No report for your team',
+    'Reports are built per team and yours does not have one yet.');return;}
+  if(!scopes.find(([k])=>k===REPSCOPE))REPSCOPE=scopes[0][0];
+  $('main').innerHTML=SKEL;
+  return window[REP_RENDER[REPSCOPE]]();
+}
+/* the switch bar every report sits under */
+function repBar(title,extra){
+  const scopes=repScopes();
+  return `<h2 style="margin-bottom:4px">${esc(title)}</h2>
+    <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${
+      REPPERIOD==='all'?'Everything on record':'For '+
+      (REPPERIOD==='today'?'today':REPPERIOD==='week'?'this week':'this month')}.</div>
+    <div class="toolbar">
+      ${scopes.length>1?`<div class="scope">${scopes.map(([k,l])=>
+        `<button class="${REPSCOPE===k?'on':''}" onclick="setRepScope('${k}')">${l}</button>`).join('')}</div>`:''}
+      <div class="scope">${REP_PERIODS.map(([k,l])=>
+        `<button class="${REPPERIOD===k?'on':''}" onclick="setRepPeriod('${k}')">${l}</button>`).join('')}</div>
+      ${extra||''}
+    </div>`;
+}
+/* a labelled block of figures, the shape every section of the client's
+   document takes */
+function repPanel(title,body,wide){
+  return `<div class="panel${wide?' wide':''}"><h4>${esc(title)}</h4>${body}</div>`;
+}
+function repFigs(pairs){
+  return `<div class="figs">`+pairs.map(([label,value,note])=>
+    `<div class="fig"><div class="fv">${value}</div><div class="fl">${esc(label)}</div>`+
+    (note?`<div class="fn">${esc(note)}</div>`:'')+`</div>`).join('')+`</div>`;
+}
+
 const CH_ORDER=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Other'];
 const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'#1baf7a',
                 Offline_Marketing:'#eda100',Other:'#898781'};
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
-async function renderReports(){
-  $('main').innerHTML=SKEL;
+async function renderMktReport(){
   LEADS=await fetchLeads(q=>ME.role==='manager'||ME.role==='admin'?q:q.eq('created_by',ME.id));
   const won=LEADS.filter(l=>l.stage_code===WON);
   const lost=LEADS.filter(l=>l.stage_code===LOST);
@@ -112,8 +186,7 @@ async function renderReports(){
   LEADS.forEach(l=>{const m=localDay(l.created_at).slice(0,7);if(counts[m])counts[m][chOf(l)]++;});
   const used=CH_ORDER.filter(c=>months.some(m=>counts[m][c]>0));
 
-  $('main').innerHTML=`
-    <h2 style="margin-bottom:14px">Reports</h2>
+  $('main').innerHTML=repBar('Marketing report')+`
     <div class="stats">
       <div class="stat hero"><div class="n">${winRate===null?'—':winRate+'%'}</div><div class="l">Win rate</div></div>
       <div class="stat"><div class="n">${LEADS.length}</div><div class="l">Total leads</div></div>

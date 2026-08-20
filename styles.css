@@ -339,6 +339,16 @@ td.nowrap{white-space:nowrap}
 .quotbar>div{flex:0 1 190px}
 .quotbar label{margin-top:0}
 .quotbar button{flex:none}
+/* a row of plain figures inside a panel — the shape most report sections take.
+   No container per figure: the panel is the container. */
+.figs{display:flex;flex-wrap:wrap;gap:18px 26px}
+.fig{min-width:104px}
+.fig .fv{font-family:'Source Serif 4',Georgia,serif;font-size:var(--t-h2);font-weight:600;
+  color:var(--ink);line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.fig .fl{font-size:var(--t-cap);color:var(--ink-soft);text-transform:uppercase;
+  letter-spacing:.07em;margin-top:3px}
+.fig .fn{font-size:var(--t-cap);color:var(--ink-mute);margin-top:1px}
+.fig.bad .fv{color:var(--bad)}
 /* what is being sold, pictured, while it is being keyed in */
 .kit{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .kit:empty{display:none}

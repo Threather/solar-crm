@@ -228,7 +228,7 @@ const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=[['home','Today'],['leads','My jobs']].map(navBtn).join('');
+    $('nav').innerHTML=[['home','Today'],['leads','My jobs'],['reports','Reports']].map(navBtn).join('');
     return;
   }
   /* finance only ever works won deals and their money */
@@ -247,7 +247,9 @@ function buildNav(){
   money.push(['comm','Commissions']);
   const admin=[];
   if(ME.role==='admin') admin.push(['edc','EDC']);
-  if(['marketing','admin'].includes(ME.role)) admin.push(['reports','Reports']);
+  /* every team with a dashboard of its own reaches it here; the scope switch
+     inside decides which one they actually see */
+  if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
   const group=(label,items)=>items.length
     ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
