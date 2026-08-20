@@ -332,13 +332,10 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
      for at the moment the stage moves rather than left for someone to fill in
      later, which is to say never */
   if(newStage===LOST&&oldStage!==LOST&&!upd.lost_reason&&!$('d-lostreason')){
-    const pick=prompt('Why was this lost?
-
-'+LOST_REASONS.map((r,i)=>(i+1)+'. '+r).join('
-')
-      +'
-
-Type the number, or leave empty to record it later.');
+    const lines=['Why was this lost?','']
+      .concat(LOST_REASONS.map((r,i)=>(i+1)+'. '+r))
+      .concat(['','Type the number, or leave empty to record it later.']);
+    const pick=prompt(lines.join('\n'));
     const n=Number(pick);
     if(n>=1&&n<=LOST_REASONS.length)upd.lost_reason=LOST_REASONS[n-1];
   }
