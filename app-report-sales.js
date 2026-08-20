@@ -21,8 +21,7 @@ async function renderSalesReport(){
   const rows=await fetchLeads(q=>q);
   const ids=rows.map(l=>l.id);
   const range=repRange(REPPERIOD);
-  const per=REPPERIOD==='today'?'today':REPPERIOD==='week'?'this week'
-           :REPPERIOD==='mtd'?'this month':'ever';
+  const per=repPeriodWord();
   const mStart=monthStart(), today=localDay(new Date());
 
   /* everything this report needs, fetched together. Any of these can come back

@@ -8,8 +8,7 @@ const MKT_CH=['Digital_Marketing','Offline_Marketing','Third_Party','Direct_Sale
 async function renderMktReport(){
   const rows=await fetchLeads(q=>q);
   const range=repRange(REPPERIOD);
-  const per=REPPERIOD==='today'?'today':REPPERIOD==='week'?'this week'
-           :REPPERIOD==='mtd'?'this month':'ever';
+  const per=repPeriodWord();
   const mStart=monthStart();
   const [tg,reached]=await Promise.all([loadTargets(mStart),loadStageHistory(rows.map(l=>l.id))]);
 
@@ -101,7 +100,7 @@ async function renderMktReport(){
     ${months.length?barChart(months,counts,used)
       :blank('Nothing to chart yet','The breakdown by channel appears once leads have been created.')}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">Channel detail, ${esc(per)}</h3>
+    <h3 style="font-size:15px;margin:22px 0 8px">Channel detail ${esc(per==='ever'?'':per)}</h3>
     ${got.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Channel</th><th>Leads</th><th>Qualified</th><th>Qualification rate</th>
       <th>Quotation sent</th><th>Closed-Won</th><th>Lead to won</th>

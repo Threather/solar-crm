@@ -56,8 +56,7 @@ async function renderOpsReport(){
   /* the top row mixes two clocks: active and pending are now, the other three
      happened inside the chosen window. Saying which stops the same words
      meaning two different numbers on one screen. */
-  const per=REPPERIOD==='today'?'today':REPPERIOD==='week'?'this week'
-           :REPPERIOD==='mtd'?'this month':'ever';
+  const per=repPeriodWord();
   const teamFilter=`<select onchange="setRepFilter('team',this.value)">
       <option value="">All teams</option>
       ${teams.map(t=>`<option value="${esc(t)}" ${REPFILTER.team===t?'selected':''}>${esc(t)}</option>`).join('')}

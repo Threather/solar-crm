@@ -100,14 +100,33 @@ function repScopes(){
   if(['marketing','admin'].includes(ME.role))s.push(['mkt','Marketing']);
   return s.filter(([k])=>typeof window[REP_RENDER[k]]==='function');
 }
-const REP_PERIODS=[['today','Today'],['week','This week'],['mtd','This month'],['all','All time']];
+/* Two presets and a pair of dates. A week and a month were guesses at which
+   window somebody wants; picking the dates answers it exactly, and the two
+   that are worth a single click stay as buttons. */
+const REP_PERIODS=[['today','Today'],['all','All time']];
+let REPFROM='', REPTO='';
 /* every report reads the same window, so the switch means one thing everywhere */
 function repRange(p){
   const now=new Date(), d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   if(p==='today')return [localDay(d),localDay(d)];
-  if(p==='week'){const s=new Date(d);s.setDate(d.getDate()-((d.getDay()+6)%7));return [localDay(s),localDay(d)];}
-  if(p==='mtd')return [localDay(new Date(now.getFullYear(),now.getMonth(),1)),localDay(d)];
+  if(p==='custom')return [REPFROM||'1970-01-01', REPTO||localDay(d)];
   return ['1970-01-01',localDay(d)];
+}
+/* Two forms of the same thing. The short one goes on a tile, where a full
+   date range would push the label over three lines; the sentence goes once at
+   the top, where the exact dates belong. */
+function repPeriodWord(){
+  if(REPPERIOD==='today')return 'today';
+  if(REPPERIOD==='all')return 'ever';
+  return 'in range';
+}
+function repWindowSentence(){
+  if(REPPERIOD==='all')return 'Everything on record.';
+  if(REPPERIOD==='today')return 'For today.';
+  if(REPFROM&&REPTO)return 'From '+fmtDate(REPFROM)+' to '+fmtDate(REPTO)+'.';
+  if(REPFROM)return 'Since '+fmtDate(REPFROM)+'.';
+  if(REPTO)return 'Up to '+fmtDate(REPTO)+'.';
+  return 'Pick a date range.';
 }
 const inRange=(v,r)=>{const d=localDay(v);return !!d&&d>=r[0]&&d<=r[1];};
 /* whole days between two dates, null when either end is missing — an average
@@ -122,7 +141,14 @@ const avgDays=arr=>{const v=arr.filter(n=>n!==null&&n>=0);
   return v.length?{avg:(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1),n:v.length}:{avg:'—',n:0};};
 
 function setRepScope(v){REPSCOPE=v;REPFILTER={person:'',team:'',channel:''};renderReports();}
-function setRepPeriod(v){REPPERIOD=v;renderReports();}
+/* pressing a preset drops the dates, and picking a date drops the preset —
+   otherwise the buttons and the boxes would disagree about what is showing */
+function setRepPeriod(v){REPPERIOD=v;REPFROM='';REPTO='';renderReports();}
+function setRepDates(which,v){
+  if(which==='from')REPFROM=v; else REPTO=v;
+  REPPERIOD=(REPFROM||REPTO)?'custom':'all';
+  renderReports();
+}
 function setRepFilter(k,v){REPFILTER[k]=v;renderReports();}
 
 async function renderReports(){
@@ -137,14 +163,17 @@ async function renderReports(){
 function repBar(title,extra){
   const scopes=repScopes();
   return `<h2 style="margin-bottom:4px">${esc(title)}</h2>
-    <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${
-      REPPERIOD==='all'?'Everything on record':'For '+
-      (REPPERIOD==='today'?'today':REPPERIOD==='week'?'this week':'this month')}.</div>
+    <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${esc(repWindowSentence())}</div>
     <div class="toolbar">
       ${scopes.length>1?`<div class="scope">${scopes.map(([k,l])=>
         `<button class="${REPSCOPE===k?'on':''}" onclick="setRepScope('${k}')">${l}</button>`).join('')}</div>`:''}
       <div class="scope">${REP_PERIODS.map(([k,l])=>
         `<button class="${REPPERIOD===k?'on':''}" onclick="setRepPeriod('${k}')">${l}</button>`).join('')}</div>
+      <div class="daterange">
+        <input type="date" value="${REPFROM}" onchange="setRepDates('from',this.value)" title="From" aria-label="From">
+        <span>to</span>
+        <input type="date" value="${REPTO}" onchange="setRepDates('to',this.value)" title="To" aria-label="To">
+      </div>
       ${extra||''}
     </div>`;
 }
