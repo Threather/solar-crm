@@ -131,7 +131,12 @@ async function renderSalesReport(){
       <span class="track"><span class="fill" style="width:${total?Math.round(n/total*100):0}%"></span></span>
       <span class="ct">${n}</span></div>`;
 
-  const people=STAFF.filter(s=>['sales','manager'].includes(s.role));
+  /* whoever the leads are actually on, not whoever holds the right role. An
+     admin can be assigned a lead — Kevin holds nine, three of them won — and
+     those rows used to drop out of the table below without saying so, leaving
+     the per-person lines short of the totals above them. */
+  const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
+  const people=STAFF.filter(s=>['sales','manager'].includes(s.role)||holders.has(s.id));
   const personFilter=ME.role==='sales'?'':`<select onchange="setRepFilter('person',this.value)">
       <option value="">Everyone</option>
       ${people.map(p=>`<option value="${p.id}" ${REPFILTER.person===p.id?'selected':''}>${esc(p.full_name)}</option>`).join('')}

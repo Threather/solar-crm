@@ -225,13 +225,17 @@ async function loadStageHistory(ids){
   }
   return reached;
 }
-/* stage order, so "reached quotation sent or beyond" is one comparison */
+/* stage order, so "reached quotation sent or beyond" is one comparison.
+   Closed-Lost sorts last in the list and so outranks Closed-Won, but it is an
+   outcome rather than a rung: a lead marked lost from Info Gathering has
+   reached nothing. It is excluded from both the current stage and the history,
+   or every lost lead counts as quoted and won. */
 const stageRank=code=>{const i=STAGES.findIndex(s=>s.stage_code===code);return i<0?-1:i;};
 function everReached(reached,l,code){
   if(stageRank(l.stage_code)>=stageRank(code)&&l.stage_code!==LOST)return true;
   const set=reached[l.id];
   if(!set)return false;
-  for(const c of set)if(stageRank(c)>=stageRank(code))return true;
+  for(const c of set)if(c!==LOST&&stageRank(c)>=stageRank(code))return true;
   return false;
 }
 
