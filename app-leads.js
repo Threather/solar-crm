@@ -43,17 +43,21 @@ async function renderLeads(scope){
   }
   paintLeads();
 }
+/* Marketing sees who the customer is, not where the deal has got to: no stage,
+   no qualification, no ref ID (which is only issued on qualifying), no aging,
+   no sales follow-up, and no Won/Lost tabs — those are stage by another name. */
+const mktOnly=()=>ME.role==='marketing';
 function paintLeads(){
   const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
   const rows=scopeLeads();
-  $('main').innerHTML=(LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
+  $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
     <div class="toolbar">
-      ${ME.role==='site_engineer'?'':`<div class="scope">
+      ${(ME.role==='site_engineer'||mktOnly())?'':`<div class="scope">
         ${[['active','Active'],['won','Won'],['lost','Lost']].map(([k,label])=>
           `<button class="${LEADSCOPE===k?'on':''}" onclick="setScope('${k}')">${label}</button>`).join('')}
       </div>`}
       <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;drawTable()">
-      ${LEADSCOPE==='active'?`
+      ${(LEADSCOPE==='active'&&!mktOnly())?`
       <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
       <select onchange="FILTER.qual=this.value;drawTable()">
         <option value="">All leads</option>
@@ -74,6 +78,15 @@ function setScope(s){
   LEADSCOPE=s;
   FILTER={stage:'',q:'',qual:''};
   paintLeads();
+}
+function mktStats(rows){
+  const nophone=rows.filter(l=>!l.phone);
+  const due=rows.filter(l=>l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<=new Date().setHours(23,59,59,999));
+  return `<div class="stats">
+      <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Leads created</div></div>
+      <div class="stat ${due.length?'alert':''}"><div class="n">${due.length}</div><div class="l">Follow-up due</div></div>
+      <div class="stat"><div class="n">${nophone.length}</div><div class="l">No phone yet</div></div>
+    </div>`;
 }
 function activeStats(){
   const rows=scopeLeads();
@@ -105,6 +118,7 @@ function lostStats(rows){
 }
 /* rows for the current tab, before the toolbar filters */
 function scopeLeads(){
+  if(mktOnly())return LEADS;
   if(LEADSCOPE==='won')return LEADS.filter(l=>l.stage_code===WON);
   if(LEADSCOPE==='lost')return LEADS.filter(l=>l.stage_code===LOST);
   return LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
@@ -127,6 +141,7 @@ function drawTable(){
     :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a sale engineer marks them Closed-Won.')
     :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
     :blank('No active leads','New leads land here as soon as they are created.');return;}
+  if(mktOnly())return drawMktTable(rows);
   if(LEADSCOPE==='won')return drawWonTable(rows);
   if(LEADSCOPE==='lost')return drawLostTable(rows);
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
@@ -145,6 +160,22 @@ function drawTable(){
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
       <td class="nowrap"><b>${daysIn(l.created_at)}d</b> old<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
       ${showRemarks()?`<td class="rem">${remarkStack(l)}</td>`:''}</tr>`;
+  }).join('')+`</tbody></table>`;
+}
+/* the six things marketing needs: who, what kind, how to reach them, whose it
+   is, where it came from and where it is */
+function drawMktTable(rows){
+  $('tablewrap').innerHTML=`<table><thead><tr>
+    <th>Customer</th><th>Phone</th><th>Sale engineer</th><th>Channel</th><th>Address</th><th>Follow-up</th>
+  </tr></thead><tbody>`+rows.map(l=>{
+    const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
+    return `<tr class="rowlink" onclick="openLead('${l.id}')">
+      <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
+      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
+      <td>${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}</td>
+      <td>${esc(l.site_address||'—')}</td>
+      <td class="${od?'overdue':''}">${fmtDate(l.mkt_follow_up_date)}</td></tr>`;
   }).join('')+`</tbody></table>`;
 }
 /* the date the contact happened, which is not always the day it was typed */

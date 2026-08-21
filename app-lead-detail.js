@@ -60,8 +60,21 @@ async function openLead(id){
   const salesOpts=`<option value="">Pool (unassigned)</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
   const PV=l.province||l.city_province||'Phnom Penh';
 
+  /* Marketing owns customer identity, not where the deal has got to. They get
+     their own date and the remark box and nothing else: no stage, no sales
+     follow-up, no BOQ, no close date, no lost reason. */
+  const mktWorkHtml=`<div class="section sec-sales"><h4>Working</h4>
+      <div class="grid2">
+        <div><label>Marketing follow-up</label><input id="d-mktfollow" type="date" value="${l.mkt_follow_up_date||''}" title="Marketing's own date, separate from the sales follow-up"></div>
+      </div>
+      <label style="margin-top:10px;display:block">Add remark</label>
+      <div class="noterow">
+        <input id="d-notedate" type="date" value="${localDay(new Date())}" title="The day it happened">
+        <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
+      </div>
+    </div>`;
   /* each role opens on the part of the lead that is theirs to fill in */
-  const workHtml=canSales?`<div class="section sec-sales"><h4>Working</h4>
+  const workHtml=isMkt?mktWorkHtml:canSales?`<div class="section sec-sales"><h4>Working</h4>
       <div class="grid2">
         <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
@@ -83,17 +96,17 @@ async function openLead(id){
   const remarkHtml=recentNotes.length?`<div class="recent"><h4>Remarks (${allRemarks.length})</h4>${recentNotes.map(a=>`
       <div class="r-item"><div class="r-meta">${fmtDate(remarkDate(a))} · ${esc(staffName(a.actor_id))}</div>
       <div class="r-note">${esc(a.note)}</div></div>`).join('')}
-      ${allRemarks.length>recentNotes.length?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:'';
+      ${(allRemarks.length>recentNotes.length&&!isMkt)?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:'';
   const custHtml=`<div class="section sec-cust"><h4>Customer${custLocked?' · locked':''}</h4>
       ${custLocked?'<p class="lockmsg">Already corrected once. Ask an admin to reopen it.</p>':''}
       <div class="grid2">
         <div><label>Customer name</label><input id="d-name" value="${esc(l.customer_name||'')}" ${canCustomer?'':'disabled'}></div>
         <div><label>Customer type</label><select id="d-ctype" ${canCustomer?'':'disabled'}>${optList(CUSTOMER_TYPES,l.customer_type)}</select></div>
         <div><label>Phone${phoneLocked?' · captured':''}</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canPhone?'':'disabled'}${phoneLocked?' title="Already captured. Ask an admin to change it."':''}></div>
-        <div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>
+        ${isMkt?'':`<div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>`}
         <div><label>Assigned sale engineer</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
-        ${l.referrer_name?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
+        ${(l.referrer_name&&!isMkt)?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
         ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
       </div>
     </div>
@@ -145,14 +158,15 @@ async function openLead(id){
     </div>`:'';
 
   $('lead-modal').innerHTML=`
-    <h2>${esc(l.customer_name)} <span class="refid">${esc(l.ref_id||'')}</span></h2>
+    <h2>${esc(l.customer_name)} <span class="refid">${esc(isMkt?'':(l.ref_id||''))}</span></h2>
     <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))} · contacted ${contacted}×</div>
 
     <div class="leadbar">
       <div class="facts">${isSiteEng?`
         <span>delivery <b>${l.delivery_date?fmtDate(l.delivery_date):'not set'}</b></span>
         <span>install <b>${l.installation_start?fmtDate(l.installation_start):'not set'}</b></span>
-        <span>BOQ <b>${esc(l.boq_status||'not set')}</b></span>`:`
+        <span>BOQ <b>${esc(l.boq_status||'not set')}</b></span>`:isMkt?`
+        <span><b>${daysIn(l.created_at)}d</b> old</span>`:`
         <span><b>${daysIn(l.created_at)}d</b> old</span>
         <span><b>${daysIn(l.stage_entered_at)}d</b> in stage</span>
         <span>follow-up <b>${l.next_follow_up?fmtDate(l.next_follow_up):'—'}</b></span>
@@ -166,7 +180,7 @@ async function openLead(id){
 
     <div class="tabs">
       <button id="tab-b-detail" class="on" onclick="leadTab('detail')">Details</button>
-      <button id="tab-b-hist" onclick="leadTab('hist')">History (${(acts||[]).length})</button>
+      ${isMkt?'':`<button id="tab-b-hist" onclick="leadTab('hist')">History (${(acts||[]).length})</button>`}
     </div>
 
     <div id="tab-detail">
@@ -191,7 +205,7 @@ async function openLead(id){
     </div>
 
     <div id="tab-hist" style="display:none">
-    <div class="timeline">${(acts||[]).map(a=>`
+    <div class="timeline">${isMkt?'':(acts||[]).map(a=>`
       <div class="tl-item">
         <div class="t-head">${esc(a.activity_type==='stage_change'?`Stage: ${a.from_stage||'—'} → ${a.to_stage}`:a.activity_type)}</div>
         <div class="t-meta">${a.note_date?fmtDate(a.note_date)+' · ':''}${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
@@ -319,6 +333,10 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   /* the sale value lives in its own table, which marketing and the site
      engineer have no read or write access to at all */
   const sale=val('d-sale');
+  /* what is in the box now, not what changed. "Use this one" writes the sale
+     value and re-renders, so val() reports no change and the Closed-Won guard
+     below used to read that as no sale value at all. */
+  const saleNow=$('d-sale')&&!$('d-sale').disabled?$('d-sale').value.trim():'';
 
   /* assignment: only write if actually changed (bug fix) */
   if(canAssign){
@@ -339,7 +357,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
     const n=Number(pick);
     if(n>=1&&n<=LOST_REASONS.length)upd.lost_reason=LOST_REASONS[n-1];
   }
-  if(newStage===WON&&oldStage!==WON&&!sale){toast('Enter the final sale value before marking Closed-Won');return;}
+  if(newStage===WON&&oldStage!==WON&&!saleNow){toast('Enter the final sale value before marking Closed-Won');return;}
   if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){setLock(true);return;}
 
   if(Object.keys(upd).length){

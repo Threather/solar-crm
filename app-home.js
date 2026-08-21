@@ -87,25 +87,30 @@ function homeSales(rows){
     </div>`;
 }
 
-/* marketing is measured on what they put into the top of the pipeline, and on
-   the leads that cannot move until someone captures a phone number */
 function homeMarketing(rows){
-  const live=rows.filter(l=>!TERMINAL.includes(l.stage_code));
-  const mine=live.filter(l=>l.created_by===ME.id);
-  const early=live.filter(l=>EARLY_STAGES.includes(l.stage_code));
-  const nophone=live.filter(l=>!l.phone)
+  /* marketing's day is customers, not stages: who has no number yet and who
+     they said they would call back. The pipeline panel is deliberately absent. */
+  const mine=rows.filter(l=>l.created_by===ME.id);
+  const nophone=rows.filter(l=>!l.phone)
     .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  const today=localDay(new Date());
+  const due=rows.filter(l=>l.mkt_follow_up_date&&l.mkt_follow_up_date<=today)
+    .sort((a,b)=>(a.mkt_follow_up_date||'').localeCompare(b.mkt_follow_up_date||''));
+  const noassign=rows.filter(l=>!l.assigned_to);
 
   $('main').innerHTML=dayBar(`${ME.full_name} · ${mine.length} lead${mine.length===1?'':'s'} created by you`)+`
     <div class="stats">
       <div class="stat hero ${nophone.length?'alert':''}">
         <div class="n">${nophone.length}</div><div class="l">Waiting on a phone number</div></div>
-      <div class="stat"><div class="n">${live.length}</div><div class="l">In pipeline</div></div>
-      <div class="stat"><div class="n">${early.length}</div><div class="l">Still early stage</div></div>
-      <div class="stat"><div class="n">${mine.length}</div><div class="l">Yours</div></div>
+      <div class="stat"><div class="n">${rows.length}</div><div class="l">Leads</div></div>
+      <div class="stat ${due.length?'alert':''}"><div class="n">${due.length}</div><div class="l">Follow-up due</div></div>
+      <div class="stat"><div class="n">${noassign.length}</div><div class="l">No sale engineer yet</div></div>
     </div>
     <div class="homegrid">
-      ${pipePanel(live)}
+      ${panel('Follow-up due',due.length
+        ?`<div class="qlist">${due.slice(0,8).map(l=>
+            qrow(l.id,l.customer_name,fmtDate(l.mkt_follow_up_date),l.mkt_follow_up_date<today)).join('')}</div>`
+        :blank('Nothing due','Your own follow-up date is set on the lead.'))}
       ${panel('No phone number yet',nophone.length
         ?`<div class="qlist">${nophone.slice(0,8).map(l=>
             qrow(l.id,l.customer_name,daysIn(l.created_at)+'d old',daysIn(l.created_at)>7)).join('')}</div>`

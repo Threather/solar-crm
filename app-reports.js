@@ -21,6 +21,14 @@ function downloadCSV(name,headers,rows){
 const stageName=c=>(STAGES.find(s=>s.stage_code===c)||{}).stage_name||c||'';
 
 function exportLeads(){
+  /* an export must not hand back what the screen withholds, so marketing gets
+     the same six columns their table shows and nothing else */
+  if(ME.role==='marketing'){
+    downloadCSV('leads',['Customer','Customer type','Phone','Sale engineer','Channel','Sub-channel','Address','Marketing follow-up'],
+      filteredLeads().map(l=>[l.customer_name,l.customer_type,l.phone,staffName(l.assigned_to),
+        l.lead_channel||l.lead_source,l.lead_sub_channel,l.site_address,l.mkt_follow_up_date]));
+    return;
+  }
   /* the sale value only appears for roles the database serves it to, so an
      export can never leak what the screen hides */
   const money=canSeeMoney();
