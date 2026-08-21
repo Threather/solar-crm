@@ -1,5 +1,7 @@
 /* ---------------- COMMISSIONS ---------------- */
 async function renderComm(){
+  /* not on marketing's nav, so not reachable by typing the route either */
+  if(ME.role==='marketing'){go('home');return;}
   $('main').innerHTML=SKEL;
   const {data:comms,error}=await sb.from('commissions')
     .select('*, leads(ref_id, customer_name, lead_financials(final_sale_usd))')

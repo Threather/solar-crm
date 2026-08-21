@@ -47,12 +47,16 @@ async function renderMktReport(){
       <span class="track"><span class="fill" style="width:${total?Math.round(n/total*100):0}%"></span></span>
       <span class="ct">${n}</span></div>`;
   const missing=[leadTarget==null?'Lead target':'',spend==null?'marketing spend':''].filter(Boolean);
+  /* Marketing owns customer identity, not where the deal has got to, so their
+     own copy of this report drops qualification and the funnel. Admin, who
+     reaches the same report through the scope switch, keeps all of it. */
+  const noStage=ME.role==='marketing';
 
   $('main').innerHTML=repBar('Marketing report')+`
     <div class="stats">
       <div class="stat hero"><div class="n">${got.length}</div><div class="l">Leads received ${per}</div></div>
-      <div class="stat"><div class="n">${qualified.length}</div><div class="l">Qualified</div></div>
-      <div class="stat"><div class="n">${qualRate===null?'—':qualRate+'%'}</div><div class="l">Qualification rate</div></div>
+      ${noStage?'':`<div class="stat"><div class="n">${qualified.length}</div><div class="l">Qualified</div></div>
+      <div class="stat"><div class="n">${qualRate===null?'—':qualRate+'%'}</div><div class="l">Qualification rate</div></div>`}
       <div class="stat"><div class="n">${cash(cpl)}</div><div class="l">Cost per lead</div></div>
     </div>
     ${missing.length?`<div class="hint">
@@ -66,7 +70,7 @@ async function renderMktReport(){
         ${byCh('Other')?bar('Other',byCh('Other'),got.length):''}
       </div>`)}
 
-      ${repPanel('Lead quality',repFigs([
+      ${noStage?'':repPanel('Lead quality',repFigs([
         ['Qualified',qualified.length],
         ['Disqualified',disqualified.length],
         ['Qualification rate',qualRate===null?'—':qualRate+'%'],
@@ -79,12 +83,12 @@ async function renderMktReport(){
         ['Today',todayRows.length],
         ['Marketing spend',spend==null?'—':fmtMoney(spend)],
         ['Cost per lead',cash(cpl)],
-        ['Cost per qualified lead',cash(cpql)]
+        ...(noStage?[]:[['Cost per qualified lead',cash(cpql)]])
       ])+(leadTarget?`<div class="pipe" style="margin-top:14px">
         ${bar('Target vs actual',mtd.length,leadTarget)}
       </div>`:''),true)}
 
-      ${repPanel('Conversion',`<div class="pipe">
+      ${noStage?'':repPanel('Conversion',`<div class="pipe">
         ${bar('Leads received',got.length,got.length)}
         ${bar('Qualified',qualified.length,got.length)}
         ${bar('Quotation sent',toQuot.length,got.length)}
@@ -102,8 +106,8 @@ async function renderMktReport(){
 
     <h3 style="font-size:15px;margin:22px 0 8px">Channel detail ${esc(per==='ever'?'':per)}</h3>
     ${got.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Channel</th><th>Leads</th><th>Qualified</th><th>Qualification rate</th>
-      <th>Quotation sent</th><th>Closed-Won</th><th>Lead to won</th>
+      <th>Channel</th><th>Leads</th>${noStage?'':`<th>Qualified</th><th>Qualification rate</th>
+      <th>Quotation sent</th><th>Closed-Won</th><th>Lead to won</th>`}
     </tr></thead><tbody>`+[...MKT_CH,'Other'].map(c=>{
       const set=got.filter(l=>chOf(l)===c);
       if(!set.length)return '';
@@ -111,8 +115,8 @@ async function renderMktReport(){
       const qt=set.filter(l=>everReached(reached,l,'quotation_sent'));
       const w=set.filter(l=>everReached(reached,l,WON));
       return `<tr><td><b>${esc(c.replace(/_/g,' '))}</b></td><td>${set.length}</td>
-        <td>${q.length}</td><td>${pct(q.length,set.length)}</td>
-        <td>${qt.length}</td><td>${w.length}</td><td>${pct(w.length,set.length)}</td></tr>`;
+        ${noStage?'':`<td>${q.length}</td><td>${pct(q.length,set.length)}</td>
+        <td>${qt.length}</td><td>${w.length}</td><td>${pct(w.length,set.length)}</td>`}</tr>`;
     }).join('')+`</tbody></table></div>`
     :blank('No leads in this window','Widen the period to see the channel breakdown.')}`;
 }

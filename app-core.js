@@ -250,7 +250,9 @@ function buildNav(){
      than being a wider list that happens to look harmless */
   if(['sales','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
-  money.push(['comm','Commissions']);
+  /* the screen lists won deals by ref ID, so it says which of a marketing
+     person's leads closed — stage information under another heading */
+  if(ME.role!=='marketing') money.push(['comm','Commissions']);
   if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
   if(ME.role==='admin') admin.push(['edc','EDC']);

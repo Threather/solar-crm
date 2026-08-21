@@ -290,7 +290,7 @@ function renderNew(){
         <div style="grid-column:1/-1"><label>Note</label><textarea id="f-note" rows="2" placeholder="First info about the customer…"></textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
-      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a sale engineer is assigned automatically. A lead counts as qualified from Telling Price onwards.</p>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a sale engineer is assigned automatically.${ME.role==='marketing'?'':' A lead counts as qualified from Telling Price onwards.'}</p>
     </div>`;
   subChan(); geoProv();
 }
