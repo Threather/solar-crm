@@ -93,9 +93,12 @@ async function openLead(id){
         <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
       </div>
     </div>`:'';
+  /* marketing keeps the contact log but never the money in it: the app writes
+     the quotation price into a remark, and anyone can type one into a note */
+  const noteFor=n=>isMkt?String(n||'').replace(/\$\s?[\d,]+(?:\.\d+)?/g,'$—'):n;
   const remarkHtml=recentNotes.length?`<div class="recent"><h4>Remarks (${allRemarks.length})</h4>${recentNotes.map(a=>`
       <div class="r-item"><div class="r-meta">${fmtDate(remarkDate(a))} · ${esc(staffName(a.actor_id))}</div>
-      <div class="r-note">${esc(a.note)}</div></div>`).join('')}
+      <div class="r-note">${esc(noteFor(a.note))}</div></div>`).join('')}
       ${(allRemarks.length>recentNotes.length&&!isMkt)?`<span class="days">${allRemarks.length-recentNotes.length} more in the history below</span>`:''}</div>`:'';
   const custHtml=`<div class="section sec-cust"><h4>Customer${custLocked?' · locked':''}</h4>
       ${custLocked?'<p class="lockmsg">Already corrected once. Ask an admin to reopen it.</p>':''}
@@ -357,7 +360,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
     const n=Number(pick);
     if(n>=1&&n<=LOST_REASONS.length)upd.lost_reason=LOST_REASONS[n-1];
   }
-  if(newStage===WON&&oldStage!==WON&&!saleNow){toast('Enter the final sale value before marking Closed-Won');return;}
+  if(newStage===WON&&oldStage!==WON&&(!saleNow||Number(saleNow)<=0)){toast('Enter the final sale value before marking Closed-Won');return;}
   if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){setLock(true);return;}
 
   if(Object.keys(upd).length){
