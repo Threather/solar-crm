@@ -121,7 +121,7 @@ async function openLead(id){
         <div><label>District</label><select id="d-district" onchange="dDist()" ${canCustomer?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
         <div><label>Commune</label><select id="d-commune" ${canCustomer?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
         <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canCustomer?'':'disabled'}></div>
-        ${isMkt?'':`<div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canCustomer?'':'disabled'}></div>`}
+        <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canCustomer?'':'disabled'}></div>
       </div>
     </div>`;
   const custFirst=ME.role==='marketing';
