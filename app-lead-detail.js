@@ -78,7 +78,7 @@ async function openLead(id){
       <div class="grid2">
         <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
-        ${canMoney?`<div id="d-salewrap" style="display:${l.stage_code===WON?'block':'none'}">
+        ${canMoney?`<div id="d-salewrap" style="display:${(l.stage_code===WON||fin?.final_sale_usd!=null)?'block':'none'}">
           <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
         ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
         <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
@@ -156,7 +156,7 @@ async function openLead(id){
       </div>`:''}
 
       <div class="quothead">Quotations (<span id="quot-n">${(quots||[]).length}</span>)</div>
-      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng)).join('')
+      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng,quotInUse(q,l,fin))).join('')
         ||'<p class="quot-none">No quotations yet.</p>'}</div>
     </div>`:'';
 
@@ -173,7 +173,9 @@ async function openLead(id){
         <span><b>${daysIn(l.created_at)}d</b> old</span>
         <span><b>${daysIn(l.stage_entered_at)}d</b> in stage</span>
         <span>follow-up <b>${l.next_follow_up?fmtDate(l.next_follow_up):'—'}</b></span>
-        <span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>`}
+        ${fin?.final_sale_usd!=null
+          ?`<span>using <b>${fmtMoney(fin.final_sale_usd)}</b></span>`
+          :`<span>latest quote <b>${lastQuot?fmtMoney(lastQuot.price_usd):'none'}</b></span>`}`}
       </div>
       <div class="barbtns">
         ${canEditAny?`<span class="switch" id="lockbtn" role="switch" aria-checked="false" onclick="toggleLock()" title="Slide to edit, slide back to save"><i></i></span>`:''}
@@ -412,12 +414,21 @@ async function logActivity(leadId,type,from,to,note,noteDate){
    The specification is keyed in once, in the box above. A quotation is that
    specification plus a price, so releasing one is a price and a button —
    there is no second copy of the fourteen fields to fill in. */
-function quotCard(q,leadId,canUse){
-  return `<div class="qcard"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
+/* Which option the lead is actually following. There is no column saying so,
+   so it is read back off the lead: the price matches the final sale value and
+   the specification matches what useQuot copied across. */
+function quotInUse(q,l,fin){
+  if(!fin||fin.final_sale_usd==null)return false;
+  if(Number(fin.final_sale_usd)!==Number(q.price_usd))return false;
+  return q.panel_pcs==null||Number(q.panel_pcs)===Number(l.panel_pcs);
+}
+function quotCard(q,leadId,canUse,inUse){
+  return `<div class="qcard${inUse?' qcard-on':''}"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
     <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date||q.created_at)} by ${esc(staffName(q.provided_by))}</span>
+    ${inUse?'<span class="qtag">In use</span>':''}
     <div class="acts">
       <button class="btn-mini" onclick="printQuote('${q.id}','${leadId}')">Quotation document</button>
-      ${canUse?`<button class="btn-mini" onclick="useQuot('${q.id}','${leadId}')" title="Copy this option's specification onto the lead, so EDC, installation and the export all follow it">Use this one</button>`:''}
+      ${(canUse&&!inUse)?`<button class="btn-mini" onclick="useQuot('${q.id}','${leadId}')" title="Copy this option's specification onto the lead, so EDC, installation and the export all follow it">Use this one</button>`:''}
     </div></div>`;
 }
 async function addQuot(leadId){
@@ -447,7 +458,7 @@ async function addQuot(leadId){
   const list=$('quot-list');
   if(list){
     const none=list.querySelector('.quot-none');if(none)none.remove();
-    list.insertAdjacentHTML('afterbegin',quotCard(data,leadId,true));
+    list.insertAdjacentHTML('afterbegin',quotCard(data,leadId,true,false));
   }
   const n=$('quot-n');if(n)n.textContent=LEADQUOTS.length;
   $('q-price').value='';
