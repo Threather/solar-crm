@@ -414,10 +414,12 @@ async function logActivity(leadId,type,from,to,note,noteDate){
    The specification is keyed in once, in the box above. A quotation is that
    specification plus a price, so releasing one is a price and a button —
    there is no second copy of the fourteen fields to fill in. */
-/* Which option the lead is actually following. There is no column saying so,
-   so it is read back off the lead: the price matches the final sale value and
-   the specification matches what useQuot copied across. */
+/* Which option the lead is actually following. `chosen_quotation_id` records
+   it outright (added 21 Aug 2026), so two options at the same price with the
+   same specification no longer both read as chosen. Leads picked before the
+   column existed fall back to matching the price and the specification. */
 function quotInUse(q,l,fin){
+  if(l.chosen_quotation_id)return l.chosen_quotation_id===q.id;
   if(!fin||fin.final_sale_usd==null)return false;
   if(Number(fin.final_sale_usd)!==Number(q.price_usd))return false;
   return q.panel_pcs==null||Number(q.panel_pcs)===Number(l.panel_pcs);
@@ -474,6 +476,7 @@ async function useQuot(quotId,leadId){
     +'EDC, installation and the export all read the lead, so they will follow this one.\n'
     +'The final sale value is set to '+fmtMoney(q.price_usd)+' as well, and stays editable.'))return;
   const {error}=await sb.from('leads').update({
+    chosen_quotation_id:q.id,
     roof_type:q.roof_type,system_type:q.system_type,phase_type:q.ampere_phase,
     panel_brand:q.panel_brand,panel_watt:q.panel_watt,panel_pcs:q.panel_pcs,panel_kwp:q.panel_kwp,
     inverter_brand:q.inverter_brand,inverter_kw:q.inverter_kw,inverter_pcs:q.inverter_pcs,
