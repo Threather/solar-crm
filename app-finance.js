@@ -10,7 +10,29 @@ const finPaid=r=>(r.payments||[]).reduce((a,p)=>a+Number(p.amount_usd||0),0);
    contract: one deal can pick up several, and one flat field on the contract
    could only ever hold the last one. */
 const finFees=r=>(r.payments||[]).reduce((a,p)=>a+Number(p.other_fee_usd||0),0);
-const finDue=r=>Number(r.fin?.contract_total_usd??r.final_sale_usd??0)+finFees(r);
+/* The contract is the sale value the customer accepted plus anything agreed on
+   top of it at signing. Nobody retypes the quotation price: the only number a
+   person enters here is the addition, and the reason for it. Deals contracted
+   before this was derived keep whatever total was typed at the time. */
+const finContract=r=>r.fin?.contract_extra_usd==null&&r.fin?.contract_total_usd!=null
+  ? Number(r.fin.contract_total_usd)
+  : Number(r.final_sale_usd??r.fin?.contract_total_usd??0)+Number(r.fin?.contract_extra_usd||0);
+const finDue=r=>finContract(r)+finFees(r);
+/* the card being looked at, so the derived total can be recomputed as the
+   addition is typed */
+let FINROW=null;
+/* stored as well as derived, so the finance CSV and anything reading
+   lead_finance directly still see one number */
+function finTotalNow(){
+  if(!FINROW)return null;
+  const base=FINROW.final_sale_usd??FINROW.fin?.contract_total_usd??0;
+  return Number(base)+Number($('f-extra')?.value||0);
+}
+/* the total follows the addition as it is typed, the same way kWp follows
+   watt x pcs */
+function finTotal(){
+  const t=$('f-total');if(t)t.value=fmtMoney(finTotalNow());
+}
 /* due today or overdue, and only while there is still money outstanding */
 const finFollowDue=r=>!!r.fin?.follow_up_date&&r.fin.follow_up_date<=localDay(new Date())&&finDue(r)-finPaid(r)>0;
 
@@ -94,6 +116,7 @@ function drawFinance(){
 
 function openFinance(id){
   const r=FINROWS.find(x=>x.id===id); if(!r)return;
+  FINROW=r;
   const f=r.fin||{}, paid=finPaid(r), due=finDue(r);
   $('lead-modal').innerHTML=`
     <h2>${esc(r.customer_name)} <span class="refid">${esc(r.ref_id||'')}</span></h2>
@@ -111,7 +134,9 @@ function openFinance(id){
       <div class="grid3">
         <div><label>Contract status</label><select id="f-status">${optList(CONTRACT_STATUS,f.contract_status)}</select></div>
         <div><label>Date signed</label><input id="f-signed" type="date" value="${f.contract_signed_date||''}"></div>
-        <div><label>Contract total (USD)</label><input id="f-total" type="number" step="0.01" value="${f.contract_total_usd??''}"></div>
+        <div><label>Contract total (USD)</label><input id="f-total" value="${fmtMoney(finContract(r))}" disabled title="The sale value at closing, plus anything additional"></div>
+        <div><label>Additional (USD)</label><input id="f-extra" type="number" step="0.01" value="${f.contract_extra_usd??''}" placeholder="Only if there is more" oninput="finTotal()"></div>
+        <div style="grid-column:2/-1"><label>What it is for</label><input id="f-extranote" value="${esc(f.contract_extra_note||'')}" placeholder="Optional"></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
     </div>
@@ -176,7 +201,9 @@ async function saveFinance(id){
   const row={lead_id:id,
     contract_status:$('f-status').value||null,
     contract_signed_date:$('f-signed').value||null,
-    contract_total_usd:$('f-total').value||null,
+    contract_total_usd:finTotalNow(),
+    contract_extra_usd:$('f-extra').value||null,
+    contract_extra_note:$('f-extranote').value.trim()||null,
     follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
   const {error}=await sb.from('lead_finance').upsert(row,{onConflict:'lead_id'});
