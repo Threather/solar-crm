@@ -9,6 +9,14 @@ async function openLead(id){
     sb.from('lead_financials').select('final_sale_usd').eq('lead_id',id).maybeSingle()
   ]);
   if(error||!l){toast('Could not open lead');return;}
+  /* a customer's other deals, so neither end of an expansion looks like a
+     duplicate lead somebody forgot to close */
+  const [{data:parent},{data:children}]=await Promise.all([
+    l.parent_lead_id
+      ? sb.from('leads').select('id,ref_id,customer_name,stage_entered_at').eq('id',l.parent_lead_id).maybeSingle()
+      : Promise.resolve({data:null}),
+    sb.from('leads').select('id,ref_id,stage_code').eq('parent_lead_id',id).eq('is_deleted',false)
+  ]);
   const isAdmin=ME.role==='admin';
   const isSales=ME.role==='sales'&&l.assigned_to===ME.id;
   /* marketing owns their own leads, plus anything still in an early stage */
@@ -166,6 +174,13 @@ async function openLead(id){
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name)} <span class="refid">${esc(isMkt?'':(l.ref_id||''))}</span></h2>
     <div class="sub">${esc(l.phone||'no phone yet')} · ${esc(l.customer_type||'')} · created ${fmtDate(l.created_at)} by ${esc(staffName(l.created_by))} · contacted ${contacted}×</div>
+    ${parent?`<div class="hint" style="border-left-color:var(--own-eng);color:var(--own-eng)">
+      Expansion of <span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${parent.id}')">${esc(parent.ref_id||'the earlier deal')}</span>, won ${fmtDate(parent.stage_entered_at)}. That deal keeps its own value and history.
+    </div>`:''}
+    ${(children||[]).length?`<div class="hint" style="border-left-color:var(--own-eng);color:var(--own-eng)">
+      ${children.length} later deal${children.length>1?'s':''} for this customer:
+      ${children.map(c=>`<span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${c.id}')">${esc(c.ref_id||'no ref yet')}</span>`).join(' · ')}
+    </div>`:''}
 
     <div class="leadbar">
       <div class="facts">${isSiteEng?`
@@ -207,6 +222,10 @@ async function openLead(id){
     ${engFirst?'':engHtml}
 
     ${(l.stage_code===WON&&!isSiteEng&&seeInstall)?siteBox(l,canSite,false,isAdmin):''}
+
+    ${(l.stage_code===WON&&(canQuote||ME.role==='manager'))?`<div class="modal-actions">
+      <button class="btn-line" onclick="newDealFrom('${l.id}')" title="Start a second deal for this customer — more panels, a battery — with their details and current system already filled in">New deal for this customer</button>
+    </div>`:''}
 
     ${isAdmin?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
 
@@ -417,6 +436,51 @@ async function logActivity(leadId,type,from,to,note,noteDate){
    The specification is keyed in once, in the box above. A quotation is that
    specification plus a price, so releasing one is a price and a button —
    there is no second copy of the fourteen fields to fill in. */
+/* A customer who came back. A year on they want more panels or a battery, and
+   the two bad options were reopening the won deal — which would overwrite its
+   sale value, its EDC dates and its payment history — or retyping everything
+   including the system already on their roof. This is the pattern every CRM
+   settles on: a second deal on the same customer, never an edit of the first.
+
+   The new lead carries the system as it stands today. The sale engineer edits
+   it up to the total after expansion, because EDC bands are worked on total
+   inverter kWac — a 10 kW customer adding 5 kW crosses onto the longer form. */
+async function newDealFrom(leadId){
+  const {data:l,error:le}=await sb.from('leads').select('*').eq('id',leadId).single();
+  if(le||!l){toast('Could not read that lead. '+why(le));return;}
+  const msg=['Start a new deal for '+(l.customer_name||'this customer')+'?','',
+    'Their details, site and the system installed today are copied across.',
+    'This deal stays exactly as it is - its sale value, EDC dates and payments are untouched.','',
+    'Key in the system as it will be AFTER the expansion, not just what is being added:',
+    'EDC decides which form applies on the total inverter size.'].join('\n');
+  if(!confirm(msg))return;
+  const copy={
+    customer_name:l.customer_name,phone:l.phone,customer_type:l.customer_type,
+    monthly_bill_usd:l.monthly_bill_usd,
+    site_address:l.site_address,commune:l.commune,district:l.district,
+    province:l.province,city_province:l.city_province,site_type:l.site_type,
+    site_link:l.site_link,
+    /* the system as it stands, to be edited up to the total after expansion */
+    roof_type:l.roof_type,system_type:l.system_type,phase_type:l.phase_type,
+    panel_brand:l.panel_brand,panel_watt:l.panel_watt,panel_pcs:l.panel_pcs,panel_kwp:l.panel_kwp,
+    inverter_brand:l.inverter_brand,inverter_kw:l.inverter_kw,inverter_pcs:l.inverter_pcs,
+    inverter_kw_total:l.inverter_kw_total,
+    battery_brand:l.battery_brand,battery_kwh_each:l.battery_kwh_each,
+    battery_pcs:l.battery_pcs,battery_kwh:l.battery_kwh,
+    /* the person who sold the first system keeps the relationship */
+    assigned_to:l.assigned_to,assigned_at:l.assigned_to?new Date().toISOString():null,
+    site_engineer_id:l.site_engineer_id,
+    lead_channel:'Existing_Customer',lead_sub_channel:'Expansion',
+    parent_lead_id:l.id,created_by:ME.id
+  };
+  const {data:made,error}=await sb.from('leads').insert(copy).select().single();
+  if(error){toast('Could not create it. '+why(error));console.error(error);return;}
+  await logActivity(made.id,'note',null,null,
+    'Expansion of '+(l.ref_id||'an earlier deal')+', which was won on '+fmtDate(l.stage_entered_at));
+  await logActivity(l.id,'note',null,null,'A new deal was opened for this customer');
+  toast('New deal created for '+(l.customer_name||'this customer'));
+  openLead(made.id);
+}
 /* Which option the lead is actually following. `chosen_quotation_id` records
    it outright (added 21 Aug 2026), so two options at the same price with the
    same specification no longer both read as chosen. Leads picked before the

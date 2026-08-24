@@ -239,9 +239,9 @@ function everReached(reached,l,code){
   return false;
 }
 
-const CH_ORDER=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Other'];
+const CH_ORDER=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Existing_Customer','Other'];
 const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'#1baf7a',
-                Offline_Marketing:'#eda100',Other:'#898781'};
+                Offline_Marketing:'#eda100',Existing_Customer:'#6c4f7b',Other:'#898781'};
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
 /* Stacked column chart, hand-rolled SVG: no chart library, no build step. */

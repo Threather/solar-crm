@@ -18,7 +18,10 @@ const CHANNELS = {
   'Digital_Marketing': ['Facebook','Telegram','Tik Tok','Call','Walk-In'],
   'Third_Party':       ['Staff','Non-Staff'],
   'Direct_Sales':      [],   /* filled from the active sales staff at render time */
-  'Offline_Marketing': ['Ground Activation']
+  'Offline_Marketing': ['Ground Activation'],
+  /* a customer coming back for more is not a lead Facebook bought; giving it
+     its own channel keeps cost per lead honest */
+  'Existing_Customer':  ['Expansion','Repeat purchase']
 };
 const ROOF_TYPES = ['RC Roof/Awning','Zinc Roof','Tile Roof','Ground Mount','Other'];
 const SYSTEM_TYPES = ['On-Grid','Hybrid','Off-Grid'];

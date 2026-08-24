@@ -3,7 +3,7 @@
    Cost per lead needs a spend figure and the target needs a number, both set
    by admin on the Targets screen. Where one is missing this says so rather
    than dividing by nothing and printing a confident zero. */
-const MKT_CH=['Digital_Marketing','Offline_Marketing','Third_Party','Direct_Sales'];
+const MKT_CH=['Digital_Marketing','Offline_Marketing','Third_Party','Direct_Sales','Existing_Customer'];
 
 async function renderMktReport(){
   const rows=await fetchLeads(q=>q);
