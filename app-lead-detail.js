@@ -494,5 +494,38 @@ async function useQuot(quotId,leadId){
   await logActivity(leadId,'edit',null,null,
     'Lead specification and sale value set from the '+fmtMoney(q.price_usd)+' quotation');
   toast(fe?'Specification set, but the sale value did not save':'This lead now follows that option');
-  openLead(leadId);
+
+  /* Update in place rather than re-opening the lead. A re-render reads the
+     database back, and the lock switch is the save — so anything typed and
+     not yet saved (a stage moved to Closed-Won, a follow-up date, a remark
+     half written) would be silently thrown away. Same reason addQuot inserts
+     its card by hand instead of calling openLead. */
+  const put=(id,v)=>{const e=$(id);if(!e)return;e.value=v??'';if(e.dataset.orig!==undefined)e.dataset.orig=e.value;};
+  put('d-roof',q.roof_type);put('d-sys',q.system_type);put('d-phase',q.ampere_phase);
+  put('d-pbrand',q.panel_brand);put('d-pwatt',q.panel_watt);put('d-pcs',q.panel_pcs);
+  put('d-ibrand',q.inverter_brand);put('d-inv',q.inverter_kw);put('d-ipcs',q.inverter_pcs);
+  put('d-bbrand',q.battery_brand);put('d-beach',q.battery_kwh_each);put('d-bpcs',q.battery_pcs);
+  if($('d-pwatt'))dKwp();
+  if($('d-beach'))dBatt();
+
+  /* the sale value follows the option, and its box appears whether or not the
+     stage has reached Closed-Won */
+  if(!fe){
+    put('d-sale',q.price_usd);
+    const wrap=$('d-salewrap');if(wrap)wrap.style.display='block';
+    const facts=document.querySelector('.leadbar .facts');
+    if(facts){
+      const spans=[...facts.querySelectorAll('span')];
+      const cell=spans.find(x=>/latest quote|^using/i.test(x.textContent.trim()));
+      if(cell)cell.innerHTML='using <b>'+esc(fmtMoney(q.price_usd))+'</b>';
+    }
+  }
+
+  /* one card carries the marker, so the others get their button back */
+  const list=$('quot-list');
+  if(list)[...list.querySelectorAll('.qcard')].forEach((card,i)=>{
+    const other=(LEADQUOTS||[])[i];
+    if(!other)return;
+    card.outerHTML=quotCard(other,leadId,true,other.id===q.id);
+  });
 }
