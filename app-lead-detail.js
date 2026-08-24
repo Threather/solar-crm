@@ -93,9 +93,12 @@ async function openLead(id){
         <textarea id="d-note" rows="2" placeholder="What happened?"></textarea>
       </div>
     </div>`:'';
-  /* marketing keeps the contact log but never the money in it: the app writes
-     the quotation price into a remark, and anyone can type one into a note */
-  const noteFor=n=>isMkt?String(n||'').replace(/\$\s?[\d,]+(?:\.\d+)?/g,'$—'):n;
+  /* the contact log stays, the money in it does not. The app writes the
+     quotation price into a remark and anyone can type one into a note, so any
+     figure is masked for the roles that see no money: marketing, and the site
+     engineer, who reads the specification but never the price. */
+  const hideMoney=['marketing','site_engineer'].includes(ME.role);
+  const noteFor=n=>hideMoney?String(n||'').replace(/\$\s?[\d,]+(?:\.\d+)?/g,'$—'):n;
   const remarkHtml=recentNotes.length?`<div class="recent"><h4>Remarks (${allRemarks.length})</h4>${recentNotes.map(a=>`
       <div class="r-item"><div class="r-meta">${fmtDate(remarkDate(a))} · ${esc(staffName(a.actor_id))}</div>
       <div class="r-note">${esc(noteFor(a.note))}</div></div>`).join('')}
@@ -214,7 +217,7 @@ async function openLead(id){
       <div class="tl-item">
         <div class="t-head">${esc(a.activity_type==='stage_change'?`Stage: ${a.from_stage||'—'} → ${a.to_stage}`:a.activity_type)}</div>
         <div class="t-meta">${a.note_date?fmtDate(a.note_date)+' · ':''}${esc(staffName(a.actor_id))} · ${fmtDT(a.created_at)}</div>
-        ${a.note?`<div class="t-note">${esc(a.note)}</div>`:''}
+        ${a.note?`<div class="t-note">${esc(noteFor(a.note))}</div>`:''}
       </div>`).join('')||blank('No history yet','Calls, notes and stage changes are recorded here as the lead moves.')}
     </div>
     </div>`;

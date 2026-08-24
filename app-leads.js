@@ -357,8 +357,40 @@ async function createLead(){
 
 /* installation and BOQ: the site engineer's whole job, so for them it sits
    first and everything else is context they scroll past */
+/* What is actually going on the roof, read only. The site engineer used to be
+   sent to a house with dates, a team and a map link but no specification at
+   all — not a panel count, not an inverter size. The key-in box is still the
+   sale engineer's, so this is shown only to whoever cannot see that one. */
+function siteSpec(l){
+  if(['sales','manager','admin'].includes(ME.role))return '';
+  const parts=[
+    ['Panel',   panelModel(l.panel_brand,l.panel_watt),                l.panel_brand,    l.panel_pcs],
+    ['Inverter',inverterModel(l.inverter_brand,l.inverter_kw,l.phase_type), l.inverter_brand, l.inverter_pcs],
+    ['Battery', batteryModel(l.battery_brand,l.battery_kwh_each),      l.battery_brand,  l.battery_pcs]
+  ].filter(([,,brand])=>brand);
+  const facts=[
+    ['Roof',l.roof_type],['System',l.system_type],['Ampere & phase',l.phase_type],
+    ['Panels',l.panel_pcs&&l.panel_watt?`${l.panel_pcs} × ${l.panel_watt}W${l.panel_kwp?` · ${l.panel_kwp} kWp`:''}`:null],
+    ['Inverter',l.inverter_pcs&&l.inverter_kw?`${l.inverter_pcs} × ${l.inverter_kw} kW`:null],
+    ['Battery',l.battery_kwh?`${l.battery_kwh} kWh${l.battery_pcs?` · ${l.battery_pcs} pcs`:''}`:null]
+  ].filter(([,v])=>v);
+  if(!facts.length&&!parts.length)
+    return `<div class="section sec-eng"><h4>System</h4>${blank('Not specified yet','The sale engineer keys the system in before installation.')}</div>`;
+  return `<div class="section sec-eng"><h4>System</h4>
+      <div class="grid3">
+        ${facts.map(([k,v])=>`<div><label>${esc(k)}</label><input value="${esc(v)}" disabled></div>`).join('')}
+      </div>
+      ${parts.length?`<div class="kit">${parts.map(([kind,model,brand,pcs])=>{
+        const img=imgFor(model);
+        return `<div class="kit-item">
+          <div class="kit-pic">${img?`<img src="${esc(img)}" alt="" onerror="this.remove()">`:''}</div>
+          <div class="kit-txt"><b>${esc(model||brand)}</b>
+            <span>${esc(kind)}${pcs?' · '+esc(pcs)+' pcs':''}${model?'':' · no part number'}</span></div>
+        </div>`;}).join('')}</div>`:''}
+    </div>`;
+}
 function siteBox(l,canSite,first,isAdmin){
-  return `<div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
+  return siteSpec(l)+`<div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
       <div class="grid3">
         <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
         <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
