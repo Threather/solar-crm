@@ -265,6 +265,15 @@ function renderNew(){
   $('main').innerHTML=`
     <h2 style="margin-bottom:12px">New lead</h2>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:820px">
+      ${['sales','manager','admin'].includes(ME.role)?`<div class="section sec-eng" style="margin:0 0 18px">
+        <h4>Coming back for more?</h4>
+        <div class="grid2">
+          <div style="grid-column:1/-1"><label>Their reference ID or phone number</label>
+            <input id="f-find" placeholder="202608-00009 or 0889898890" onkeydown="if(event.key==='Enter'){event.preventDefault();findCustomer();}"></div>
+        </div>
+        <div class="modal-actions"><button class="btn-line" onclick="findCustomer()">Find customer</button></div>
+        <div id="f-found"></div>
+      </div>`:''}
       <div class="grid2">
         <div><label>Customer name *</label><input id="f-name"></div>
         <div><label>Phone</label><input id="f-phone" placeholder="Can be added later"></div>
@@ -292,7 +301,58 @@ function renderNew(){
       <div class="modal-actions"><button class="btn-sun" onclick="createLead()">Create lead</button></div>
       <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Name and sub-channel are required. Add the phone later and a sale engineer is assigned automatically.${ME.role==='marketing'?'':' A lead counts as qualified from Telling Price onwards.'}</p>
     </div>`;
-  subChan(); geoProv();
+  subChan(); geoProv(); NEWPARENT=null;
+}
+/* A customer who already bought. They will not remember a reference from a
+   year ago but they know their own phone number, so both find them. Their
+   details and the system already on the roof are copied in; the sale engineer
+   keys it up to the total after the expansion, because EDC bands are worked on
+   total inverter kWac. */
+let NEWPARENT=null;
+async function findCustomer(){
+  const q=($('f-find').value||'').trim();
+  const box=$('f-found');
+  if(!q){box.innerHTML='';toast('Type a reference ID or a phone number');return;}
+  const like='%'+q.replace(/[%,]/g,'')+'%';
+  const {data,error}=await sb.from('leads').select('*')
+    .eq('is_deleted',false)
+    .or('ref_id.ilike.'+like+',phone.ilike.'+like)
+    .order('created_at',{ascending:false}).limit(6);
+  if(error){box.innerHTML='';toast('Could not search. '+why(error));console.error(error);return;}
+  if(!(data||[]).length){
+    box.innerHTML=blank('Nobody found','Check the reference ID or phone number. You only see customers on leads you are allowed to open.');
+    return;
+  }
+  FOUND=data;
+  box.innerHTML=data.map((l,i)=>`<div class="qcard">
+      <b>${esc(l.customer_name||'No name')}</b> · ${esc(l.ref_id||'no ref')} · ${esc(l.phone||'no phone')}
+      <span class="days">${esc(stageName(l.stage_code))}${l.stage_code===WON?' · won '+fmtDate(l.stage_entered_at):''} · ${esc(sysLine(l)||'no system recorded')}</span>
+      <div class="acts"><button class="btn-mini" onclick="useCustomer(${i})">Use this customer</button></div>
+    </div>`).join('');
+}
+let FOUND=[];
+function useCustomer(i){
+  const l=FOUND[i];
+  if(!l)return;
+  NEWPARENT=l;
+  const set=(id,v)=>{const e=$(id);if(e)e.value=v??'';};
+  set('f-name',l.customer_name);set('f-phone',l.phone);
+  set('f-bill',l.monthly_bill_usd);
+  const ct=$('f-ctype');if(ct&&l.customer_type)ct.value=l.customer_type;
+  set('f-addr',l.site_address);set('f-sitetype',l.site_type);
+  const prov=$('f-prov');
+  if(prov&&(l.province||l.city_province)){
+    prov.value=l.province||l.city_province;geoProv();
+    const d=$('f-district');if(d&&l.district){d.value=l.district;geoDist();}
+    const c=$('f-commune');if(c&&l.commune)c.value=l.commune;
+  }
+  const ch=$('f-chan');if(ch){ch.value='Existing_Customer';subChan();}
+  const sub=$('f-sub');if(sub)sub.value='Expansion';
+  $('f-found').innerHTML=`<div class="hint" style="border-left-color:var(--own-eng);color:var(--own-eng)">
+    Following on from <b>${esc(l.ref_id||'their earlier deal')}</b>. Their system as it stands is copied across.
+    Key in the system as it will be <b>after</b> the expansion, not just what is being added.
+  </div>`;
+  toast('Customer details filled in');
 }
 function subChan(){
   const ch=$('f-chan').value;
@@ -318,7 +378,9 @@ async function createLead(){
   /* the same number turning up twice is usually a customer who called back,
      not a mistake — so this says so and lets it through. It only sees leads
      the person is allowed to see, so a silent no would be worse than this. */
-  if(phone){
+  /* an expansion is the same customer on purpose, so the duplicate warning
+     below would fire every single time and train people to click through it */
+  if(phone&&!NEWPARENT){
     const {data:dupes}=await sb.from('leads').select('ref_id,customer_name,created_at')
       .eq('phone',phone).eq('is_deleted',false).order('created_at').limit(3);
     if(dupes&&dupes.length){
@@ -342,6 +404,24 @@ async function createLead(){
     site_type:$('f-sitetype').value.trim()||null,
     created_by:ME.id
   };
+  /* an expansion carries the system already installed and stays with the
+     person who sold it; the deal it follows is recorded on the row */
+  if(NEWPARENT){
+    const p=NEWPARENT;
+    Object.assign(row,{
+      parent_lead_id:p.id,
+      assigned_to:p.assigned_to||null,
+      assigned_at:p.assigned_to?new Date().toISOString():null,
+      site_engineer_id:p.site_engineer_id||null,
+      site_link:p.site_link||null,
+      roof_type:p.roof_type,system_type:p.system_type,phase_type:p.phase_type,
+      panel_brand:p.panel_brand,panel_watt:p.panel_watt,panel_pcs:p.panel_pcs,panel_kwp:p.panel_kwp,
+      inverter_brand:p.inverter_brand,inverter_kw:p.inverter_kw,inverter_pcs:p.inverter_pcs,
+      inverter_kw_total:p.inverter_kw_total,
+      battery_brand:p.battery_brand,battery_kwh_each:p.battery_kwh_each,
+      battery_pcs:p.battery_pcs,battery_kwh:p.battery_kwh
+    });
+  }
   if($('f-chan').value==='Offline_Marketing'){
     row.event_name=$('f-eventname').value.trim()||null;
     row.event_date=$('f-eventdate').value||null;
@@ -349,6 +429,12 @@ async function createLead(){
   const {data,error}=await sb.from('leads').insert(row).select().single();
   if(error){toast('Create failed. '+why(error));console.error(error);return;}
   await logActivity(data.id,'created',null,'info_gathering',$('f-note').value.trim()||'Lead created');
+  if(NEWPARENT){
+    await logActivity(data.id,'note',null,null,
+      'Expansion of '+(NEWPARENT.ref_id||'an earlier deal')+' for the same customer');
+    await logActivity(NEWPARENT.id,'note',null,null,'A new deal was opened for this customer');
+    NEWPARENT=null;
+  }
   toast((data.ref_id?'Lead '+data.ref_id+' created':'Lead created')
     +(data.assigned_to?', assigned to '+staffName(data.assigned_to)
       :' Add the phone number to hand it to sales.'));
