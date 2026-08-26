@@ -242,6 +242,24 @@ async function renderSalesReport(){
           color:'var(--own-sales)',xhead:'Month',yhead:'Contract value'});
     })()}
 
+    <div class="homegrid" style="margin-top:18px">
+      ${(()=>{
+        /* a dot needs a value, and a won deal may not have one — say how many
+           of the deals this actually covers rather than implying all of them */
+        const vals=wonInWin.map(l=>saleBy[l.id]||0).filter(v=>v>0);
+        return repPanel('Deal size',gDots(vals,
+          {fmt:cash,emptyWhy:'Deal sizes appear once deals are marked Closed-Won with a value.'})
+          +`<div class="cap">One dot per deal, ${vals.length} of ${wonInWin.length} won${vals.length<wonInWin.length?' — the rest have no sale value recorded':''}. The line is the median, so the spread and the outlier lead rather than an average.</div>`);
+      })()}
+
+      ${repPanel('Against target, by sale engineer',gDeviation(
+        people.map(p=>[p.full_name,
+          wonInWin.filter(l=>l.assigned_to===p.id).reduce((a,l)=>a+(saleBy[l.id]||0),0),
+          Number(tg.person[p.id]?.collection||0)]),
+        {emptyWhy:'Set a collection target per person under Targets.'})
+        +`<div class="cap">Distance from target, not the raw figure — over and under read as opposite directions.</div>`)}
+    </div>
+
     <h3 style="font-size:15px;margin:22px 0 8px">By sale engineer</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Sale engineer</th><th>Leads</th><th>Qualified</th><th>Quotation sent</th>

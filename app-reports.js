@@ -298,6 +298,43 @@ function gDuration(rows,opts){
       <span class="track">${miss(v)?'':`<span class="seg" style="left:0;width:${Math.max(3,Math.round((v/max)*100))}%"></span>`}</span>
       <span class="v">${miss(v)?'<span>no data yet</span>':`<b>${esc(v)}</b> days${n?` <span>· ${esc(n)}</span>`:''}`}</span></div>`).join('')+`</div>`;
 }
+/* Distribution. One dot per deal on a value scale, with the median marked.
+   Twelve won deals would make a histogram of three lumpy bins; the dots show
+   the real spread and the outlier, which is the part worth seeing. */
+function gDots(values,opts){
+  const o=opts||{};
+  const v=values.filter(x=>Number(x)>0).map(Number).sort((a,b)=>a-b);
+  if(!v.length)return blank('Nothing to spread yet',o.emptyWhy||'This fills in as deals are won.');
+  const min=v[0], max=v[v.length-1], span=(max-min)||1;
+  const mid=v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2;
+  const fmt=o.fmt||(x=>x);
+  const at=x=>((x-min)/span)*100;
+  return `<div class="gdots">
+    <div class="strip">
+      <div class="axis"></div>
+      <div class="med" style="left:${at(mid)}%" title="median ${esc(fmt(mid))}"></div>
+      ${v.map(x=>`<span class="dot${x>=mid*2?' big':''}" style="left:${at(x)}%;top:22px" title="${esc(fmt(x))}"></span>`).join('')}
+    </div>
+    <div class="ends"><span>${esc(fmt(min))}</span><span>median ${esc(fmt(mid))}</span><span>${esc(fmt(max))}</span></div>
+  </div>`;
+}
+/* Deviation. Distance above or below target from a centre line, so over and
+   under are opposite directions rather than two numbers to compare. */
+function gDeviation(rows,opts){
+  const o=opts||{};
+  const known=rows.filter(r=>r[2]);
+  if(!known.length)return blank('No targets set',o.emptyWhy||'Set targets under the Targets screen.');
+  const pcts=known.map(([k,v,t])=>[k,Math.round((Number(v)/Number(t))*100)-100]);
+  const reach=Math.max(60,...pcts.map(p=>Math.abs(p[1])));
+  return `<div class="gdev">`+pcts.map(([k,d])=>{
+    const half=Math.min(50,Math.abs(d)/reach*50);
+    return `<div class="row"><span class="k" title="${esc(k)}">${esc(k)}</span>
+      <span class="track"><span class="zero" style="left:50%"></span>
+        <span class="fill" style="${d>=0?`left:50%;width:${half}%;background:var(--ok)`:`right:50%;width:${half}%;background:var(--bad)`}"></span>
+      </span>
+      <span class="v ${d>=0?'up':'down'}">${d>=0?'+':''}${d}%</span></div>`;
+  }).join('')+`</div>`;
+}
 /* actual against a target. The notch is the target, so falling short is a gap
    rather than a subtraction the reader has to do. Over-target simply runs past
    the notch, which is the honest picture and something a gauge cannot draw. */

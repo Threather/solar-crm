@@ -423,6 +423,33 @@ td.nowrap{white-space:nowrap}
 .gbullet .foot{display:flex;justify-content:space-between;margin-top:5px;
   font-size:var(--t-cap);color:var(--ink-mute);font-variant-numeric:tabular-nums}
 
+/* Distribution: every deal as one dot on a value scale. With twelve won deals
+   a histogram would be three lumpy bins; the dots show the actual spread and
+   the outlier, which is the thing worth seeing. */
+.gdots{padding:6px 0 2px}
+.gdots .strip{position:relative;height:44px;margin:10px 0 6px}
+.gdots .axis{position:absolute;left:0;right:0;top:22px;height:1px;background:var(--line)}
+.gdots .dot{position:absolute;width:11px;height:11px;border-radius:99px;
+  background:var(--own-sales);opacity:.72;transform:translate(-50%,-50%);
+  box-shadow:0 0 0 2px var(--card)}
+.gdots .dot.big{background:var(--ok);opacity:.9}
+.gdots .ends{display:flex;justify-content:space-between;font-size:var(--t-cap);color:var(--ink-mute);
+  font-variant-numeric:tabular-nums}
+.gdots .med{position:absolute;top:6px;bottom:6px;width:2px;background:var(--ink-2);opacity:.5;
+  transform:translateX(-50%)}
+
+/* Deviation: how far above or below target, from a centre line. Over and under
+   read as opposite directions rather than two numbers to compare. */
+.gdev .row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.gdev .k{width:118px;flex:none;font-size:var(--t-meta);color:var(--ink-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gdev .track{flex:1;height:18px;position:relative;background:var(--sunk);border-radius:4px}
+.gdev .zero{position:absolute;top:-3px;bottom:-3px;width:1px;background:var(--ink-mute);opacity:.6}
+.gdev .fill{position:absolute;top:0;bottom:0;border-radius:3px}
+.gdev .v{width:62px;flex:none;text-align:right;font-size:var(--t-meta);font-weight:600;
+  font-variant-numeric:tabular-nums}
+.gdev .v.up{color:var(--ok)} .gdev .v.down{color:var(--bad)}
+
 /* the ledger: everything that is not the headline, aligned so it can be read
    down rather than shouted at 22px a figure */
 .ledger{display:flex;flex-direction:column}
