@@ -391,7 +391,7 @@ td.nowrap{white-space:nowrap}
 .grank .k{width:128px;flex:none;font-size:var(--t-meta);color:var(--ink-2);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grank .track{flex:1;height:16px;background:var(--sunk);border-radius:4px;overflow:hidden}
-.grank .fill{height:100%;border-radius:4px;min-width:2px;
+.grank .fill{display:block;height:100%;border-radius:4px;min-width:2px;
   transition:width .3s cubic-bezier(.23,1,.32,1)}
 .grank .v{width:86px;flex:none;text-align:right;font-size:var(--t-meta);font-weight:600;
   color:var(--ink-2);font-variant-numeric:tabular-nums}
@@ -482,7 +482,10 @@ td.nowrap{white-space:nowrap}
 .pipe .row{display:flex;align-items:center;gap:10px;font-size:var(--t-meta)}
 .pipe .nm{width:132px;flex:none;color:var(--ink-2)}
 .pipe .track{flex:1;height:7px;border-radius:99px;background:var(--sunk);overflow:hidden}
-.pipe .fill{height:100%;border-radius:99px;background:var(--sun);min-width:2px;
+/* display:block matters — a span is inline, and width and height do nothing on
+   an inline box, so this drew a 0x0 fill inside a visible track. The bars have
+   been empty since they were written. */
+.pipe .fill{display:block;height:100%;border-radius:99px;background:var(--sun);min-width:2px;
   transition:width .3s var(--ease)}
 .pipe .ct{width:22px;text-align:right;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .pipe .row.won .nm,.pipe .row.won .ct{color:var(--ink);font-weight:600}
