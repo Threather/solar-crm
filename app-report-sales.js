@@ -60,6 +60,8 @@ async function renderSalesReport(){
     if(!l.phone)return; l._existing=!!phoneSeen[l.phone]; phoneSeen[l.phone]=true;});
   const existing=got.filter(l=>l._existing).length;
   const qualified=got.filter(l=>qualText(l)==='Qualified');
+  /* how far the window's own leads actually travelled, for the funnel */
+  const toQuotN=got.filter(l=>everReached(reached,l,'quotation_sent')).length;
   const contactOf=l=>(actsBy[l.id]||[]).filter(a=>['call','note'].includes(a.activity_type))
     .sort((x,y)=>new Date(x.created_at)-new Date(y.created_at))[0];
   const pendingContact=open.filter(l=>!contactOf(l));
@@ -155,33 +157,33 @@ async function renderSalesReport(){
     ${!target?`<div class="hint"><b>No collection target set for ${esc(monthName(mStart.slice(0,7)))}.</b>
       Target achievement, forecast and pipeline coverage stay blank until an admin sets one under Targets.</div>`:''}
 
+    ${leadFig('Outstanding',cash(outstanding),
+      (owingNoDate?owingNoDate+' of them have no collection date set · ':'')
+      +cash(collected)+' collected '+per,outstanding>0)}
+
+    ${repPanel('Conversion',gFunnel([
+      ['Leads received',got.length,'#c2b8a4'],
+      ['Qualified',qualified.length,'#a89c86'],
+      ['Quotation sent',toQuotN,'var(--sun)'],
+      ['Closed-Won',wonInWin.length,'var(--ok)']
+    ],{cap:'Each bar is a share of all leads received, so the drop-off is the gap.'}),true)}
+
     <div class="homegrid">
-      ${repPanel('Lead and sales activity',repFigs([
-        ['Raw leads',got.length],
-        ['New',got.length-existing],['Existing',existing],
-        ['Qualified',qualified.length],
-        ['Pending first contact',pendingContact.length],
-        ['Pending follow-up',pendingFollow.length],
-        ['First contact, days',firstTat.avg,firstTat.n+' lead'+(firstTat.n===1?'':'s')],
-        ['Average contacts',avgContacts]
-      ]),true)}
+      ${repPanel('Collection',gSplit([
+          ['Collected',collected,'var(--ok)'],
+          ['Outstanding',outstanding,'var(--bad)']
+        ],/* the bar's own share, not the collection rate against expected —
+             that one can pass 100% and would not describe this bar */
+          (collected+outstanding)>0?Math.round(collected/(collected+outstanding)*100)+'% collected':'nothing due',
+          cash(collected+outstanding)+' total due')
+        +ledger([
+          ['Expected',cash(expectedColl),owingNoDate?owingNoDate+' with no date':''],
+          ['Collection rate',collPct===null?'—':collPct+'%','of expected'],
+          ['Overdue',cash(overdueValue),overdueCust.length+' customer'+(overdueCust.length===1?'':'s')],
+          ['Run rate, this month',cash(runRate),cash(mtdCollected)+' in '+dayNow+' d']
+        ]))}
 
-      ${repPanel('Sales funnel',`<div class="pipe">
-        ${live.map(s=>bar(s.stage_name,mine(open).filter(l=>l.stage_code===s.stage_code).length,open.length)).join('')}
-        ${bar('Closed-Won',mine(won).length,rows.length,' won')}
-      </div>`)}
-
-      ${repPanel('Pipeline',repFigs([
-        ['Active leads',open.length],
-        ['Pipeline value',cash(pipe.value),pipe.covered+' of '+open.length+' quoted'],
-        ['Pipeline coverage',target?pct(pipe.value,target):'—'],
-        ['Stage aging, days',aging.avg,aging.n+' lead'+(aging.n===1?'':'s')],
-        ['Overdue by follow-up',overdue.length],
-        ['Quotation turnaround, days',quotTat.avg,quotTat.n+' quoted'],
-        ['Average sales cycle, days',cycle.avg,cycle.n+' won']
-      ]))}
-
-      ${repPanel('Sales performance',repFigs([
+      ${repPanel('Sales performance',ledger([
         ['Closed-Won',wonInWin.length],
         ['Contract value',cash(wonValue)],
         ['Target',target?cash(target):'—'],
@@ -191,22 +193,39 @@ async function renderSalesReport(){
         ['Expected to close',expected.length,cash(expectedValue)]
       ]))}
 
-      ${repPanel('Payment collection',repFigs([
-        ['Expected',cash(expectedColl),owingNoDate?owingNoDate+' owing with no date set':''],
-        ['Actual',cash(collected)],
-        ['Collection rate',collPct===null?'—':collPct+'%'],
-        ['Outstanding',cash(outstanding)],
-        ['Overdue',cash(overdueValue),overdueCust.length+' customer'+(overdueCust.length===1?'':'s')],
-        ['Run rate, this month',cash(runRate),cash(mtdCollected)+' in '+dayNow+' days']
+      ${repPanel('Where the pipeline sits',`<div class="pipe">
+        ${live.map(s=>bar(s.stage_name,mine(open).filter(l=>l.stage_code===s.stage_code).length,open.length)).join('')}
+      </div>`+ledger([
+        ['Active leads',open.length],
+        ['Pipeline value',cash(pipe.value),pipe.covered+' of '+open.length+' quoted'],
+        ['Pipeline coverage',target?pct(pipe.value,target):'—'],
+        ['Overdue by follow-up',overdue.length]
       ]))}
 
-      ${repPanel('Closed-Lost',repFigs([
-        ['Closed-Lost',lostInWin.length],
-        ['Before quotation',lostInWin.length-lostAfterQuot],
-        ['After quotation',lostAfterQuot]
-      ])+(Object.keys(reasons).length?`<div class="pipe" style="margin-top:12px">
-        ${Object.entries(reasons).sort((a,b)=>b[1]-a[1]).map(([r,n])=>bar(r,n,lostInWin.length)).join('')}
-      </div>`:''))}
+      ${repPanel('How long it takes',gDuration([
+        ['First contact',firstTat.avg,firstTat.n+' lead'+(firstTat.n===1?'':'s')],
+        ['Quotation turnaround',quotTat.avg,quotTat.n+' quoted'],
+        ['Stage aging',aging.avg,aging.n+' lead'+(aging.n===1?'':'s')],
+        ['Whole sales cycle',cycle.avg,cycle.n+' won']
+      ],{emptyWhy:'Turnaround needs a dated stage change at both ends.'}))}
+
+      ${repPanel('Lead and sales activity',ledger([
+        ['Raw leads',got.length],
+        ['New',got.length-existing],['Existing',existing],
+        ['Qualified',qualified.length],
+        ['Pending first contact',pendingContact.length],
+        ['Pending follow-up',pendingFollow.length],
+        ['Average contacts',avgContacts]
+      ]))}
+
+      ${repPanel('Closed-Lost',(Object.keys(reasons).length
+        ? gRank(Object.entries(reasons),{color:'var(--bad)',emptyWhy:'No lost leads in this window.'})
+        : blank('Nothing lost in this window','Leads marked Closed-Lost are counted here with their reason.'))
+        +ledger([
+          ['Closed-Lost',lostInWin.length],
+          ['Before quotation',lostInWin.length-lostAfterQuot],
+          ['After quotation',lostAfterQuot]
+        ]))}
     </div>
 
     ${(()=>{

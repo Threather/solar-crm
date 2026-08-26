@@ -363,6 +363,73 @@ td.nowrap{white-space:nowrap}
   letter-spacing:.07em;margin-top:3px}
 .fig .fn{font-size:var(--t-cap);color:var(--ink-mute);margin-top:1px}
 .fig.bad .fv{color:var(--bad)}
+/* ---- report graphics ----------------------------------------------------
+   Four forms, because four different questions. A funnel is not a ranking is
+   not a ratio is not a duration, and drawing them all as the same bar is how a
+   report stops being read. Every one keeps its figure written on it, so none
+   of them needs a legend and none of them hides a number in a picture. */
+
+/* how many survive each step, each bar a share of the first */
+.gfunnel .row{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+.gfunnel .k{width:128px;flex:none;font-size:var(--t-meta);color:var(--ink-2)}
+.gfunnel .track{flex:1;height:26px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.gfunnel .fill{height:100%;border-radius:5px;display:flex;align-items:center;padding-left:9px;
+  min-width:34px;transition:width .3s cubic-bezier(.23,1,.32,1)}
+.gfunnel .fill b{font-size:var(--t-meta);font-weight:600;color:#fff;font-variant-numeric:tabular-nums}
+.gfunnel .pc{width:42px;flex:none;text-align:right;font-size:var(--t-cap);color:var(--ink-mute);
+  font-variant-numeric:tabular-nums}
+
+/* one ratio, one bar — for two numbers whose proportion is the whole story */
+.gsplit{height:34px;border-radius:6px;overflow:hidden;display:flex;background:var(--sunk)}
+.gsplit span{display:flex;align-items:center;padding:0 11px;font-size:var(--t-meta);font-weight:600;
+  color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0}
+.gsplit-l{display:flex;justify-content:space-between;margin-top:8px;font-size:var(--t-cap);
+  color:var(--ink-soft)}
+
+/* a ranking: sorted, longest first, the figure at the end of the row */
+.grank .row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.grank .k{width:128px;flex:none;font-size:var(--t-meta);color:var(--ink-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grank .track{flex:1;height:16px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.grank .fill{height:100%;border-radius:4px;min-width:2px;
+  transition:width .3s cubic-bezier(.23,1,.32,1)}
+.grank .v{width:86px;flex:none;text-align:right;font-size:var(--t-meta);font-weight:600;
+  color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+/* how long each step takes, laid end to end on one timeline */
+.gdur{display:flex;flex-direction:column;gap:10px}
+.gdur .row{display:flex;align-items:center;gap:12px}
+.gdur .k{width:150px;flex:none;font-size:var(--t-meta);color:var(--ink-2)}
+.gdur .track{flex:1;height:10px;background:var(--sunk);border-radius:99px;position:relative}
+.gdur .seg{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--own-eng)}
+.gdur .v{width:104px;flex:none;text-align:right;font-size:var(--t-meta);color:var(--ink-2);
+  font-variant-numeric:tabular-nums}
+.gdur .v b{font-weight:600}
+.gdur .v span{color:var(--ink-mute);font-size:var(--t-cap)}
+
+/* the ledger: everything that is not the headline, aligned so it can be read
+   down rather than shouted at 22px a figure */
+.ledger{display:flex;flex-direction:column}
+.ledger .row{display:flex;align-items:baseline;gap:10px;padding:7px 0;
+  border-bottom:1px solid var(--line-soft)}
+.ledger .row:last-child{border-bottom:0}
+.ledger .k{font-size:var(--t-meta);color:var(--ink-soft);flex:1}
+.ledger .v{font-size:var(--t-body);font-weight:600;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.ledger .n{font-size:var(--t-cap);color:var(--ink-mute);flex:none}
+
+/* the one figure a report leads with */
+.lead-fig{background:var(--card);border-radius:var(--r);padding:18px 20px 16px;
+  margin-bottom:var(--s-3);box-shadow:var(--lift);border-left:3px solid var(--own-sales)}
+.lead-fig .fl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--ink-mute);font-weight:600}
+.lead-fig .fv{font-family:'Source Serif 4',Georgia,serif;font-size:38px;font-weight:600;
+  color:var(--ink);line-height:1.05;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  margin-top:2px}
+.lead-fig .fn{font-size:var(--t-meta);color:var(--ink-soft);margin-top:4px}
+.lead-fig.warn{border-left-color:var(--bad)}
+.lead-fig.warn .fv{color:var(--bad)}
+
 /* what is being sold, pictured, while it is being keyed in */
 .kit{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .kit:empty{display:none}

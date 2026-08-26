@@ -65,10 +65,9 @@ async function renderMktReport(){
     </div>`:''}
 
     <div class="homegrid">
-      ${repPanel('Lead generation',`<div class="pipe">
-        ${MKT_CH.map(c=>bar(c.replace(/_/g,' '),byCh(c),got.length)).join('')}
-        ${byCh('Other')?bar('Other',byCh('Other'),got.length):''}
-      </div>`)}
+      ${repPanel('Lead generation',gRank(
+        MKT_CH.map(c=>[c.replace(/_/g,' '),byCh(c)]).concat(byCh('Other')?[['Other',byCh('Other')]]:[]),
+        {color:'var(--sun)',emptyWhy:'Channels appear as leads are created.'}))}
 
       ${noStage?'':repPanel('Lead quality',repFigs([
         ['Qualified',qualified.length],
@@ -88,12 +87,12 @@ async function renderMktReport(){
         ${bar('Target vs actual',mtd.length,leadTarget)}
       </div>`:''),true)}
 
-      ${noStage?'':repPanel('Conversion',`<div class="pipe">
-        ${bar('Leads received',got.length,got.length)}
-        ${bar('Qualified',qualified.length,got.length)}
-        ${bar('Quotation sent',toQuot.length,got.length)}
-        ${bar('Closed-Won',toWon.length,got.length,' won')}
-      </div>`+repFigs([
+      ${noStage?'':repPanel('Conversion',gFunnel([
+        ['Leads received',got.length,'#c2b8a4'],
+        ['Qualified',qualified.length,'#a89c86'],
+        ['Quotation sent',toQuot.length,'var(--sun)'],
+        ['Closed-Won',toWon.length,'var(--ok)']
+      ],{cap:'Each bar is a share of all leads received in this window.'})+ledger([
         ['Lead to qualified',pct(qualified.length,got.length)],
         ['Qualified to quotation',pct(toQuot.length,qualified.length)],
         ['Lead to won',pct(toWon.length,got.length)]

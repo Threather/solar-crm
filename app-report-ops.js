@@ -92,21 +92,18 @@ async function renderOpsReport(){
         ${bar('EDC inspected',edcSeen.length,f.length)}
       </div>`)}
 
-      ${repPanel('Installation team',teams.length
-        ?`<div class="pipe">${teams.map(t=>{
-            const n=rows.filter(l=>l.installation_team===t).length;
-            return bar(t,n,rows.length);}).join('')}
-          ${rows.some(l=>!l.installation_team)
-            ?bar('No team yet',rows.filter(l=>!l.installation_team).length,rows.length,' zero'):''}
-        </div>`
-        :blank('No teams assigned','A team is picked on a won deal by the site engineer.'))}
+      ${repPanel('Installation team',gRank(
+        teams.map(t=>[t,rows.filter(l=>l.installation_team===t).length])
+          .concat(rows.some(l=>!l.installation_team)
+            ?[['No team yet',rows.filter(l=>!l.installation_team).length]]:[]),
+        {color:'var(--own-site)',emptyWhy:'A team is picked on a won deal by the site engineer.'}))}
 
-      ${repPanel('Turnaround, average days',repFigs([
+      ${repPanel('How long each step takes',gDuration([
         ['BOQ to installation',tatBoq.avg,tatBoq.n+' project'+(tatBoq.n===1?'':'s')],
         ['Installation duration',tatInst.avg,tatInst.n+' project'+(tatInst.n===1?'':'s')],
         ['Installation to EDC inform',tatInform.avg,tatInform.n+' project'+(tatInform.n===1?'':'s')],
         ['EDC inform to inspection',tatSeen.avg,tatSeen.n+' project'+(tatSeen.n===1?'':'s')]
-      ]),true)}
+      ],{emptyWhy:'Turnaround needs a date at both ends of a step.'}),true)}
     </div>
 
     ${(()=>{

@@ -245,6 +245,72 @@ const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
 /* Stacked column chart, hand-rolled SVG: no chart library, no build step. */
+/* ---- report graphics ----------------------------------------------------
+   Four forms for four questions. Drawing every one of them as the same bar is
+   how a report stops being read, so: a funnel for what survives each step, a
+   split for one ratio, a ranking for who holds what, a duration for how long
+   something takes. Each keeps its figure written on it — no legends, and no
+   number that exists only inside a picture. */
+
+/* how many survive each step. Every bar is a share of the first, so the
+   drop-off is the gap rather than something to work out. */
+function gFunnel(steps,opts){
+  const o=opts||{};
+  const base=Math.max(1,steps[0]?steps[0][1]:1);
+  return `<div class="gfunnel">`+steps.map(([k,v,color])=>{
+    const pc=Math.round((v/base)*100);
+    return `<div class="row"><span class="k">${esc(k)}</span>
+      <span class="track"><span class="fill" style="width:${Math.max(v?4:0,pc)}%;background:${color||'var(--own-sales)'}">${v?`<b>${esc(o.fmt?o.fmt(v):v)}</b>`:''}</span></span>
+      <span class="pc">${base?pc+'%':'—'}</span></div>`;
+  }).join('')+`</div>`+(o.cap?`<div class="cap" style="margin-top:12px">${esc(o.cap)}</div>`:'');
+}
+/* two numbers whose proportion is the whole story */
+function gSplit(parts,left,right){
+  const total=parts.reduce((a,p)=>a+Number(p[1]||0),0)||1;
+  return `<div class="gsplit">`+parts.map(([label,v,color])=>{
+    const w=(Number(v||0)/total)*100;
+    if(w<=0)return '';
+    return `<span style="width:${w}%;background:${color}" title="${esc(label)}">${w>14?esc(label):''}</span>`;
+  }).join('')+`</div>
+  <div class="gsplit-l"><span>${esc(left||'')}</span><span>${esc(right||'')}</span></div>`;
+}
+/* who holds what, longest first */
+function gRank(items,opts){
+  const o=opts||{};
+  const rows=[...items].filter(r=>Number(r[1]||0)>0).sort((a,b)=>b[1]-a[1]).slice(0,o.limit||8);
+  if(!rows.length)return blank('Nothing to rank yet',o.emptyWhy||'This fills in as deals are recorded.');
+  const max=Math.max(...rows.map(r=>Number(r[1])));
+  return `<div class="grank">`+rows.map(([k,v])=>
+    `<div class="row"><span class="k" title="${esc(k)}">${esc(k)}</span>
+      <span class="track"><span class="fill" style="width:${Math.round((v/max)*100)}%;background:${o.color||'var(--own-sales)'}"></span></span>
+      <span class="v">${esc(o.fmt?o.fmt(v):v)}</span></div>`).join('')+`</div>`;
+}
+/* how long each step takes. Laid on one timeline against the longest, so a
+   slow step is long rather than merely a bigger number. */
+function gDuration(rows,opts){
+  const o=opts||{};
+  const miss=v=>v==null||v==='—'||v==='';
+  const known=rows.filter(r=>!miss(r[1]));
+  if(!known.length)return blank('No turnaround yet',o.emptyWhy||'This needs dates at both ends of a step.');
+  const max=Math.max(...known.map(r=>Number(r[1])))||1;
+  return `<div class="gdur">`+rows.map(([k,v,n])=>
+    `<div class="row"><span class="k">${esc(k)}</span>
+      <span class="track">${miss(v)?'':`<span class="seg" style="left:0;width:${Math.max(3,Math.round((v/max)*100))}%"></span>`}</span>
+      <span class="v">${miss(v)?'<span>no data yet</span>':`<b>${esc(v)}</b> days${n?` <span>· ${esc(n)}</span>`:''}`}</span></div>`).join('')+`</div>`;
+}
+/* the one figure a report leads with, and the sentence under it */
+function leadFig(label,value,note,warn){
+  return `<div class="lead-fig${warn?' warn':''}">
+    <div class="fl">${esc(label)}</div>
+    <div class="fv">${esc(value)}</div>
+    ${note?`<div class="fn">${esc(note)}</div>`:''}
+  </div>`;
+}
+/* everything that is not the headline, aligned so it reads down a column */
+function ledger(rows){
+  return `<div class="ledger">`+rows.map(([k,v,n])=>
+    `<div class="row"><span class="k">${esc(k)}</span><span class="v">${v}</span>${n?`<span class="n">${esc(n)}</span>`:''}</div>`).join('')+`</div>`;
+}
 /* One series over time. Research and this data agree on the same answer: with
    a few dozen rows, columns against a zero baseline with the figure written on
    each one beat a donut, a gauge or a trend line — none of which can be read
