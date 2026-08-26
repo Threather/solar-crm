@@ -122,6 +122,8 @@ function openFinance(id){
     <h2>${esc(r.customer_name)} <span class="refid">${esc(r.ref_id||'')}</span></h2>
     <div class="sub">${esc(staffName(r.assigned_to))} · ${esc(r.lead_channel||'—')} · received ${fmtDate(r.created_at)} · won ${fmtDate(r.stage_entered_at)}</div>
 
+    ${siteSpec(r,true)}
+
     <div class="section sec-sales"><h4>Deal</h4>
       <div class="grid3">
         <div><label>System</label><input value="${esc(sysLine(r))}" disabled></div>
@@ -181,8 +183,9 @@ function openFinance(id){
     <div class="section sec-fin"><h4>Next follow-up</h4>
       <div class="grid3">
         <div><label>Date</label><input id="f-follow" type="date" value="${f.follow_up_date||''}"></div>
+        <div style="align-self:end"><button class="btn-sun" onclick="saveFollowUp('${r.id}')">Save date</button></div>
         <div style="align-self:end"><button class="btn-line" onclick="skipFollowUp('${r.id}')">Skip a month</button></div>
-        <div style="align-self:end"><span class="days">Recording a payment moves this on a month by itself.</span></div>
+        <div style="grid-column:1/-1"><span class="days">Recording a payment moves this on a month by itself.</span></div>
       </div>
     </div>
 
@@ -231,6 +234,17 @@ async function confirmInstalled(id,name){
   await notify('installed',id,`Installation finished: ${name||'a customer'}, confirmed by ${staffName(ME.id)}`);
   await logActivity(id,'edit',null,null,'Installation confirmed as finished');
   toast('Installation confirmed');closeLead();go(VIEW);
+}
+/* The date had no save of its own: it was written by Save contract, three
+   sections above and named for something else, so finance typed a date, found
+   nothing to press and lost it on closing. */
+async function saveFollowUp(id){
+  const {error}=await sb.from('lead_finance')
+    .upsert({lead_id:id,follow_up_date:$('f-follow').value||null,
+             updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
+  if(error){toast('Could not save the date. '+why(error));console.error(error);return;}
+  toast($('f-follow').value?'Follow-up set for '+fmtDate($('f-follow').value):'Follow-up cleared');
+  closeLead();renderFinance();
 }
 /* the customer paid ahead, so this month's follow-up is not needed */
 async function skipFollowUp(id){

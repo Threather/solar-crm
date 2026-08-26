@@ -447,8 +447,8 @@ async function createLead(){
    sent to a house with dates, a team and a map link but no specification at
    all — not a panel count, not an inverter size. The key-in box is still the
    sale engineer's, so this is shown only to whoever cannot see that one. */
-function siteSpec(l){
-  if(['sales','manager','admin'].includes(ME.role))return '';
+function siteSpec(l,always){
+  if(!always&&['sales','manager','admin'].includes(ME.role))return '';
   const parts=[
     ['Panel',   panelModel(l.panel_brand,l.panel_watt),                l.panel_brand,    l.panel_pcs],
     ['Inverter',inverterModel(l.inverter_brand,l.inverter_kw,l.phase_type), l.inverter_brand, l.inverter_pcs],
