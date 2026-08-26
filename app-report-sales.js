@@ -145,14 +145,41 @@ async function renderSalesReport(){
     </select>`;
   const mine=set=>REPFILTER.person?set.filter(l=>l.assigned_to===REPFILTER.person):set;
 
+  /* this calendar month against the one before, off dates already on the rows.
+     Four of the five headline figures can be compared honestly this way; the
+     open-pipeline count is a snapshot and gets no chip. */
+  const thisM=mStart.slice(0,7);
+  const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
+    const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
+  const wonIn=m=>rows.filter(l=>l.stage_code===WON&&l.stage_entered_at&&localDay(l.stage_entered_at).slice(0,7)===m);
+  const paidIn=m=>pays.filter(p=>p.paid_on&&localDay(p.paid_on).slice(0,7)===m)
+    .reduce((a,p)=>a+Number(p.amount_usd||0),0);
+  const valIn=m=>wonIn(m).reduce((a,l)=>a+(saleBy[l.id]||0),0);
+  const madeIn=m=>rows.filter(l=>localDay(l.created_at).slice(0,7)===m).length;
+  const prevWord=monthName(prevM);
+
   $('main').innerHTML=repBar('Sales report',personFilter)+`
-    <div class="stats">
-      <div class="stat hero ${target&&wonValue<target?'alert':''}">
-        <div class="n">${cash(wonValue)}</div><div class="l">Closed-Won value ${per}</div></div>
-      <div class="stat"><div class="n">${wonInWin.length}</div><div class="l">Deals won</div></div>
-      <div class="stat"><div class="n">${target?pct(wonValue,target):'—'}</div><div class="l">Of target</div></div>
-      <div class="stat"><div class="n">${open.length}</div><div class="l">Active pipeline</div></div>
-      <div class="stat"><div class="n">${cash(collected)}</div><div class="l">Collected ${per}</div></div>
+    <div class="kpis">
+      ${kpi({label:'Closed-Won value '+per,value:cash(wonValue),lead:true,
+        alert:!!(target&&wonValue<target),
+        delta:momPct(valIn(thisM),valIn(prevM)),deltaOf:prevWord,
+        note:target?pct(wonValue,target)+' of the '+cash(target)+' target':'No target set for this month',
+        sub:cash(valIn(thisM))+' won in '+monthName(thisM)+' against '+cash(valIn(prevM))+' in '+prevWord})}
+      ${kpi({label:'Deals won',value:wonInWin.length,
+        delta:momPct(wonIn(thisM).length,wonIn(prevM).length),deltaOf:prevWord,
+        note:cash(avgDeal)+' average',
+        sub:wonIn(thisM).length+' in '+monthName(thisM)+' against '+wonIn(prevM).length+' in '+prevWord})}
+      ${kpi({label:'Collected '+per,value:cash(collected),
+        delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,
+        note:cash(outstanding)+' still outstanding',
+        sub:cash(paidIn(thisM))+' in '+monthName(thisM)+' against '+cash(paidIn(prevM))+' in '+prevWord})}
+      ${kpi({label:'Leads received',value:got.length,
+        delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord,
+        note:qualified.length+' qualified, '+pct(qualified.length,got.length)+' of what came in',
+        sub:madeIn(thisM)+' in '+monthName(thisM)+' against '+madeIn(prevM)+' in '+prevWord})}
+      ${kpi({label:'Active pipeline',value:open.length,
+        note:cash(pipe.value)+' quoted',
+        sub:'a count of what is open now, so there is nothing to compare it against'})}
     </div>
     ${!target?`<div class="hint"><b>No collection target set for ${esc(monthName(mStart.slice(0,7)))}.</b>
       Target achievement, forecast and pipeline coverage stay blank until an admin sets one under Targets.</div>`:''}

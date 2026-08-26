@@ -67,14 +67,30 @@ async function renderOpsReport(){
       <span class="track"><span class="fill" style="width:${total?Math.round(n/total*100):0}%"></span></span>
       <span class="ct">${n}</span></div>`;
 
+  /* installations have a date, so this month against last is real. Everything
+     else here is a count of what is open now and gets no chip. */
+  const thisM=localDay(new Date()).slice(0,7);
+  const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
+    const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
+  const doneIn=m=>f.filter(l=>instDoneOn(l)&&localDay(instDoneOn(l)).slice(0,7)===m).length;
+  const prevWord=monthName(prevM);
+
   $('main').innerHTML=repBar('Operations report',teamFilter)+`
-    <div class="stats">
-      <div class="stat hero ${noDate.length?'alert':''}">
-        <div class="n">${active.length}</div><div class="l">Active projects</div></div>
-      <div class="stat"><div class="n">${boqInPeriod.length}</div><div class="l">BOQ released ${per}</div></div>
-      <div class="stat"><div class="n">${startedInPeriod.length}</div><div class="l">Installation start ${per}</div></div>
-      <div class="stat"><div class="n">${doneInPeriod.length}</div><div class="l">Installation completed ${per}</div></div>
-      <div class="stat"><div class="n">${edcPending.length}</div><div class="l">EDC pending</div></div>
+    <div class="kpis">
+      ${kpi({label:'Active projects',value:active.length,lead:true,alert:!!noDate.length,
+        note:noDate.length?noDate.length+' of them have no installation date':'every active project has a date',
+        sub:'won deals whose installation is not finished, so there is nothing to compare it against'})}
+      ${kpi({label:'Installations finished '+per,value:doneInPeriod.length,
+        delta:momPct(doneIn(thisM),doneIn(prevM)),deltaOf:prevWord,
+        note:done.length+' finished in total',
+        sub:doneIn(thisM)+' in '+monthName(thisM)+' against '+doneIn(prevM)+' in '+prevWord})}
+      ${kpi({label:'BOQ released '+per,value:boqInPeriod.length,
+        note:boqDone.length+' released across all projects',
+        sub:'the sale engineer marks this on the lead'})}
+      ${kpi({label:'Installations started '+per,value:startedInPeriod.length,
+        note:scheduled.length+' scheduled ahead',sub:running.length+' in progress now'})}
+      ${kpi({label:'EDC pending',value:edcPending.length,
+        note:edcSeen.length+' inspected',sub:'grid paperwork still with EDC'})}
     </div>
     ${noDate.length?`<div class="hint" style="border-left-color:var(--bad);color:var(--bad)">
       <b>${noDate.length} active project${noDate.length>1?'s have':' has'} no installation date.</b>

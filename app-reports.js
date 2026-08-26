@@ -298,6 +298,29 @@ function gDuration(rows,opts){
       <span class="track">${miss(v)?'':`<span class="seg" style="left:0;width:${Math.max(3,Math.round((v/max)*100))}%"></span>`}</span>
       <span class="v">${miss(v)?'<span>no data yet</span>':`<b>${esc(v)}</b> days${n?` <span>· ${esc(n)}</span>`:''}`}</span></div>`).join('')+`</div>`;
 }
+/* A headline figure with the movement and a sentence, the one thing worth
+   taking from the dashboards Kevin keeps sending. The chip is only passed in
+   where this month against last is genuinely derivable from dates on the rows.
+   A snapshot — how many leads are open right now — has no history and gets no
+   chip, because inventing one is how a report starts lying. */
+function kpi(o){
+  const d=o.delta;
+  const chip=d==null?'' :
+    `<span class="chip ${d>0?'up':d<0?'down':''}" title="this month against ${esc(o.deltaOf||'last month')} — the figure above follows the window, this does not">${d>0?'+':''}${d}% <span style="font-weight:500;opacity:.75">vs ${esc(o.deltaOf||'last')}</span></span>`;
+  return `<div class="kpi${o.lead?' lead':''}${o.alert?' alert':''}">
+    <div class="top"><span class="l">${esc(o.label)}</span>${chip}</div>
+    <div class="n">${esc(o.value)}</div>
+    ${o.note?`<div class="note">${esc(o.note)}</div>`:''}
+    ${o.sub?`<div class="sub">${esc(o.sub)}</div>`:''}
+  </div>`;
+}
+/* this calendar month against the one before it, from dates already on the
+   rows. Returns null when last month has nothing to compare against, because
+   a jump from zero is a percentage nobody can read. */
+function momPct(thisMonth,lastMonth){
+  if(!lastMonth)return null;
+  return Math.round(((thisMonth-lastMonth)/lastMonth)*100);
+}
 /* Distribution. One dot per deal on a value scale, with the median marked.
    Twelve won deals would make a histogram of three lumpy bins; the dots show
    the real spread and the outlier, which is the part worth seeing. */

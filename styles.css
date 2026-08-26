@@ -423,6 +423,32 @@ td.nowrap{white-space:nowrap}
 .gbullet .foot{display:flex;justify-content:space-between;margin-top:5px;
   font-size:var(--t-cap);color:var(--ink-mute);font-variant-numeric:tabular-nums}
 
+/* The headline row. A figure alone says nothing — the reference dashboards all
+   pair it with a movement and a sentence, and that is the part worth taking.
+   The chip only appears where a month-on-month is genuinely derivable from
+   dates on the rows; a snapshot count gets no chip rather than a made-up one. */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:var(--s-3);margin-bottom:var(--s-5)}
+.kpi{background:var(--card);border-radius:var(--r);padding:16px 18px 14px;
+  box-shadow:var(--lift);position:relative;overflow:hidden}
+.kpi .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.kpi .l{font-size:var(--t-cap);color:var(--ink-soft);text-transform:uppercase;
+  letter-spacing:.08em;font-weight:600}
+.kpi .n{font-family:'Source Serif 4',Georgia,serif;font-size:30px;font-weight:600;
+  color:var(--ink);line-height:1.05;letter-spacing:-.02em;margin-top:6px;
+  font-variant-numeric:tabular-nums}
+.kpi .note{font-size:var(--t-meta);color:var(--ink-2);margin-top:9px;font-weight:500}
+.kpi .sub{font-size:var(--t-cap);color:var(--ink-mute);margin-top:2px}
+.kpi .chip{flex:none;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;
+  border-radius:99px;font-size:var(--t-cap);font-weight:600;background:var(--sunk);
+  color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi .chip.up{background:#dfe9df;color:var(--ok)}
+.kpi .chip.down{background:#f2e0db;color:var(--bad)}
+.kpi.lead{grid-column:span 2}
+.kpi.lead .n{font-size:38px}
+.kpi.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
+@media(max-width:640px){.kpi.lead{grid-column:span 1}}
+
 /* Distribution: every deal as one dot on a value scale. With twelve won deals
    a histogram would be three lumpy bins; the dots show the actual spread and
    the outlier, which is the thing worth seeing. */

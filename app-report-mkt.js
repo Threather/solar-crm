@@ -52,12 +52,27 @@ async function renderMktReport(){
      reaches the same report through the scope switch, keeps all of it. */
   const noStage=ME.role==='marketing';
 
+  /* leads carry a creation date, so this month against last is real */
+  const thisM=mStart.slice(0,7);
+  const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
+    const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
+  const madeIn=m=>rows.filter(l=>localDay(l.created_at).slice(0,7)===m).length;
+  const prevWord=monthName(prevM);
+
   $('main').innerHTML=repBar('Marketing report')+`
-    <div class="stats">
-      <div class="stat hero"><div class="n">${got.length}</div><div class="l">Leads received ${per}</div></div>
-      ${noStage?'':`<div class="stat"><div class="n">${qualified.length}</div><div class="l">Qualified</div></div>
-      <div class="stat"><div class="n">${qualRate===null?'—':qualRate+'%'}</div><div class="l">Qualification rate</div></div>`}
-      <div class="stat"><div class="n">${cash(cpl)}</div><div class="l">Cost per lead</div></div>
+    <div class="kpis">
+      ${kpi({label:'Leads received '+per,value:got.length,lead:true,
+        delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord,
+        note:leadTarget?mtd.length+' of a '+leadTarget+' target this month':'No lead target set for this month',
+        sub:madeIn(thisM)+' in '+monthName(thisM)+' against '+madeIn(prevM)+' in '+prevWord})}
+      ${noStage?'':kpi({label:'Qualified',value:qualified.length,
+        note:(qualRate===null?'—':qualRate+'%')+' of what came in',
+        sub:disqualified.length+' disqualified, '+Math.max(0,got.length-qualified.length-disqualified.length)+' not decided'})}
+      ${kpi({label:'Cost per lead',value:cash(cpl),
+        note:spend==null?'No marketing spend recorded':fmtMoney(spend)+' spent this month',
+        sub:spend==null?'set it under Targets':mtd.length+' leads month to date'})}
+      ${kpi({label:'Leads today',value:todayRows.length,
+        note:'created today',sub:'a count of today, so there is nothing to compare it against'})}
     </div>
     ${missing.length?`<div class="hint">
       <b>${esc(missing.join(' and '))} not set for ${esc(monthName(mStart.slice(0,7)))}.</b>
