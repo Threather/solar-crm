@@ -460,8 +460,12 @@ function siteSpec(l,always){
     ['Inverter',l.inverter_pcs&&l.inverter_kw?`${l.inverter_pcs} × ${l.inverter_kw} kW`:null],
     ['Battery',l.battery_kwh?`${l.battery_kwh} kWh${l.battery_pcs?` · ${l.battery_pcs} pcs`:''}`:null]
   ].filter(([,v])=>v);
+  /* Nothing keyed in yet. The site engineer needs telling — they are about to
+     drive to that house — but on the finance card it is a third of the screen
+     spent saying the sale engineer has not done something finance cannot act
+     on, so it simply does not appear. */
   if(!facts.length&&!parts.length)
-    return `<div class="section sec-eng"><h4>System</h4>${blank('Not specified yet','The sale engineer keys the system in before installation.')}</div>`;
+    return always?'':`<div class="section sec-eng"><h4>System</h4>${blank('Not specified yet','The sale engineer keys the system in before installation.')}</div>`;
   return `<div class="section sec-eng"><h4>System</h4>
       <div class="grid3">
         ${facts.map(([k,v])=>`<div><label>${esc(k)}</label><input value="${esc(v)}" disabled></div>`).join('')}
