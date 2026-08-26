@@ -245,6 +245,60 @@ const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
 /* Stacked column chart, hand-rolled SVG: no chart library, no build step. */
+/* One series over time. Research and this data agree on the same answer: with
+   a few dozen rows, columns against a zero baseline with the figure written on
+   each one beat a donut, a gauge or a trend line — none of which can be read
+   accurately at this size, and two of which we have no history to draw. The
+   figure is labelled on the column rather than in a legend, and the same
+   numbers are repeated as a table underneath so nothing is only in a picture. */
+function colChart(labels,values,opts){
+  const o=opts||{};
+  const fmt=o.fmt||(v=>String(v));
+  const W=760,PL=52,PR=12,PT=18,PH=200,AX=34,H=PT+PH+AX;
+  const plotW=W-PL-PR;
+  const max=Math.max(1,...values);
+  const step=Math.max(1,Math.ceil(max/4));
+  const top=step*4;
+  const y=v=>PT+PH-(v/top)*PH;
+  const band=plotW/Math.max(1,labels.length);
+  const bw=Math.min(52,band*0.56);
+  const R=4;
+  const topPath=(x,yy,w,h,r)=>`M${x},${yy+h}V${yy+r}a${r},${r} 0 0 1 ${r},-${r}h${w-2*r}a${r},${r} 0 0 1 ${r},${r}V${yy+h}Z`;
+  let grid='',bars='',xlab='';
+  for(let i=0;i<=4;i++){
+    const v=step*i, yy=y(v);
+    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
+        + `<text class="tick" x="${PL-8}" y="${yy+3}" text-anchor="end">${esc(o.axisFmt?o.axisFmt(v):v)}</text>`;
+  }
+  labels.forEach((lab,i)=>{
+    const v=values[i]||0;
+    const cx=PL+band*i+band/2, x=cx-bw/2;
+    const yy=y(v), h=PT+PH-yy;
+    if(v>0) bars+=(h>R*2?`<path d="${topPath(x,yy,bw,h,R)}" fill="${o.color||'var(--own-sales)'}">`
+                        :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${o.color||'var(--own-sales)'}">`)
+        + `<title>${esc(lab)}: ${esc(fmt(v))}</title>`
+        + (h>R*2?'</path>':'</rect>');
+    if(v>0) bars+=`<text class="seglabel" x="${cx}" y="${yy-6}" text-anchor="middle" fill="var(--ink-2)">${esc(fmt(v))}</text>`;
+    xlab+=`<text class="tick" x="${cx}" y="${PT+PH+18}" text-anchor="middle">${esc(lab)}</text>`;
+  });
+  return `
+  <div class="chartcard">
+    <h3>${esc(o.title||'')}</h3>
+    ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
+    <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
+      ${grid}${bars}${xlab}
+      <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
+    </svg>
+  </div>
+  <div class="tablewrap" style="margin-bottom:18px"><table style="min-width:420px"><thead><tr>
+    <th>${esc(o.xhead||'Month')}</th><th>${esc(o.yhead||'Value')}</th>
+  </tr></thead><tbody>${labels.map((lab,i)=>`<tr><td>${esc(lab)}</td><td>${esc(fmt(values[i]||0))}</td></tr>`).join('')}</tbody></table></div>`;
+}
+/* the last twelve months a report can talk about, oldest first */
+function lastMonths(rows,dateOf,n){
+  const keys=[...new Set((rows||[]).map(r=>localDay(dateOf(r)).slice(0,7)).filter(Boolean))].sort().slice(-(n||12));
+  return keys;
+}
 function barChart(months,counts,used){
   const W=760,PL=42,PR=12,PT=12,PH=210,AX=34,H=PT+PH+AX;
   const plotW=W-PL-PR;

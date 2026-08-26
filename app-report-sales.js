@@ -209,6 +209,23 @@ async function renderSalesReport(){
       </div>`:''))}
     </div>
 
+    ${(()=>{
+      /* contract value by the month the deal was won. Run rate and the window
+         switch answer "how are we doing now"; this answers "is that normal",
+         which nothing on this screen could say before. */
+      const wonAll=rows.filter(l=>l.stage_code===WON&&l.stage_entered_at);
+      const ms=lastMonths(wonAll,l=>l.stage_entered_at,12);
+      if(!ms.length)return '';
+      const val=ms.map(m=>wonAll.filter(l=>localDay(l.stage_entered_at).slice(0,7)===m)
+        .reduce((a,l)=>a+Number(saleBy[l.id]||0),0));
+      const cnt=ms.map(m=>wonAll.filter(l=>localDay(l.stage_entered_at).slice(0,7)===m).length);
+      return `<h3 style="font-size:15px;margin:22px 0 8px">Won by month, last twelve</h3>`
+        +colChart(ms.map(monthName),val,{title:'Contract value won per month',
+          cap:'The value of deals by the month they were marked Closed-Won. '+cnt.reduce((a,b)=>a+b,0)+' deals in this period.',
+          fmt:v=>fmtMoney(v),axisFmt:v=>v>=1000?Math.round(v/1000)+'k':v,
+          color:'var(--own-sales)',xhead:'Month',yhead:'Contract value'});
+    })()}
+
     <h3 style="font-size:15px;margin:22px 0 8px">By sale engineer</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Sale engineer</th><th>Leads</th><th>Qualified</th><th>Quotation sent</th>

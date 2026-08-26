@@ -109,6 +109,18 @@ async function renderOpsReport(){
       ]),true)}
     </div>
 
+    ${(()=>{
+      /* how many systems actually went live each month. The figures above count
+         the window; this is the run of work behind them. */
+      const done=f.filter(l=>instDoneOn(l));
+      const ms=lastMonths(done,l=>instDoneOn(l),12);
+      if(!ms.length)return '';
+      const cnt=ms.map(m=>done.filter(l=>localDay(instDoneOn(l)).slice(0,7)===m).length);
+      return colChart(ms.map(monthName),cnt,{title:'Installations finished per month',
+        cap:'By the date the installation was confirmed, or its end date once that has passed.',
+        color:'var(--own-site)',xhead:'Month',yhead:'Installations'});
+    })()}
+
     ${f.length?`<h3 style="font-size:15px;margin:22px 0 8px">Projects</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Team</th><th>BOQ</th><th>Install start</th>
