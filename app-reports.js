@@ -298,6 +298,20 @@ function gDuration(rows,opts){
       <span class="track">${miss(v)?'':`<span class="seg" style="left:0;width:${Math.max(3,Math.round((v/max)*100))}%"></span>`}</span>
       <span class="v">${miss(v)?'<span>no data yet</span>':`<b>${esc(v)}</b> days${n?` <span>· ${esc(n)}</span>`:''}`}</span></div>`).join('')+`</div>`;
 }
+/* One cell of a detail table: the figure, and a hairline bar under it sized
+   against the largest value in that column. Scannable down the column without
+   reading, and the number is still there for whoever wants it. */
+function numCell(v,max,opts){
+  const o=opts||{};
+  const n=Number(v||0);
+  const text=o.fmt?o.fmt(v):(v==null?'—':v);
+  if(!n)return `<td class="numcell zero">${esc(o.zero!==undefined?o.zero:text)}</td>`;
+  const w=max>0?Math.max(2,Math.round((n/max)*100)):0;
+  return `<td class="numcell${o.good?' good':''}"><b>${esc(text)}</b>
+    <span class="cb"><i style="width:${w}%"></i></span></td>`;
+}
+/* the largest value in a column, so every bar in it shares one scale */
+const colMax=(rows,pick)=>Math.max(0,...rows.map(r=>Number(pick(r)||0)));
 /* A headline figure with the movement and a sentence, the one thing worth
    taking from the dashboards Kevin keeps sending. The chip is only passed in
    where this month against last is genuinely derivable from dates on the rows.

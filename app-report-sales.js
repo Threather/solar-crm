@@ -292,36 +292,59 @@ async function renderSalesReport(){
       <th>Sale engineer</th><th>Leads</th><th>Qualified</th><th>Quotation sent</th>
       <th>Closed-Won</th><th>Closed-Lost</th><th>Contract value</th><th>Collected</th>
       <th>Target</th><th>Achieved</th>
-    </tr></thead><tbody>`+people.map(p=>{
-      const set=got.filter(l=>l.assigned_to===p.id);
-      const w=wonInWin.filter(l=>l.assigned_to===p.id);
-      const v=w.reduce((a,l)=>a+(saleBy[l.id]||0),0);
-      const c=pays.filter(x=>inWin(x.paid_on)&&rows.find(l=>l.id===x.lead_id&&l.assigned_to===p.id))
-        .reduce((a,x)=>a+Number(x.amount_usd||0),0);
-      const t=Number(tg.person[p.id]?.collection||0);
-      if(!set.length&&!w.length&&!t)return '';
-      return `<tr>
-        <td><b>${esc(p.full_name)}</b></td>
-        <td>${set.length}</td>
-        <td>${set.filter(l=>qualText(l)==='Qualified').length}</td>
-        <td>${set.filter(l=>everReached(reached,l,'quotation_sent')).length}</td>
-        <td>${w.length}</td>
-        <td>${lostInWin.filter(l=>l.assigned_to===p.id).length}</td>
-        <td>${cash(v)}</td><td>${cash(c)}</td>
-        <td>${t?cash(t):'—'}</td><td>${t?pct(v,t):'—'}</td></tr>`;
-    }).join('')+`</tbody></table></div>
+    </tr></thead><tbody>`+(()=>{
+      /* one scale per column, so a bar means the same thing all the way down */
+      const set=people.map(p=>{
+        const mine=got.filter(l=>l.assigned_to===p.id);
+        const w=wonInWin.filter(l=>l.assigned_to===p.id);
+        return {p,mine,w,
+          qual:mine.filter(l=>qualText(l)==='Qualified').length,
+          quot:mine.filter(l=>everReached(reached,l,'quotation_sent')).length,
+          lost:lostInWin.filter(l=>l.assigned_to===p.id).length,
+          val:w.reduce((a,l)=>a+(saleBy[l.id]||0),0),
+          coll:pays.filter(x=>inWin(x.paid_on)&&rows.find(l=>l.id===x.lead_id&&l.assigned_to===p.id))
+            .reduce((a,x)=>a+Number(x.amount_usd||0),0),
+          t:Number(tg.person[p.id]?.collection||0)};
+      }).filter(r=>r.mine.length||r.w.length||r.t)
+        .sort((a,b)=>b.val-a.val);
+      const mx={leads:colMax(set,r=>r.mine.length),qual:colMax(set,r=>r.qual),
+        quot:colMax(set,r=>r.quot),won:colMax(set,r=>r.w.length),lost:colMax(set,r=>r.lost),
+        val:colMax(set,r=>r.val),coll:colMax(set,r=>r.coll),tgt:colMax(set,r=>r.t)};
+      return set.map(r=>`<tr>
+        <td><b>${esc(r.p.full_name)}</b></td>
+        ${numCell(r.mine.length,mx.leads)}
+        ${numCell(r.qual,mx.qual)}
+        ${numCell(r.quot,mx.quot)}
+        ${numCell(r.w.length,mx.won,{good:true})}
+        ${numCell(r.lost,mx.lost)}
+        ${numCell(r.val,mx.val,{fmt:cash})}
+        ${numCell(r.coll,mx.coll,{fmt:cash,good:true})}
+        ${r.t?numCell(r.t,mx.tgt,{fmt:cash}):'<td class="numcell zero">—</td>'}
+        ${r.t?numCell(Math.round(r.val/r.t*100),100,{fmt:v=>v+'%',good:r.val>=r.t}):'<td class="numcell zero">—</td>'}
+      </tr>`).join('');
+    })()+`</tbody></table></div>
 
     <h3 style="font-size:15px;margin:22px 0 8px">By channel</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Channel</th><th>Raw leads</th><th>Qualified</th><th>Closed-Won</th>
       <th>Conversion</th><th>Contract value</th>
-    </tr></thead><tbody>`+CH_ORDER.map(c=>{
-      const set=got.filter(l=>chOf(l)===c);
-      if(!set.length)return '';
-      const w=set.filter(l=>l.stage_code===WON);
-      return `<tr><td><b>${esc(c.replace(/_/g,' '))}</b></td><td>${set.length}</td>
-        <td>${set.filter(l=>qualText(l)==='Qualified').length}</td><td>${w.length}</td>
-        <td>${pct(w.length,set.length)}</td>
-        <td>${cash(w.reduce((a,l)=>a+(saleBy[l.id]||0),0))}</td></tr>`;
-    }).join('')+`</tbody></table></div>`;
+    </tr></thead><tbody>`+(()=>{
+      const set=CH_ORDER.map(c=>{
+        const rowsFor=got.filter(l=>chOf(l)===c);
+        const w=rowsFor.filter(l=>l.stage_code===WON);
+        return {c,n:rowsFor.length,qual:rowsFor.filter(l=>qualText(l)==='Qualified').length,
+          won:w.length,val:w.reduce((a,l)=>a+(saleBy[l.id]||0),0),
+          conv:rowsFor.length?Math.round(w.length/rowsFor.length*100):0};
+      }).filter(r=>r.n).sort((a,b)=>b.n-a.n);
+      const mx={n:colMax(set,r=>r.n),qual:colMax(set,r=>r.qual),won:colMax(set,r=>r.won),
+        val:colMax(set,r=>r.val),conv:colMax(set,r=>r.conv)};
+      return set.map(r=>`<tr>
+        <td><b>${esc(r.c.replace(/_/g,' '))}</b></td>
+        ${numCell(r.n,mx.n)}
+        ${numCell(r.qual,mx.qual)}
+        ${numCell(r.won,mx.won,{good:true})}
+        ${numCell(r.conv,mx.conv,{fmt:v=>v+'%'})}
+        ${numCell(r.val,mx.val,{fmt:cash,good:true})}
+      </tr>`).join('');
+    })()+`</tbody></table></div>`;
 }

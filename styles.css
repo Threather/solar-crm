@@ -423,6 +423,21 @@ td.nowrap{white-space:nowrap}
 .gbullet .foot{display:flex;justify-content:space-between;margin-top:5px;
   font-size:var(--t-cap);color:var(--ink-mute);font-variant-numeric:tabular-nums}
 
+/* A dense table is the right form for detail — every column, every row, and it
+   prints. What it cannot do is be glanced at. A bar behind each figure, sized
+   against its own column, makes a column scannable without anyone reading a
+   single number, and the number is still there when they want it. Excel calls
+   these data bars; the FT and Bloomberg have used them in print for decades. */
+td.numcell{position:relative;text-align:right;padding-right:12px !important;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+td.numcell .cb{position:absolute;left:6px;right:6px;bottom:5px;height:3px;
+  border-radius:99px;background:var(--sunk);overflow:hidden}
+td.numcell .cb i{display:block;height:100%;border-radius:99px;background:var(--own-sales);
+  opacity:.55;transition:width .3s cubic-bezier(.23,1,.32,1)}
+td.numcell.good .cb i{background:var(--ok);opacity:.6}
+td.numcell.zero{color:var(--ink-mute)}
+td.numcell b{font-weight:600}
+
 /* The headline row. A figure alone says nothing — the reference dashboards all
    pair it with a movement and a sentence, and that is the part worth taking.
    The chip only appears where a month-on-month is genuinely derivable from
