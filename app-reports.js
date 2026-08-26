@@ -298,6 +298,29 @@ function gDuration(rows,opts){
       <span class="track">${miss(v)?'':`<span class="seg" style="left:0;width:${Math.max(3,Math.round((v/max)*100))}%"></span>`}</span>
       <span class="v">${miss(v)?'<span>no data yet</span>':`<b>${esc(v)}</b> days${n?` <span>· ${esc(n)}</span>`:''}`}</span></div>`).join('')+`</div>`;
 }
+/* actual against a target. The notch is the target, so falling short is a gap
+   rather than a subtraction the reader has to do. Over-target simply runs past
+   the notch, which is the honest picture and something a gauge cannot draw. */
+function gBullet(label,value,target,opts){
+  const o=opts||{};
+  const v=Number(value||0), t=Number(target||0);
+  const fmt=o.fmt||(x=>x);
+  if(!t) return `<div class="gbullet">
+      <div class="top"><span class="k">${esc(label)}</span><span class="v">${esc(fmt(v))}</span></div>
+      <div class="track"><span class="fill" style="width:100%;background:${o.color||'var(--own-sales)'};opacity:.25"></span></div>
+      <div class="foot"><span>${esc(o.emptyWhy||'no target set')}</span><span></span></div>
+    </div>`;
+  const scale=Math.max(v,t)*1.08;
+  const pc=Math.round(v/t*100);
+  return `<div class="gbullet">
+    <div class="top"><span class="k">${esc(label)}</span><span class="v">${esc(fmt(v))}</span></div>
+    <div class="track">
+      <span class="fill" style="width:${Math.min(100,(v/scale)*100)}%;background:${pc>=100?'var(--ok)':(o.color||'var(--own-sales)')}"></span>
+      <span class="mark" style="left:${(t/scale)*100}%"></span>
+    </div>
+    <div class="foot"><span>${pc}% of target</span><span>target ${esc(fmt(t))}</span></div>
+  </div>`;
+}
 /* the one figure a report leads with, and the sentence under it */
 function leadFig(label,value,note,warn){
   return `<div class="lead-fig${warn?' warn':''}">

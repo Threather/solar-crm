@@ -407,6 +407,22 @@ td.nowrap{white-space:nowrap}
 .gdur .v b{font-weight:600}
 .gdur .v span{color:var(--ink-mute);font-size:var(--t-cap)}
 
+/* actual against a target, on one track. The bar is what happened, the notch
+   is what was asked for, so short-of-target is a gap you see rather than two
+   numbers to subtract. */
+.gbullet{margin-bottom:var(--s-3)}
+.gbullet:last-child{margin-bottom:0}
+.gbullet .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.gbullet .k{font-size:var(--t-meta);color:var(--ink-2)}
+.gbullet .v{font-size:var(--t-lg);font-weight:600;color:var(--ink);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.gbullet .track{height:20px;border-radius:5px;background:var(--sunk);position:relative;overflow:hidden}
+.gbullet .fill{position:absolute;left:0;top:0;bottom:0;border-radius:5px;
+  transition:width .3s cubic-bezier(.23,1,.32,1)}
+.gbullet .mark{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink-2);border-radius:2px}
+.gbullet .foot{display:flex;justify-content:space-between;margin-top:5px;
+  font-size:var(--t-cap);color:var(--ink-mute);font-variant-numeric:tabular-nums}
+
 /* the ledger: everything that is not the headline, aligned so it can be read
    down rather than shouted at 22px a figure */
 .ledger{display:flex;flex-direction:column}

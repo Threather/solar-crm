@@ -172,35 +172,38 @@ async function renderSalesReport(){
       ${repPanel('Collection',gSplit([
           ['Collected',collected,'var(--ok)'],
           ['Outstanding',outstanding,'var(--bad)']
-        ],/* the bar's own share, not the collection rate against expected —
-             that one can pass 100% and would not describe this bar */
-          (collected+outstanding)>0?Math.round(collected/(collected+outstanding)*100)+'% collected':'nothing due',
+        ],(collected+outstanding)>0?Math.round(collected/(collected+outstanding)*100)+'% collected':'nothing due',
           cash(collected+outstanding)+' total due')
+        +`<div style="margin-top:16px">`
+        +gBullet('Collected this month',mtdCollected,target,{fmt:cash,emptyWhy:'no collection target set for this month'})
+        +`</div>`
         +ledger([
-          ['Expected',cash(expectedColl),owingNoDate?owingNoDate+' with no date':''],
-          ['Collection rate',collPct===null?'—':collPct+'%','of expected'],
           ['Overdue',cash(overdueValue),overdueCust.length+' customer'+(overdueCust.length===1?'':'s')],
           ['Run rate, this month',cash(runRate),cash(mtdCollected)+' in '+dayNow+' d']
         ]))}
 
-      ${repPanel('Sales performance',ledger([
-        ['Closed-Won',wonInWin.length],
-        ['Contract value',cash(wonValue)],
-        ['Target',target?cash(target):'—'],
-        ['Target achievement',target?pct(wonValue,target):'—'],
-        ['Shortfall',target?cash(Math.max(0,target-wonValue)):'—'],
-        ['Average deal size',cash(avgDeal)],
-        ['Expected to close',expected.length,cash(expectedValue)]
-      ]))}
+      ${repPanel('Against target',
+        gBullet('Contract value won',wonValue,target,{fmt:cash,emptyWhy:'no target set for this month'})
+        +gBullet('Pipeline coverage',pipe.value,target,{fmt:cash,color:'var(--sun)',emptyWhy:'coverage needs a target'})
+        +ledger([
+          ['Average deal size',cash(avgDeal)],
+          ['Expected to close',expected.length,cash(expectedValue)]
+        ]))}
 
       ${repPanel('Where the pipeline sits',`<div class="pipe">
         ${live.map(s=>bar(s.stage_name,mine(open).filter(l=>l.stage_code===s.stage_code).length,open.length)).join('')}
-      </div>`+ledger([
-        ['Active leads',open.length],
-        ['Pipeline value',cash(pipe.value),pipe.covered+' of '+open.length+' quoted'],
-        ['Pipeline coverage',target?pct(pipe.value,target):'—'],
-        ['Overdue by follow-up',overdue.length]
-      ]))}
+      </div>`)}
+
+      ${repPanel('What happened to the leads',gSplit([
+          ['Won',wonInWin.length,'var(--ok)'],
+          ['Lost',lostInWin.length,'var(--bad)'],
+          ['Still open',Math.max(0,got.length-wonInWin.length-lostInWin.length),'#c2b8a4']
+        ],wonInWin.length+' won · '+lostInWin.length+' lost',
+          Math.max(0,got.length-wonInWin.length-lostInWin.length)+' still open')
+        +`<div style="margin-top:16px">`
+        +gSplit([['New',got.length-existing,'var(--sun)'],['Existing',existing,'var(--own-eng)']],
+          (got.length-existing)+' new customers',existing+' came back')
+        +`</div>`)}
 
       ${repPanel('How long it takes',gDuration([
         ['First contact',firstTat.avg,firstTat.n+' lead'+(firstTat.n===1?'':'s')],
@@ -209,23 +212,17 @@ async function renderSalesReport(){
         ['Whole sales cycle',cycle.avg,cycle.n+' won']
       ],{emptyWhy:'Turnaround needs a dated stage change at both ends.'}))}
 
-      ${repPanel('Lead and sales activity',ledger([
-        ['Raw leads',got.length],
-        ['New',got.length-existing],['Existing',existing],
-        ['Qualified',qualified.length],
-        ['Pending first contact',pendingContact.length],
-        ['Pending follow-up',pendingFollow.length],
-        ['Average contacts',avgContacts]
-      ]))}
+      ${repPanel('Needs attention',gRank([
+          ['Pending first contact',pendingContact.length],
+          ['Pending follow-up',pendingFollow.length],
+          ['Overdue by follow-up',overdue.length],
+          ['Owing, no date set',owingNoDate]
+        ],{color:'var(--bad)',emptyWhy:'Nothing is waiting on anyone.'}))}
 
-      ${repPanel('Closed-Lost',(Object.keys(reasons).length
-        ? gRank(Object.entries(reasons),{color:'var(--bad)',emptyWhy:'No lost leads in this window.'})
-        : blank('Nothing lost in this window','Leads marked Closed-Lost are counted here with their reason.'))
-        +ledger([
-          ['Closed-Lost',lostInWin.length],
-          ['Before quotation',lostInWin.length-lostAfterQuot],
-          ['After quotation',lostAfterQuot]
-        ]))}
+      ${repPanel('Why deals were lost',Object.keys(reasons).length
+        ? gRank(Object.entries(reasons),{color:'var(--bad)'})
+          +ledger([['After quotation',lostAfterQuot,'of '+lostInWin.length]])
+        : blank('Nothing lost in this window','Leads marked Closed-Lost are counted here with their reason.'))}
     </div>
 
     ${(()=>{

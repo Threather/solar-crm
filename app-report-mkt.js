@@ -69,23 +69,21 @@ async function renderMktReport(){
         MKT_CH.map(c=>[c.replace(/_/g,' '),byCh(c)]).concat(byCh('Other')?[['Other',byCh('Other')]]:[]),
         {color:'var(--sun)',emptyWhy:'Channels appear as leads are created.'}))}
 
-      ${noStage?'':repPanel('Lead quality',repFigs([
-        ['Qualified',qualified.length],
-        ['Disqualified',disqualified.length],
-        ['Qualification rate',qualRate===null?'—':qualRate+'%'],
-        ['Not decided yet',got.length-qualified.length-disqualified.length]
-      ]))}
+      ${noStage?'':repPanel('Lead quality',gSplit([
+        ['Qualified',qualified.length,'var(--ok)'],
+        ['Disqualified',disqualified.length,'var(--bad)'],
+        ['Not decided',Math.max(0,got.length-qualified.length-disqualified.length),'#c2b8a4']
+      ],(qualRate===null?'—':qualRate+'%')+' qualified',
+        Math.max(0,got.length-qualified.length-disqualified.length)+' not decided yet'))}
 
-      ${repPanel('This month against target',repFigs([
-        ['Lead target',leadTarget==null?'—':leadTarget],
-        ['Leads month to date',mtd.length],
-        ['Today',todayRows.length],
-        ['Marketing spend',spend==null?'—':fmtMoney(spend)],
-        ['Cost per lead',cash(cpl)],
-        ...(noStage?[]:[['Cost per qualified lead',cash(cpql)]])
-      ])+(leadTarget?`<div class="pipe" style="margin-top:14px">
-        ${bar('Target vs actual',mtd.length,leadTarget)}
-      </div>`:''),true)}
+      ${repPanel('This month against target',
+        gBullet('Leads month to date',mtd.length,leadTarget,{emptyWhy:'no lead target set for this month'})
+        +ledger([
+          ['Created today',todayRows.length],
+          ['Marketing spend',spend==null?'—':fmtMoney(spend)],
+          ['Cost per lead',cash(cpl)],
+          ...(noStage?[]:[['Cost per qualified lead',cash(cpql)]])
+        ]),true)}
 
       ${noStage?'':repPanel('Conversion',gFunnel([
         ['Leads received',got.length,'#c2b8a4'],
