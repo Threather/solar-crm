@@ -338,6 +338,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
            site_link:'d-sitelink',
            delivery_date:'d-deliv',installation_start:'d-cstart',installation_end:'d-cend',
            installation_team:'d-team',site_notes:'d-sitenotes',
+           service_checkup_date:'d-svchk',service_clean_date:'d-svclean',
+           service_general_note:'d-svgen',service_technical_note:'d-svtech',
+           service_other_note:'d-svother',
            boq_status:'d-boq',boq_date:'d-boqdate',
            expected_close_date:'d-closedate',mkt_follow_up_date:'d-mktfollow',
            lost_reason:'d-lostreason',lost_note:'d-lostnote'};

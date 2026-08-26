@@ -76,6 +76,7 @@ const LOST='closed_lost';
 const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
 const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
+const ACCOUNT_TYPES=['SWN','SWT'];
 const BOQ_STATUS=['Pending','Done'];
 /* Why a deal was lost. A dropdown rather than free text, because "Top
    Closed-Lost Reasons" has to be countable — a column of sentences cannot be

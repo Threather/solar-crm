@@ -493,5 +493,23 @@ function siteBox(l,canSite,first,isAdmin){
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
         <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
       </div>
+    </div>`+serviceBox(l,canSite);
+}
+/* After handover. The job is finished and the relationship is not: a system
+   gets checked and cleaned every year, and whatever the customer raises
+   afterwards has to land somewhere the next visit will read it. Operations
+   fill this in, which in this app is the site engineer. It only appears once
+   the installation is actually finished — before that it is noise on a job
+   nobody has done yet. */
+function serviceBox(l,canSite){
+  if(!(l.installation_confirmed_at||l.installation_end))return '';
+  return `<div class="section sec-site"><h4>After installation</h4>
+      <div class="grid2">
+        <div><label>Yearly check-up due</label><input id="d-svchk" type="date" value="${l.service_checkup_date||''}" ${canSite?'':'disabled'} title="When this system is next due a service check"></div>
+        <div><label>Yearly clean due</label><input id="d-svclean" type="date" value="${l.service_clean_date||''}" ${canSite?'':'disabled'} title="When the panels are next due a clean"></div>
+        <div style="grid-column:1/-1"><label>General information or issue</label><textarea id="d-svgen" rows="2" placeholder="What the customer told you" ${canSite?'':'disabled'}>${esc(l.service_general_note||'')}</textarea></div>
+        <div style="grid-column:1/-1"><label>Technical issue</label><textarea id="d-svtech" rows="2" placeholder="Faults, replacements, anything the next visit needs" ${canSite?'':'disabled'}>${esc(l.service_technical_note||'')}</textarea></div>
+        <div style="grid-column:1/-1"><label>Other</label><textarea id="d-svother" rows="2" ${canSite?'':'disabled'}>${esc(l.service_other_note||'')}</textarea></div>
+      </div>
     </div>`;
 }
