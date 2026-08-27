@@ -42,7 +42,7 @@ async function renderEdc(){
       :blank('Every date is in','Nothing is waiting on EDC. A deal returns here if a new one is won, and every date already recorded is under Submitted.')):''}
 
     ${EDCSCOPE==='sent'?(started.length?`<div class="tablewrap"><table><thead><tr>
-        <th>Ref ID</th><th>Customer</th><th>Closed-Won</th><th>System</th><th>Steps done</th><th>Progress</th><th>Sale engineer</th>
+        <th>Ref ID</th><th>Customer</th><th>Closed-Won</th><th>System</th><th>EDC price</th><th>Steps done</th><th>Progress</th><th>Sale engineer</th>
       </tr></thead><tbody>`+started.map(l=>{
         const fl=edcFields(l),d=edcDone(l);
         return `<tr class="rowlink" onclick="edcReview('${l.id}')">
@@ -50,6 +50,7 @@ async function renderEdc(){
           <td><b>${esc(l.customer_name)}</b></td>
           <td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
           <td>${esc(sysLine(l))}</td>
+          <td class="nowrap">${l.edc_fee_usd==null?'<span class="quiet">—</span>':fmtMoney(l.edc_fee_usd)}</td>
           <td><b>${d} of ${fl.length}</b></td>
           <td><div class="edc-steps">${fl.map(([k,short])=>`<span class="${l[k]?'ok':''}" title="${short}${l[k]?': '+fmtDate(l[k]):''}">${short}</span>`).join('')}</div></td>
           <td>${esc(staffName(l.assigned_to))}</td></tr>`;}).join('')
@@ -120,16 +121,27 @@ function edcTable(title,rows,fields){
     <div class="empty" style="margin-bottom:22px"><b>Nothing pending here</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
-      <th>Ref ID</th><th>Customer</th><th>Branch</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
+      <th>Ref ID</th><th>Customer</th><th>Branch</th><th title="What EDC charges for this submission">EDC price</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
     </tr></thead><tbody>`+rows.map(l=>{
       const next=fields.find(([k])=>!l[k]);
       return `<tr>
       <td class="refid" style="cursor:pointer" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${kwac(l)} kWac · ${esc(staffName(l.site_engineer_id))}</span></td>
       <td><select style="min-width:170px" onchange="setEdcBranch('${l.id}',this.value)">${optList(EDC_BRANCHES,l.edc_branch)}</select></td>
+      <td><input type="number" step="0.01" style="min-width:110px" value="${l.edc_fee_usd??''}" placeholder="—" onchange="setEdcFee('${l.id}',this.value)"></td>
       ${fields.map(([k])=>`<td class="${next&&next[0]===k?'edc-next':''}"><input type="date" style="min-width:130px" value="${l[k]||''}" onchange="setEdcDate('${l.id}','${k}',this.value)"></td>`).join('')}
       <td><b>${edcDone(l)}/${fields.length}</b></td>
     </tr>`;}).join('')+`</tbody></table></div>`;
+}
+/* what EDC charged for the submission. Admin types it; it saves on the spot
+   like the branch and the dates, so nothing on this screen needs a Save. */
+async function setEdcFee(id,v){
+  const val=v===''?null:Number(v);
+  if(val!==null&&(isNaN(val)||val<0)){toast('EDC price must be a number');return;}
+  const {error}=await sb.from('leads').update({edc_fee_usd:val}).eq('id',id);
+  if(error){toast('Could not save the price. '+why(error));console.error(error);return;}
+  await logActivity(id,'edit',null,null,'EDC price: '+(val==null?'cleared':fmtMoney(val)));
+  toast('EDC price saved');
 }
 /* which EDC office the file goes to, saved the moment it is picked, the same
    as the dates beside it */

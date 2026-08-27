@@ -44,7 +44,7 @@ function exportLeads(){
     l.battery_brand,l.battery_kwh,l.site_link,
     staffName(l.site_engineer_id),l.installation_team,
     l.delivery_date,l.installation_start,l.installation_end,
-    l.inverter_kw_total,l.edc_doc_date,l.edc_inspection_date,
+    l.inverter_kw_total,l.edc_fee_usd,l.edc_doc_date,l.edc_inspection_date,
     l.edc_portal_date,l.edc_approval_date,l.edc_meter_date,
     l.edc_provincial_date,l.edc_pp_date,
     staffName(l.created_by),localDay(l.created_at),
@@ -61,7 +61,7 @@ function exportLeads(){
     'Battery brand','Battery kWh','Location link',
     'Site engineer','Installation team',
     'Delivery date','Installation start','Installation end',
-    'kWac','EDC doc submission','EDC inspection',
+    'kWac','EDC price (USD)','EDC doc submission','EDC inspection',
     'EDC portal submission','EDC approval letter','EDC smart meter & grid',
     'EDC provincial inspection','EDC Phnom Penh inspection',
     'Created by','Created','Latest remark date','Latest remark'],rows);

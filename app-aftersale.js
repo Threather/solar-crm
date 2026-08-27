@@ -188,6 +188,8 @@ function asCard(r,l){
     <div class="modal-actions">
       <button class="btn-sun" onclick="asSave()">${r?'Save case':'Create case'}</button>
       <button class="btn-line" onclick="closeLead()">Close</button>
+      ${(r&&ME.role==='admin')?`<span class="spacer"></span>
+        <button class="btn-danger" onclick="asDelete('${r.id}')" title="A case raised by mistake. The database allows this for admin only.">Delete case</button>`:''}
     </div>`;
   $('lead-overlay').classList.add('open');
 }
@@ -223,6 +225,16 @@ async function asSave(){
   if(error){toast('Could not save the case. '+why(error));console.error(error);return;}
   toast(ASPICK.caseId?'Case saved':'Case created');
   closeLead();renderAfterSale();
+}
+/* a case raised on the wrong customer is worth removing rather than leaving
+   as a solved-forever row; the database allows it for admin only */
+async function asDelete(id){
+  const r=ASROWS.find(x=>x.id===id);
+  if(!r)return;
+  if(!confirm('Delete this case for '+(r.leads?.customer_name||'this customer')+'? It cannot be undone.'))return;
+  const {error}=await sb.from('after_sales').delete().eq('id',id);
+  if(error){toast('Could not delete it. '+why(error));console.error(error);return;}
+  toast('Case deleted');closeLead();renderAfterSale();
 }
 function exportAfterSale(){
   const rows=asFiltered();
