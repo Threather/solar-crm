@@ -70,7 +70,27 @@ async function renderFinance(){
         <button class="${FINSCOPE==='paid'?'on':''}" onclick="setFinScope('paid')">Paid in full</button>
       </div>
       <input placeholder="Search customer or ref ID…" oninput="FILTER.q=this.value;drawFinance()" value="${esc(FILTER.q||'')}">
-      <button class="btn-line" onclick="FILTER.q='';renderFinance()">Clear</button>
+      <select onchange="setFinFilter('status',this.value)" title="Contract status">
+        <option value="">Any contract</option>
+        ${CONTRACT_STATUS.map(v=>`<option value="${esc(v)}" ${FINFILTER.status===v?'selected':''}>${esc(v)}</option>`).join('')}
+        <option value="__none" ${FINFILTER.status==='__none'?'selected':''}>Not recorded</option>
+      </select>
+      <select onchange="setFinFilter('acct',this.value)" title="Type of account">
+        <option value="">Any account</option>
+        ${ACCOUNT_TYPES.map(v=>`<option value="${esc(v)}" ${FINFILTER.acct===v?'selected':''}>${esc(v)}</option>`).join('')}
+        <option value="__none" ${FINFILTER.acct==='__none'?'selected':''}>Not set</option>
+      </select>
+      <select onchange="setFinFilter('eng',this.value)" title="Sale engineer">
+        <option value="">Any sale engineer</option>
+        ${[...new Set(FINROWS.map(r=>r.assigned_to).filter(Boolean))]
+          .map(id=>`<option value="${id}" ${FINFILTER.eng===id?'selected':''}>${esc(staffName(id))}</option>`).join('')}
+      </select>
+      <select onchange="setFinFilter('due',this.value)" title="Collection follow-up">
+        <option value="">Any follow-up</option>
+        <option value="over" ${FINFILTER.due==='over'?'selected':''}>Follow-up due now</option>
+        <option value="none" ${FINFILTER.due==='none'?'selected':''}>No date set</option>
+      </select>
+      <button class="btn-line" onclick="clearFinFilters()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportFinance()">Export CSV</button>
     </div>
@@ -79,24 +99,42 @@ async function renderFinance(){
 }
 /* a deal that owes nothing is finished work, not today's work */
 const finSettled=r=>finDue(r)>0&&finDue(r)-finPaid(r)<=0;
+/* finance works its list by contract, by account type, by whose customer it is
+   and by what is due — so those are the filters, not a second search box */
+function setFinFilter(k,v){FINFILTER[k]=v;drawFinance();}
+function clearFinFilters(){FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:''};renderFinance();}
 function filteredFin(){
   let rows=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
   if(FILTER.q){const s=FILTER.q.toLowerCase();
     rows=rows.filter(r=>(r.customer_name||'').toLowerCase().includes(s)||(r.ref_id||'').toLowerCase().includes(s));}
+  if(FINFILTER.status)rows=rows.filter(r=>FINFILTER.status==='__none'
+    ?!r.fin?.contract_status : r.fin?.contract_status===FINFILTER.status);
+  if(FINFILTER.acct)rows=rows.filter(r=>FINFILTER.acct==='__none'
+    ?!r.fin?.account_type : r.fin?.account_type===FINFILTER.acct);
+  if(FINFILTER.eng)rows=rows.filter(r=>r.assigned_to===FINFILTER.eng);
+  if(FINFILTER.due==='over')rows=rows.filter(r=>finFollowDue(r));
+  if(FINFILTER.due==='none')rows=rows.filter(r=>!r.fin?.follow_up_date&&finDue(r)-finPaid(r)>0);
   return rows;
 }
 function setFinScope(v){FINSCOPE=v;renderFinance();}
+const finFiltered=()=>!!(FILTER.q||FINFILTER.status||FINFILTER.acct||FINFILTER.eng||FINFILTER.due);
 function drawFinance(){
   const rows=filteredFin();
-  if(!rows.length){$('finwrap').innerHTML=FILTER.q
-    ?blank('No matches','No deal fits the current search.')
+  const all=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
+  if(!rows.length){$('finwrap').innerHTML=finFiltered()
+    ?blank('No matches','No deal fits the current search and filters. Clear them to see everything.')
     :FINSCOPE==='paid'?blank('Nothing settled yet','Deals move here once the balance reaches zero.')
     :blank('Nothing outstanding','Every won deal has been paid in full.');return;}
+  /* the figures above count the whole list, so when a filter is on, say what
+     is actually on screen rather than letting the two disagree in silence */
+  const note=finFiltered()
+    ? `<p class="days" style="margin:0 0 8px">Showing ${rows.length} of ${all.length} deals · ${fmtMoney(rows.reduce((a,r)=>a+(finDue(r)-finPaid(r)),0))} outstanding in this selection</p>`
+    : '';
   /* Nine columns, not thirteen. What is still owed leads, because that is the
      question this page exists to answer; won month, channel, system and the
      sale value moved to the card and the CSV, where nobody had to scroll
      sideways to reach them. */
-  $('finwrap').innerHTML=`<table class="table-compact"><thead><tr>
+  $('finwrap').innerHTML=note+`<table class="table-compact"><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Paid</th>
     <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th>
   </tr></thead><tbody>`+rows.map(r=>{

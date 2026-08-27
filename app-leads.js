@@ -454,11 +454,26 @@ function siteSpec(l,always){
     ['Inverter',inverterModel(l.inverter_brand,l.inverter_kw,l.phase_type), l.inverter_brand, l.inverter_pcs],
     ['Battery', batteryModel(l.battery_brand,l.battery_kwh_each),      l.battery_brand,  l.battery_pcs]
   ].filter(([,,brand])=>brand);
+  /* the whole specification, not a summary of it. Finance chase money against
+     what was actually sold, so every brand, size and count is named — the
+     quotation document itself stays out of reach, because it carries the price
+     and the database refuses it to them. */
+  const kwac=(Number(l.inverter_kw||0)*Number(l.inverter_pcs||0))||Number(l.inverter_kw_total||0);
   const facts=[
     ['Roof',l.roof_type],['System',l.system_type],['Ampere & phase',l.phase_type],
-    ['Panels',l.panel_pcs&&l.panel_watt?`${l.panel_pcs} × ${l.panel_watt}W${l.panel_kwp?` · ${l.panel_kwp} kWp`:''}`:null],
+    ['Panel brand',l.panel_brand],
+    ['Panels',l.panel_pcs&&l.panel_watt?`${l.panel_pcs} × ${l.panel_watt}W`:null],
+    ['Panel total',l.panel_kwp?l.panel_kwp+' kWp':null],
+    ['Inverter brand',l.inverter_brand],
     ['Inverter',l.inverter_pcs&&l.inverter_kw?`${l.inverter_pcs} × ${l.inverter_kw} kW`:null],
-    ['Battery',l.battery_kwh?`${l.battery_kwh} kWh${l.battery_pcs?` · ${l.battery_pcs} pcs`:''}`:null]
+    ['Inverter total',kwac?kwac.toFixed(2)+' kWac':null],
+    ['Battery brand',l.battery_brand],
+    ['Battery',l.battery_pcs&&l.battery_kwh_each?`${l.battery_pcs} × ${l.battery_kwh_each} kWh`:null],
+    ['Battery total',l.battery_kwh?l.battery_kwh+' kWh':null],
+    ...(always?[
+      ['BOQ',l.boq_status?l.boq_status+(l.boq_date?' · '+fmtDate(l.boq_date):''):null],
+      ['Site',[l.site_address,l.commune,l.district,l.province||l.city_province].filter(Boolean).join(', ')||null]
+    ]:[])
   ].filter(([,v])=>v);
   /* Nothing keyed in yet. The site engineer needs telling — they are about to
      drive to that house — but on the finance card it is a third of the screen
