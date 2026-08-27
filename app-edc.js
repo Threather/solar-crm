@@ -20,7 +20,7 @@ async function renderEdc(){
   const started=[...small,...large].filter(l=>edcDone(l)>0)
     .sort((a,b)=>edcDone(b)/edcFields(b).length-edcDone(a)/edcFields(a).length);
   $('main').innerHTML=`
-    <h2 style="margin-bottom:6px">EDC approval letter</h2>
+    <h2 style="margin-bottom:6px">EDC / EAC Submissions</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
       <div class="stat hero ${outstanding.length?'alert':''}"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
@@ -42,27 +42,28 @@ async function renderEdc(){
       :blank('Every date is in','Nothing is waiting on EDC. A deal returns here if a new one is won, and every date already recorded is under Submitted.')):''}
 
     ${EDCSCOPE==='sent'?(started.length?`<div class="tablewrap"><table><thead><tr>
-        <th>Ref ID</th><th>Customer</th><th>System</th><th>Steps done</th><th>Progress</th><th>Sale engineer</th><th>Closed-Won</th>
+        <th>Ref ID</th><th>Customer</th><th>Closed-Won</th><th>System</th><th>Steps done</th><th>Progress</th><th>Sale engineer</th>
       </tr></thead><tbody>`+started.map(l=>{
         const fl=edcFields(l),d=edcDone(l);
         return `<tr class="rowlink" onclick="edcReview('${l.id}')">
           <td class="refid">${esc(l.ref_id||'—')}</td>
           <td><b>${esc(l.customer_name)}</b></td>
+          <td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
           <td>${esc(sysLine(l))}</td>
           <td><b>${d} of ${fl.length}</b></td>
           <td><div class="edc-steps">${fl.map(([k,short])=>`<span class="${l[k]?'ok':''}" title="${short}${l[k]?': '+fmtDate(l[k]):''}">${short}</span>`).join('')}</div></td>
-          <td>${esc(staffName(l.assigned_to))}</td>
-          <td>${fmtDate(l.stage_entered_at)}</td></tr>`;}).join('')
+          <td>${esc(staffName(l.assigned_to))}</td></tr>`;}).join('')
       +`</tbody></table></div>`
       :blank('Nothing submitted yet','A deal appears here as soon as its first EDC date is recorded.')):''}
 
     ${EDCSCOPE==='miss'?(pending.length?`<h3 style="font-size:15px;margin:0 0 6px">Missing information (${pending.length})</h3>
       <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">Not placed yet. The sale engineer needs to finish the spec.</p>
-      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Missing</th><th>Sale engineer</th><th>Closed-Won</th></tr></thead><tbody>`
+      <div class="tablewrap"><table><thead><tr><th>Ref ID</th><th>Customer</th><th>Closed-Won</th><th>Missing</th><th>Sale engineer</th></tr></thead><tbody>`
       +pending.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')">
         <td class="refid">${esc(l.ref_id||'—')}</td><td><b>${esc(l.customer_name)}</b></td>
+        <td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
         <td>${!edcApplies(l)?'System type':'Inverter total'}</td>
-        <td>${esc(staffName(l.assigned_to))}</td><td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')
+        <td>${esc(staffName(l.assigned_to))}</td></tr>`).join('')
       +`</tbody></table></div>`
       :blank('Nothing missing','Every won deal has enough information to be placed.')):''}`;
 }
