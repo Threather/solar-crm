@@ -18,8 +18,30 @@ const INCENTIVE_TIERS=[
   {name:'Platinum',min:220000, pool:()=>3600,   label:'$3,600'},
   {name:'Diamond', min:250000, pool:()=>4500,   label:'$4,500'}
 ];
+/* Third-party referral. The scheme allows 1.0-3.0% on rolling twelve-month
+   referral value; Kevin set it at 3% flat for now (27 Aug 2026), so the rate
+   is one constant to change when the bands are decided. Referrers come from
+   leads.referrer_name, and only won deals count — a referral that never
+   closed earned nobody anything. */
+const THIRD_PARTY_RATE=0.03;
+function thirdPartyRows(leads,saleBy,monthISO){
+  const end=new Date(new Date(monthISO).getFullYear(),new Date(monthISO).getMonth()+1,0);
+  const start=new Date(end.getFullYear()-1,end.getMonth()+1,1);
+  const from=localDay(start), to=localDay(end);
+  const by={};
+  leads.filter(l=>l.stage_code===WON&&l.referrer_name&&l.stage_entered_at)
+    .filter(l=>{const d=localDay(l.stage_entered_at);return d>=from&&d<=to;})
+    .forEach(l=>{
+      const k=l.referrer_name.trim();
+      by[k]=by[k]||{name:k,phone:l.referrer_phone||'',deals:0,value:0,leads:[]};
+      by[k].deals++;by[k].value+=Number(saleBy[l.id]||0);by[k].leads.push(l.customer_name);
+    });
+  return {from,to,rows:Object.values(by).map(r=>({...r,earned:r.value*THIRD_PARTY_RATE}))
+    .sort((a,b)=>b.value-a.value)};
+}
 /* what the screen last worked out, so Export CSV writes the same figures */
 let INCROWS=[],INCTIER={name:''},INCPOOL=0,INCOVERRIDE=0,INCRELEASE='';
+let TPROWS=[],TPWINDOW={from:'',to:''};
 const INC_OVERRIDE=0.20, INC_HELD=0.15, INC_PROBATION_DAYS=90, INC_PROBATION_RATE=0.70, INC_RELEASE_DAYS=60;
 function incentiveTier(collection){
   let t=INCENTIVE_TIERS[0];
@@ -83,6 +105,12 @@ async function renderIncentive(){
       collection:collected[s.id]||0};
   });
   const r=incentiveFor(people);
+  /* third-party referral runs on a rolling twelve months, not the month the
+     rest of this screen is worked on, so it says so on its own heading */
+  const {data:fins}=await sb.from('lead_financials').select('lead_id,final_sale_usd');
+  const saleBy={};(fins||[]).forEach(f=>saleBy[f.lead_id]=Number(f.final_sale_usd||0));
+  const tp=thirdPartyRows(rows,saleBy,INCMONTH);
+  TPROWS=tp.rows;TPWINDOW=tp;
   /* held for the export, so the CSV and the screen cannot drift apart */
   INCROWS=r.rows.map(p=>({...p,position:p.isManager?'Sales manager':'Sales executive'}));
   INCTIER=r.tier;INCPOOL=r.pool;INCOVERRIDE=r.override;INCRELEASE=localDay(release);
@@ -101,6 +129,7 @@ async function renderIncentive(){
     <div class="toolbar"><select onchange="setIncMonth(this.value)">${opts.join('')}</select>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportIncentive()">Export CSV</button>
+      <button class="btn-line" onclick="exportThirdParty()">Export third-party</button>
     </div>
 
     <div class="stats">
@@ -146,6 +175,24 @@ async function renderIncentive(){
         <td colspan="3" style="color:var(--bad)"><b>${cash(r.unallocated)}</b> of the ${cash(r.pool)} pool</td></tr>`:''}
       </tfoot></table></div>
 
+    <h3 style="font-size:15px;margin:26px 0 4px">Third-party referral</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${(THIRD_PARTY_RATE*100).toFixed(1)}% of the value of won deals that name a referrer, over the twelve months to ${fmtDate(tp.to)}. This window is not the month above.</p>
+    ${tp.rows.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
+      <th>Referrer</th><th>Phone</th><th>Deals</th><th>Referral value</th><th>At ${(THIRD_PARTY_RATE*100).toFixed(1)}%</th><th>Customers</th>
+    </tr></thead><tbody>`+tp.rows.map(x=>`
+      <tr><td><b>${esc(x.name)}</b></td>
+        <td>${esc(x.phone||'—')}</td>
+        <td>${x.deals}</td>
+        <td>${fmtMoney(Math.round(x.value))}</td>
+        <td><b>${cash(x.earned)}</b></td>
+        <td class="rem">${esc(x.leads.join(', '))}</td></tr>`).join('')
+      +`</tbody><tfoot><tr><td><b>Total</b></td><td></td>
+        <td><b>${tp.rows.reduce((a,x)=>a+x.deals,0)}</b></td>
+        <td><b>${fmtMoney(Math.round(tp.rows.reduce((a,x)=>a+x.value,0)))}</b></td>
+        <td><b>${cash(tp.rows.reduce((a,x)=>a+x.earned,0))}</b></td><td></td></tr></tfoot>
+      </table></div>`
+      :blank('No referred deals in this window','A referrer is typed on the lead when it is created, and counts once that deal is Closed-Won.')}
+
     <div class="homegrid" style="margin-top:22px">
       ${repPanel('How this was worked out',repFigs([
         ['Collection',fmtMoney(Math.round(r.total))],
@@ -189,5 +236,14 @@ function exportIncentive(){
       round2(p.collection),Math.round(p.share*1000)/10+'%',
       round2(p.standard),round2(p.paidNow),round2(p.held),INCRELEASE,
       INCTIER.name,round2(INCPOOL),round2(INCOVERRIDE)]));
+}
+/* the referral table is a different window and a different scheme, so it gets
+   its own file rather than being bolted onto the sales one */
+function exportThirdParty(){
+  if(!TPROWS.length){toast('Nothing to export');return;}
+  downloadCSV('third-party-'+INCMONTH.slice(0,7),
+    ['Window from','Window to','Referrer','Phone','Deals','Referral value (USD)','Rate','Earned (USD)','Customers'],
+    TPROWS.map(x=>[TPWINDOW.from,TPWINDOW.to,x.name,x.phone,x.deals,
+      round2(x.value),(THIRD_PARTY_RATE*100).toFixed(1)+'%',round2(x.earned),x.leads.join('; ')]));
 }
 const round2=v=>Math.round(Number(v||0)*100)/100;
