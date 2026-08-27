@@ -388,6 +388,13 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
     if(n>=1&&n<=LOST_REASONS.length)upd.lost_reason=LOST_REASONS[n-1];
   }
   if(newStage===WON&&oldStage!==WON&&(!saleNow||Number(saleNow)<=0)){toast('Enter the final sale value before marking Closed-Won');return;}
+  /* Done with no date is the state that breaks the operations report: BOQ
+     turnaround is measured from this date, and the won list shows it. Read
+     what is in the boxes now, not what changed, so a date already there
+     counts and a status already Done still has to have one. */
+  const boqNow=$('d-boq')&&!$('d-boq').disabled?$('d-boq').value:null;
+  const boqDateNow=$('d-boqdate')&&!$('d-boqdate').disabled?$('d-boqdate').value.trim():null;
+  if(boqNow==='Done'&&boqDateNow===''){toast('Set the BOQ date when BOQ release is Done');return;}
   if(!Object.keys(upd).length&&sale===undefined&&!($('d-note')&&$('d-note').value.trim())){setLock(true);return;}
 
   if(Object.keys(upd).length){
