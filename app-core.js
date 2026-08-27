@@ -228,7 +228,8 @@ const ICON={
   reports:'M4 20V11M10 20V4M16 20v-6M21 20H3',
   edc:'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
   fin:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
-  comm:'M12 3l2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9L9.5 8z',
+  /* a spanner: the case is opened after the job is finished */
+  aftersale:'M14.7 6.3a4 4 0 0 0-5.4 5.4l-5 5a1.5 1.5 0 0 0 2.1 2.1l5-5a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.1-2.1z',
   users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
   targets:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 12h.01',
   inc:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'
@@ -240,7 +241,7 @@ const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=[['home','Today'],['leads','My jobs'],['reports','Reports']].map(navBtn).join('');
+    $('nav').innerHTML=[['home','Today'],['leads','My jobs'],['aftersale','After-sale'],['reports','Reports']].map(navBtn).join('');
     return;
   }
   /* finance only ever works won deals and their money */
@@ -265,6 +266,7 @@ function buildNav(){
   if(ME.role==='admin') admin.push(['edc','EDC']);
   /* every team with a dashboard of its own reaches it here; the scope switch
      inside decides which one they actually see */
+  if(['admin','manager','sales','site_engineer'].includes(ME.role)) admin.push(['aftersale','After-sale']);
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
   if(ME.role==='admin') admin.push(['targets','Targets']);
@@ -281,7 +283,7 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
-    edc:renderEdc,fin:renderFinance,users:renderUsers,
+    edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
     targets:renderTargets,inc:renderIncentive}[v])();
 }
 
