@@ -103,12 +103,17 @@ function activeStats(){
 function wonStats(rows){
   const value=rows.reduce((a,l)=>a+Number(l.final_sale_usd||0),0);
   const booked=rows.filter(l=>l.installation_start);
-  const teamed=rows.filter(l=>l.installation_team);
+  /* a won deal with no BOQ cannot be installed, so it sits beside the count of
+     won deals rather than at the end — and the ones still waiting are the
+     half worth reading, so they are named */
+  const boq=rows.filter(l=>l.boq_status==='Done');
+  const noBoq=rows.length-boq.length;
   return `<div class="stats">
       <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Closed-Won</div></div>
+      <div class="stat ${noBoq?'alert':''}"><div class="n">${boq.length}</div><div class="l">BOQ released</div>
+        <span class="days">${noBoq?noBoq+' still waiting':'all released'}</span></div>
       ${canSeeMoney()?`<div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total contract value (USD)</div></div>`:''}
       <div class="stat"><div class="n">${booked.length}</div><div class="l">Installation booked</div></div>
-      <div class="stat"><div class="n">${teamed.length}</div><div class="l">Team assigned</div></div>
     </div>`;
 }
 function lostStats(rows){

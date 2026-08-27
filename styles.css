@@ -310,6 +310,9 @@ td.nowrap{white-space:nowrap}
 .stat.hero .l{color:var(--ink-2);font-weight:600;font-size:var(--t-meta);
   text-transform:none;letter-spacing:0;margin-top:2px}
 .stat.hero.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
+/* on a demoted stat the figure itself is not the warning — a count of what is
+   released is good news. The line naming what is still waiting carries it. */
+.stat.alert .days{color:var(--bad);font-weight:600}
 .stat.hero.alert .n,.stat.hero.alert .l{color:var(--bad)}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
