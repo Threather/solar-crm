@@ -58,9 +58,9 @@ async function renderFinance(){
     <h2 style="margin-bottom:6px">Finance</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Won deals. Open a row to record the contract and its payments.</p>
     <div class="stats">
-      <div class="stat hero ${totalDue-totalPaid>0?'alert':''}"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
+      <div class="stat hero ${totalDue-totalPaid>0?'alert':''}"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding payment</div></div>
       <div class="stat"><div class="n">${dueNow.length}</div><div class="l">Follow up now</div></div>
-      <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Collected</div></div>
+      <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Payment collected</div></div>
       <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
     </div>
@@ -207,7 +207,7 @@ function drawFinance(){
      sideways to reach them. */
   $('finwrap').innerHTML=note+`<table class="table-compact"><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Paid</th>
-    <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th>
+    <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th><th>Remark</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
     return `<tr class="rowlink" onclick="openFinance('${r.id}')">
@@ -220,6 +220,9 @@ function drawFinance(){
       <td>${esc(r.fin?.contract_status||'—')}<span class="days">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
       <td class="nowrap">${r.fin?.follow_up_date?`<b class="${dueNow?'overdue':''}">${fmtDate(r.fin.follow_up_date)}</b>`:'—'}</td>
       <td>${esc(staffName(r.assigned_to))}</td>
+      <td class="rem">${r.fin?.finance_remark
+        ?esc(r.fin.finance_remark)
+        :'<span class="quiet">—</span>'}${r.fin?.payment_term?`<span class="days">${esc(r.fin.payment_term)}</span>`:''}</td>
     </tr>`;}).join('')+`</tbody></table>`;
 }
 
@@ -229,7 +232,7 @@ function openFinance(id){
   const f=r.fin||{}, paid=finPaid(r), due=finDue(r);
   $('lead-modal').innerHTML=`
     <h2>${esc(r.customer_name)} <span class="refid">${esc(r.ref_id||'')}</span></h2>
-    <div class="sub">${esc(staffName(r.assigned_to))} · ${esc(r.lead_channel||'—')} · received ${fmtDate(r.created_at)} · won ${fmtDate(r.stage_entered_at)}</div>
+    <div class="sub">${esc(staffName(r.assigned_to))} · ${esc(r.lead_channel||'—')} · received ${fmtDate(r.created_at)} · Closed-Won ${fmtDate(r.stage_entered_at)}</div>
 
     ${siteSpec(r,true)}
 
@@ -404,7 +407,7 @@ async function deletePayment(pid,leadId){
   toast('Payment removed');closeLead();renderFinance();
 }
 function exportFinance(){
-  downloadCSV('finance',['Ref ID','Customer','Won month','Received','Sale engineer',
+  downloadCSV('finance',['Ref ID','Customer','Closed-Won month','Received','Sale engineer',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed',
     'Type of account','Payment term','Remark','Next follow-up',

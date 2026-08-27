@@ -204,7 +204,7 @@ function toggleRemarks(btn){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Sale engineer</th><th>Site engineer</th><th>BOQ</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Sale engineer</th><th>Site engineer</th><th>BOQ</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Closed-Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
