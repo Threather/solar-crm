@@ -68,8 +68,17 @@ async function renderFinance(){
       <div class="scope">
         <button class="${FINSCOPE==='owing'?'on':''}" onclick="setFinScope('owing')">Still owing</button>
         <button class="${FINSCOPE==='paid'?'on':''}" onclick="setFinScope('paid')">Paid in full</button>
+        <button class="${FINSCOPE==='pay'?'on':''}" onclick="setFinScope('pay')">Payments</button>
       </div>
       <input placeholder="Search customer or ref ID…" oninput="FILTER.q=this.value;drawFinance()" value="${esc(FILTER.q||'')}">
+      ${FINSCOPE==='pay'?`
+      <span class="daterange">
+        <input type="date" value="${esc(FINFILTER.from||'')}" onchange="setFinFilter('from',this.value)" title="Paid from">
+        to
+        <input type="date" value="${esc(FINFILTER.to||'')}" onchange="setFinFilter('to',this.value)" title="Paid to">
+      </span>
+      <button class="btn-line" onclick="setFinMonth(0)">This month</button>
+      <button class="btn-line" onclick="setFinMonth(1)">Last month</button>`:`
       <select onchange="setFinFilter('status',this.value)" title="Contract status">
         <option value="">Any contract</option>
         ${CONTRACT_STATUS.map(v=>`<option value="${esc(v)}" ${FINFILTER.status===v?'selected':''}>${esc(v)}</option>`).join('')}
@@ -89,10 +98,10 @@ async function renderFinance(){
         <option value="">Any follow-up</option>
         <option value="over" ${FINFILTER.due==='over'?'selected':''}>Follow-up due now</option>
         <option value="none" ${FINFILTER.due==='none'?'selected':''}>No date set</option>
-      </select>
+      </select>`}
       <button class="btn-line" onclick="clearFinFilters()">Clear</button>
       <span class="spacer"></span>
-      <button class="btn-line" onclick="exportFinance()">Export CSV</button>
+      <button class="btn-line" onclick="${FINSCOPE==='pay'?'exportPayments()':'exportFinance()'}">Export CSV</button>
     </div>
     <div class="tablewrap" id="finwrap"></div>`;
   drawFinance();
@@ -102,7 +111,62 @@ const finSettled=r=>finDue(r)>0&&finDue(r)-finPaid(r)<=0;
 /* finance works its list by contract, by account type, by whose customer it is
    and by what is due — so those are the filters, not a second search box */
 function setFinFilter(k,v){FINFILTER[k]=v;drawFinance();}
-function clearFinFilters(){FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:''};renderFinance();}
+function clearFinFilters(){FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:'',from:'',to:''};renderFinance();}
+/* the two questions finance actually asks of a payment list */
+function setFinMonth(back){
+  const n=new Date(), d=new Date(n.getFullYear(),n.getMonth()-back,1);
+  const end=new Date(d.getFullYear(),d.getMonth()+1,0);
+  FINFILTER.from=localDay(d);FINFILTER.to=localDay(end);
+  renderFinance();
+}
+/* Every payment, across every customer, as its own list. The deal screens
+   answer "who still owes"; this answers "what came in, and when" — which the
+   card could only ever answer one customer at a time. */
+function allPayments(){
+  const out=[];
+  FINROWS.forEach(r=>(r.payments||[]).forEach(p=>out.push({...p,lead:r})));
+  let rows=out.filter(p=>p.paid_on);
+  if(FINFILTER.from)rows=rows.filter(p=>localDay(p.paid_on)>=FINFILTER.from);
+  if(FINFILTER.to)rows=rows.filter(p=>localDay(p.paid_on)<=FINFILTER.to);
+  if(FILTER.q){const s=FILTER.q.toLowerCase();
+    rows=rows.filter(p=>(p.lead.customer_name||'').toLowerCase().includes(s)
+      ||(p.lead.ref_id||'').toLowerCase().includes(s));}
+  if(FINFILTER.eng)rows=rows.filter(p=>p.lead.assigned_to===FINFILTER.eng);
+  return rows.sort((a,b)=>localDay(b.paid_on).localeCompare(localDay(a.paid_on)));
+}
+function drawPayments(){
+  const rows=allPayments();
+  if(!rows.length){$('finwrap').innerHTML=blank('No payments in this period',
+    'Widen the dates, or clear the search. Payments are recorded on a deal.');return;}
+  const total=rows.reduce((a,p)=>a+Number(p.amount_usd||0),0);
+  const fees=rows.reduce((a,p)=>a+Number(p.other_fee_usd||0),0);
+  const word=FINFILTER.from||FINFILTER.to
+    ? (FINFILTER.from?fmtDate(FINFILTER.from):'the start')+' to '+(FINFILTER.to?fmtDate(FINFILTER.to):'today')
+    : 'all time';
+  $('finwrap').innerHTML=`<p class="days" style="margin:0 0 8px">${rows.length} payment${rows.length===1?'':'s'} · ${esc(word)} · <b>${fmtMoney(total)}</b> received${fees?' · '+fmtMoney(fees)+' in fees on top':''}</p>
+    <table class="table-compact"><thead><tr>
+    <th style="width:118px">Date</th><th>Customer</th><th style="width:104px">Ref ID</th>
+    <th style="width:110px">Amount</th><th style="width:100px">Other fee</th>
+    <th style="width:150px">Sale engineer</th><th>Note</th>
+  </tr></thead><tbody>`+rows.map(p=>`
+    <tr class="rowlink" onclick="openFinance('${p.lead.id}')">
+      <td class="nowrap">${fmtDate(p.paid_on)}</td>
+      <td><b>${esc(p.lead.customer_name)}</b></td>
+      <td class="refid">${esc(p.lead.ref_id||'—')}</td>
+      <td class="numcell"><b>${fmtMoney(p.amount_usd)}</b></td>
+      <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
+      <td>${esc(staffName(p.lead.assigned_to))}</td>
+      <td>${esc(p.note||'')}${p.other_fee_note?`<span class="days">fee: ${esc(p.other_fee_note)}</span>`:''}</td>
+    </tr>`).join('')+`</tbody></table>`;
+}
+function exportPayments(){
+  const rows=allPayments();
+  downloadCSV('payments',['Date','Customer','Ref ID','Amount (USD)','Other fee (USD)',
+    'What the fee was for','Sale engineer','Type of account','Note'],
+    rows.map(p=>[localDay(p.paid_on),p.lead.customer_name,p.lead.ref_id,
+      p.amount_usd,p.other_fee_usd,p.other_fee_note,
+      staffName(p.lead.assigned_to),p.lead.fin?.account_type,p.note]));
+}
 function filteredFin(){
   let rows=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
   if(FILTER.q){const s=FILTER.q.toLowerCase();
@@ -116,9 +180,16 @@ function filteredFin(){
   if(FINFILTER.due==='none')rows=rows.filter(r=>!r.fin?.follow_up_date&&finDue(r)-finPaid(r)>0);
   return rows;
 }
-function setFinScope(v){FINSCOPE=v;renderFinance();}
+/* switching scope clears the filters, since a contract filter means nothing on
+   a payment list and a date range means nothing on a deal list */
+function setFinScope(v){
+  if(FINSCOPE===v)return;
+  FINSCOPE=v;FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:'',from:'',to:''};
+  renderFinance();
+}
 const finFiltered=()=>!!(FILTER.q||FINFILTER.status||FINFILTER.acct||FINFILTER.eng||FINFILTER.due);
 function drawFinance(){
+  if(FINSCOPE==='pay')return drawPayments();
   const rows=filteredFin();
   const all=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
   if(!rows.length){$('finwrap').innerHTML=finFiltered()
@@ -198,14 +269,24 @@ function openFinance(id){
     <div class="section sec-fin"><h4>Payments (${r.payments.length})</h4>
       ${r.payments.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
         <th style="width:34px">#</th><th style="width:120px">Date</th><th style="width:100px">Amount</th>
-        <th style="width:100px">Other fee</th><th>Note</th><th style="width:86px"></th></tr></thead><tbody>`
-        +r.payments.map((p,i)=>`<tr>
-          <td>${i+1}</td><td>${fmtDate(p.paid_on)}</td>
-          <td><b>${fmtMoney(p.amount_usd)}</b></td>
-          <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
-          <td>${esc(p.note||'')}${p.other_fee_note?`<span class="days">fee: ${esc(p.other_fee_note)}</span>`:''}</td>
-          <td><button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
-        </tr>`).join('')+`</tbody></table></div>`
+        <th style="width:100px">Other fee</th><th style="width:110px">Still owing after</th>
+        <th>Note</th><th style="width:86px"></th></tr></thead><tbody>`
+        +(()=>{
+          /* a running balance turns three separate figures into a story: what
+             was left to pay the moment each one landed */
+          let run=0;
+          return r.payments.map((p,i)=>{
+            run+=Number(p.amount_usd||0);
+            const left=due-run;
+            return `<tr>
+              <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}</td>
+              <td><b>${fmtMoney(p.amount_usd)}</b></td>
+              <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
+              <td class="nowrap ${left<=0?'':'overdue'}">${left<=0?'<span class="mark mark-done">settled</span>':fmtMoney(left)}</td>
+              <td>${esc(p.note||'')}${p.other_fee_note?`<span class="days">fee: ${esc(p.other_fee_note)}</span>`:''}</td>
+              <td><button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
+            </tr>`;}).join('');
+        })()+`</tbody></table></div>`
         :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
     </div>
 
