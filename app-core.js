@@ -3,7 +3,7 @@
    ============================================================ */
 const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
 
-let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], COMMS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[], FINSCOPE='owing', EDCSCOPE='work';
+let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[], FINSCOPE='owing', EDCSCOPE='work';
 /* the Leads tab shows only live work; won and lost have their own tabs */
 let LEADSCOPE='active';
 let FINROWS=[];
@@ -256,9 +256,10 @@ function buildNav(){
      than being a wider list that happens to look harmless */
   if(['sales','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
-  /* the screen lists won deals by ref ID, so it says which of a marketing
-     person's leads closed — stage information under another heading */
-  if(ME.role!=='marketing') money.push(['comm','Commissions']);
+  /* Commissions came out on 27 Aug 2026. Sales are not paid on the value of a
+     deal, they are paid by the incentive scheme, so a screen of per-deal
+     commissions described a way of paying people that does not happen. The
+     table and its win trigger are still there; nothing reads them. */
   if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
   if(ME.role==='admin') admin.push(['edc','EDC']);
@@ -280,7 +281,7 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
-    edc:renderEdc,fin:renderFinance,comm:renderComm,users:renderUsers,
+    edc:renderEdc,fin:renderFinance,users:renderUsers,
     targets:renderTargets,inc:renderIncentive}[v])();
 }
 

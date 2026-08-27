@@ -145,27 +145,30 @@ function drawPayments(){
     : 'all time';
   $('finwrap').innerHTML=`<p class="days" style="margin:0 0 8px">${rows.length} payment${rows.length===1?'':'s'} · ${esc(word)} · <b>${fmtMoney(total)}</b> received${fees?' · '+fmtMoney(fees)+' in fees on top':''}</p>
     <table class="table-compact"><thead><tr>
-    <th style="width:118px">Date</th><th>Customer</th><th style="width:104px">Ref ID</th>
+    <th style="width:118px">Date</th><th>Customer</th><th style="width:110px">Type of account</th>
+    <th style="width:104px">Ref ID</th>
     <th style="width:110px">Amount</th><th style="width:100px">Other fee</th>
-    <th style="width:150px">Sale engineer</th><th>Note</th>
+    <th style="width:150px">Sale engineer</th><th>Note</th><th>Remark</th>
   </tr></thead><tbody>`+rows.map(p=>`
     <tr class="rowlink" onclick="openFinance('${p.lead.id}')">
       <td class="nowrap">${fmtDate(p.paid_on)}</td>
       <td><b>${esc(p.lead.customer_name)}</b></td>
+      <td>${p.lead.fin?.account_type?esc(p.lead.fin.account_type):'<span class="quiet">—</span>'}</td>
       <td class="refid">${esc(p.lead.ref_id||'—')}</td>
       <td class="numcell"><b>${fmtMoney(p.amount_usd)}</b></td>
       <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
       <td>${esc(staffName(p.lead.assigned_to))}</td>
       <td>${esc(p.note||'')}${p.other_fee_note?`<span class="days">fee: ${esc(p.other_fee_note)}</span>`:''}</td>
+      <td class="rem">${p.lead.fin?.finance_remark?esc(p.lead.fin.finance_remark):'<span class="quiet">—</span>'}</td>
     </tr>`).join('')+`</tbody></table>`;
 }
 function exportPayments(){
   const rows=allPayments();
-  downloadCSV('payments',['Date','Customer','Ref ID','Amount (USD)','Other fee (USD)',
-    'What the fee was for','Sale engineer','Type of account','Note'],
-    rows.map(p=>[localDay(p.paid_on),p.lead.customer_name,p.lead.ref_id,
+  downloadCSV('payments',['Date','Customer','Type of account','Ref ID','Amount (USD)',
+    'Other fee (USD)','What the fee was for','Sale engineer','Note','Contract remark'],
+    rows.map(p=>[localDay(p.paid_on),p.lead.customer_name,p.lead.fin?.account_type,p.lead.ref_id,
       p.amount_usd,p.other_fee_usd,p.other_fee_note,
-      staffName(p.lead.assigned_to),p.lead.fin?.account_type,p.note]));
+      staffName(p.lead.assigned_to),p.note,p.lead.fin?.finance_remark]));
 }
 function filteredFin(){
   let rows=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));

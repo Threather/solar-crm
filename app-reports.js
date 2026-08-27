@@ -77,14 +77,7 @@ function exportQuots(){
       q.battery_brand,q.battery_kwh,
       q.price_usd,q.released_date?localDay(q.released_date):'',staffName(q.provided_by)]));
 }
-function exportComms(){
-  downloadCSV('commissions',['Ref ID','Customer','Beneficiary','Type','Deal value (USD)',
-    'Amount (USD)','Paid','Paid on'],
-    (COMMS||[]).map(c=>[c.leads?.ref_id,c.leads?.customer_name,
-      c.beneficiary_type==='referrer'?(c.referrer_name||'External referrer'):staffName(c.profile_id),
-      c.beneficiary_type,c.leads?.lead_financials?.final_sale_usd,c.amount_usd,
-      c.is_paid?'yes':'no',c.paid_at?localDay(c.paid_at):'']));
-}
+
 
 /* ---------------- REPORTS ----------------
    Categorical hues are the validated slots 1-4, assigned to a fixed channel

@@ -18,6 +18,8 @@ const INCENTIVE_TIERS=[
   {name:'Platinum',min:220000, pool:()=>3600,   label:'$3,600'},
   {name:'Diamond', min:250000, pool:()=>4500,   label:'$4,500'}
 ];
+/* what the screen last worked out, so Export CSV writes the same figures */
+let INCROWS=[],INCTIER={name:''},INCPOOL=0,INCOVERRIDE=0,INCRELEASE='';
 const INC_OVERRIDE=0.20, INC_HELD=0.15, INC_PROBATION_DAYS=90, INC_PROBATION_RATE=0.70, INC_RELEASE_DAYS=60;
 function incentiveTier(collection){
   let t=INCENTIVE_TIERS[0];
@@ -81,6 +83,9 @@ async function renderIncentive(){
       collection:collected[s.id]||0};
   });
   const r=incentiveFor(people);
+  /* held for the export, so the CSV and the screen cannot drift apart */
+  INCROWS=r.rows.map(p=>({...p,position:p.isManager?'Sales manager':'Sales executive'}));
+  INCTIER=r.tier;INCPOOL=r.pool;INCOVERRIDE=r.override;INCRELEASE=localDay(release);
 
   const opts=[];
   const now=new Date();
@@ -93,7 +98,10 @@ async function renderIncentive(){
   $('main').innerHTML=`
     <h2 style="margin-bottom:4px">Sales incentive</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Worked on payment collected in the month, from the tier table. Nothing here is marked paid — it is a calculation to check against before you pay anyone.</p>
-    <div class="toolbar"><select onchange="setIncMonth(this.value)">${opts.join('')}</select></div>
+    <div class="toolbar"><select onchange="setIncMonth(this.value)">${opts.join('')}</select>
+      <span class="spacer"></span>
+      <button class="btn-line" onclick="exportIncentive()">Export CSV</button>
+    </div>
 
     <div class="stats">
       <div class="stat hero"><div class="n">${fmtMoney(Math.round(r.total))}</div><div class="l">Collected in ${esc(monthName(INCMONTH.slice(0,7)))}</div></div>
@@ -169,3 +177,17 @@ async function renderIncentive(){
     </div>`;
 }
 function setIncMonth(m){INCMONTH=m;renderIncentive();}
+/* the same figures the screen shows, so a payroll conversation can happen off
+   a spreadsheet without anyone retyping them */
+function exportIncentive(){
+  if(!INCROWS.length){toast('Nothing to export');return;}
+  downloadCSV('incentive-'+INCMONTH.slice(0,7),
+    ['Month','Name','Position','Joined','On probation','Collection (USD)','Share',
+     'Incentive (USD)','Paid now (USD)','Held (USD)','Held until','Tier','Pool (USD)','Manager override (USD)'],
+    INCROWS.map(p=>[monthName(INCMONTH.slice(0,7)),p.name,p.position,p.joined||'',
+      p.onProbation?'yes':'no',
+      round2(p.collection),Math.round(p.share*1000)/10+'%',
+      round2(p.standard),round2(p.paidNow),round2(p.held),INCRELEASE,
+      INCTIER.name,round2(INCPOOL),round2(INCOVERRIDE)]));
+}
+const round2=v=>Math.round(Number(v||0)*100)/100;
