@@ -24,7 +24,7 @@ async function renderEdc(){
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
       <div class="stat hero ${outstanding.length?'alert':''}"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
-      <div class="stat"><div class="n">${applicable.length}</div><div class="l">Won deals</div></div>
+      <div class="stat"><div class="n">${applicable.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
     </div>

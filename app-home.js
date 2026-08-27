@@ -131,7 +131,7 @@ function homeSite(rows){
     <div class="stats">
       <div class="stat hero ${waiting.length?'alert':''}">
         <div class="n">${waiting.length}</div><div class="l">No install date yet</div></div>
-      <div class="stat"><div class="n">${won.length}</div><div class="l">Won deals</div></div>
+      <div class="stat"><div class="n">${won.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat"><div class="n">${delivered.length}</div><div class="l">Goods delivered</div></div>
       <div class="stat"><div class="n">${booked.length}</div><div class="l">Installation booked</div></div>
     </div>

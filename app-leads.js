@@ -105,8 +105,8 @@ function wonStats(rows){
   const booked=rows.filter(l=>l.installation_start);
   const teamed=rows.filter(l=>l.installation_team);
   return `<div class="stats">
-      <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Won deals</div></div>
-      ${canSeeMoney()?`<div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total sale value</div></div>`:''}
+      <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Closed-Won</div></div>
+      ${canSeeMoney()?`<div class="stat"><div class="n">${fmtMoney(value)}</div><div class="l">Total contract value (USD)</div></div>`:''}
       <div class="stat"><div class="n">${booked.length}</div><div class="l">Installation booked</div></div>
       <div class="stat"><div class="n">${teamed.length}</div><div class="l">Team assigned</div></div>
     </div>`;
@@ -199,7 +199,7 @@ function toggleRemarks(btn){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Sale engineer</th><th>Site engineer</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Sale engineer</th><th>Site engineer</th><th>BOQ</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -208,6 +208,11 @@ function drawWonTable(rows){
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${esc(staffName(l.assigned_to))}</td>
       <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
+      <td class="nowrap">${l.boq_status==='Done'
+        ?`<span class="mark mark-done">Done</span>${l.boq_date?`<span class="days">${fmtDate(l.boq_date)}</span>`:''}`
+        :l.boq_status
+          ?`<span class="mark mark-wait">${esc(l.boq_status)}</span>`
+          :'<span class="mark mark-open">not set</span>'}</td>
       <td>${l.installation_start||l.installation_end
         ?`${fmtDate(l.installation_start)} → ${fmtDate(l.installation_end)}<span class="days">${l.delivery_date?'delivery '+fmtDate(l.delivery_date):'no delivery date'}</span>`
         :`<span class="quiet">not scheduled</span>${l.delivery_date?`<span class="days">delivery ${fmtDate(l.delivery_date)}</span>`:''}`}</td>

@@ -61,7 +61,7 @@ async function renderFinance(){
       <div class="stat hero ${totalDue-totalPaid>0?'alert':''}"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding</div></div>
       <div class="stat"><div class="n">${dueNow.length}</div><div class="l">Follow up now</div></div>
       <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Collected</div></div>
-      <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Won deals</div></div>
+      <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat"><div class="n">${contracted.length}</div><div class="l">Contract signed</div></div>
     </div>
     <div class="toolbar">
