@@ -23,7 +23,7 @@ async function renderEdc(){
     <h2 style="margin-bottom:6px">EDC / EAC Submissions</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>
     <div class="stats">
-      <div class="stat hero ${outstanding.length?'alert':''}"><div class="n">${outstanding.length}</div><div class="l">Still outstanding</div></div>
+      <div class="stat hero ${outstanding.length?'alert':''}"><div class="n">${outstanding.length}</div><div class="l">Pending</div></div>
       <div class="stat"><div class="n">${applicable.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat"><div class="n">${small.length}</div><div class="l">≤ 10 kWac</div></div>
       <div class="stat"><div class="n">${large.length}</div><div class="l">&gt; 10 kWac</div></div>
@@ -117,7 +117,7 @@ async function edcReview(id){
 function setEdcScope(v){EDCSCOPE=v;renderEdc();}
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
-    <div class="empty" style="margin-bottom:22px"><b>Nothing outstanding here</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
+    <div class="empty" style="margin-bottom:22px"><b>Nothing pending here</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Branch</th>${fields.map(([,short,full])=>`<th title="${esc(full)}">${short}</th>`).join('')}<th>Done</th>
