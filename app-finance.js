@@ -209,13 +209,15 @@ function drawFinance(){
      sale value moved to the card and the CSV, where nobody had to scroll
      sideways to reach them. */
   $('finwrap').innerHTML=note+`<table class="table-compact"><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Balance</th><th>Paid</th>
+    <th>Ref ID</th><th>Customer</th><th style="width:110px">Type of account</th><th>Phone</th>
+    <th>Balance</th><th>Paid</th>
     <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th><th>Remark</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
     return `<tr class="rowlink" onclick="openFinance('${r.id}')">
       <td class="refid">${esc(r.ref_id||'—')}</td>
       <td><b>${esc(r.customer_name)}</b></td>
+      <td>${r.fin?.account_type?esc(r.fin.account_type):'<span class="quiet">—</span>'}</td>
       <td class="phone">${r.phone?esc(r.phone):'<span class="quiet">—</span>'}</td>
       <td><b class="${bal>0.005?'overdue':''}">${fmtMoney(bal)}</b></td>
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
