@@ -15,7 +15,7 @@ async function renderUsers(){
           <option value="marketing">marketing</option><option value="sales">sale engineer</option>
           <option value="site_engineer">site_engineer (installation)</option>
           <option value="finance">finance</option>
-          <option value="manager">manager</option><option value="admin">admin</option></select></div>
+          <option value="manager">sales manager (sales + marketing)</option><option value="admin">admin</option></select></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createProfile()">Create profile</button></div>
     </div>

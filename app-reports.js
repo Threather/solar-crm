@@ -98,7 +98,9 @@ function repScopes(){
   const s=[];
   if(['sales','manager','admin'].includes(ME.role))s.push(['sales','Sales']);
   if(['site_engineer','admin'].includes(ME.role))s.push(['ops','Operations']);
-  if(['marketing','admin'].includes(ME.role))s.push(['mkt','Marketing']);
+  /* the sales manager runs marketing as well as sales, so they get both
+     dashboards; operations is a different team and stays out */
+  if(['marketing','manager','admin'].includes(ME.role))s.push(['mkt','Marketing']);
   return s.filter(([k])=>typeof window[REP_RENDER[k]]==='function');
 }
 /* Two presets and a pair of dates. A week and a month were guesses at which
