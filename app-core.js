@@ -30,8 +30,8 @@ const SYSTEM_TYPES = ['On-Grid','Hybrid','Off-Grid'];
 const PHASE_TYPES = ['10A x 1P','20A x 1P','32A x 1P','63A x 1P','32A x 3P','40A x 3P','63A x 3P','100A x 3P'];
 const CUSTOMER_TYPES = ['Residential','C & I'];
 const PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other'];
-const INVERTER_BRANDS = ['Deye','Growatt','Huawei','Sungrow','Solis','Other'];
-const BATTERY_BRANDS = ['Deye','ANTI-DARK','BYD','Pylontech','Growatt','Other'];
+const INVERTER_BRANDS = ['Deye','Yinergy','Growatt','Huawei','Sungrow','Solis','Other'];
+const BATTERY_BRANDS = ['Deye','ANTI-DARK','Yinergy','BYD','Pylontech','Growatt','Other'];
 
 /* Cambodia geography comes from geo.js (NCDD official gazetteer):
    25 provinces, every district, every commune. */

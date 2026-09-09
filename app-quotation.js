@@ -95,10 +95,15 @@ function edcRate(kwac){
    ordered. Phase comes from the ampere/phase field, which already carries
    1P or 3P. */
 const DEYE_SG05LP={'1':[7,8,10],'3':[5,6,8,10,12]};
+/* Yinergy's HI-LV hybrids are single-phase only and stocked at 6 and 8 kW.
+   A 3P job on this brand is not a part number we can print. */
+const YINERGY_HI_LV=[6,8];
 function inverterModel(brand,kw,phaseType){
-  if(brand!=='Deye')return '';
   const p=/3P/.test(phaseType||'')?'3':/1P/.test(phaseType||'')?'1':'';
   const n=Number(kw||0);
+  if(brand==='Yinergy')
+    return (p==='1'&&YINERGY_HI_LV.includes(n))?'HI-1P'+n+'K-LV':'';
+  if(brand!=='Deye')return '';
   if(!p||!n||!DEYE_SG05LP[p].includes(n))return '';
   return 'SUN-'+n+'K-SG05LP'+p+'-EU-SM2';
 }
@@ -107,9 +112,16 @@ function inverterModel(brand,kw,phaseType){
    is 10.24, 300Ah is 15.36. Listed rather than derived for the same reason as
    the inverters — only these three are stocked. */
 const SCAE_A=[[5.12,100],[10.24,200],[15.36,300]];
+/* Yinergy's BLW wall battery is named by its capacity, so the part number is
+   the kWh itself. Two sizes are stocked. */
+const YINERGY_BLW=[4.8,9.6];
 function batteryModel(brand,kwhEach){
-  if(!/anti.?dark/i.test(brand||''))return '';
   const k=Number(kwhEach||0);
+  if(brand==='Yinergy'){
+    const y=YINERGY_BLW.find(kwh=>Math.abs(kwh-k)<0.01);
+    return y?'BLW '+y:'';
+  }
+  if(!/anti.?dark/i.test(brand||''))return '';
   const hit=SCAE_A.find(([kwh])=>Math.abs(kwh-k)<0.01);
   return hit?'SCAE-A-51.2-'+hit[1]:'';
 }
@@ -121,20 +133,30 @@ function panelModel(brand,watt){
   return LONGI_LR8[Number(watt||0)]||'';
 }
 /* One photo per product family. The Deye SG05LP units share a casing and the
-   LONGi LR8 panels are shot as a set, so those are one file each; the
-   ANTI-DARK racks differ by size and get one apiece. Files live in img/. A
-   file that is not there hides its own cell rather than printing a broken
-   image on a customer's quotation. */
+   Yinergy models do too, so those are one file each; the ANTI-DARK racks
+   differ by size and get one apiece. Files live in img/. A file that is not
+   there hides its own cell rather than printing a broken image on a
+   customer's quotation. */
 const PRODUCT_IMG={
-  'LR8-66HGD-625M':'img/longi-lr8.png',
-  'LR8-66HYD-645M':'img/longi-lr8.png',
+  'HI-1P6K-LV':'img/yinergy-hi-lv.png',
+  'HI-1P8K-LV':'img/yinergy-hi-lv.png',
+  'BLW 4.8':'img/yinergy-blw.png',
+  'BLW 9.6':'img/yinergy-blw.png',
   'SCAE-A-51.2-100':'img/scae-a-51-2-100.png',
   'SCAE-A-51.2-200':'img/scae-a-51-2-200.png',
   'SCAE-A-51.2-300':'img/scae-a-51-2-300.png'
 };
-const imgFor=model=>!model?''
-  :/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model)?'img/deye-sg05lp.png'
-  :(PRODUCT_IMG[model]||'');
+/* A panel is a panel: every brand is the same blue rectangle, so they share
+   one photo and it shows even where no part number derives. An inverter and a
+   battery are not interchangeable to look at, so those stay keyed off the
+   part number and an unmatched brand shows nothing rather than the wrong box. */
+function imgFor(model,kind){
+  if(model){
+    if(/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model))return 'img/deye-sg05lp.png';
+    if(PRODUCT_IMG[model])return PRODUCT_IMG[model];
+  }
+  return kind==='Panel'?'img/panel.png':'';
+}
 /* a blank the salesperson fills in on screen before printing */
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
 const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
@@ -282,15 +304,15 @@ function quoteHtml(q,l,c){
       ${row('',QT.s2a
              +'<br>* '+QT.model+' : '+qb(170,mPanel||q.panel_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.panelsize+' : '+(q.panel_watt||'')+'Wp &nbsp; ធានាលើប្រសិទ្ធភាព: '+qb(22)+' ឆ្នាំ',
-             (q.panel_pcs||'')+' '+QT.unitPanel, imgFor(mPanel))}
+             (q.panel_pcs||'')+' '+QT.unitPanel, imgFor(mPanel,'Panel'))}
       ${row('',QT.s2b
              +'<br>* '+QT.model+' : '+qb(170,mInv||q.inverter_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.invsize+' : '+(c.kwac?c.kwac.toFixed(2):'')+' kWac',
-             (q.inverter_pcs||'')+' '+QT.unitPiece, imgFor(mInv))}
+             (q.inverter_pcs||'')+' '+QT.unitPiece, imgFor(mInv,'Inverter'))}
       ${row('',QT.s2c
              +'<br>* '+QT.model+' : '+qb(170,mBatt||q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh',
-             (q.battery_pcs||'')+' '+QT.unitPiece, imgFor(mBatt))}
+             (q.battery_pcs||'')+' '+QT.unitPiece, imgFor(mBatt,'Battery'))}
       ${row('',QT.s2d+'<br>* '+QT.mount1+'<br>* '+QT.mount2+'<br>* '+QT.mount3+'<br>* '+QT.mount4+'<br>* '+QT.mount5,
              qb(60,'1 '+QT.unitSet))}
       ${row('៣','<span class="sec">'+QT.s3+'</span><br>* '+QT.e1+'<br>* '+QT.e2+'<br>* '+QT.e3+' &nbsp; '+QT.warrantyN(7)

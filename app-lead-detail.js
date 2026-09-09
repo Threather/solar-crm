@@ -297,7 +297,7 @@ function dKit(){
   ].filter(([,,brand])=>brand);
   if(!parts.length){box.innerHTML='';return;}
   box.innerHTML=parts.map(([kind,model,brand,pcs])=>{
-    const img=imgFor(model);
+    const img=imgFor(model,kind);
     return `<div class="kit-item">
       <div class="kit-pic">${img?`<img src="${esc(img)}" alt="" onerror="this.remove()">`:''}</div>
       <div class="kit-txt"><b>${esc(model||brand)}</b>

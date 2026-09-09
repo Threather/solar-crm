@@ -503,7 +503,7 @@ function siteSpec(l,always){
         ${facts.map(([k,v])=>`<div><label>${esc(k)}</label><input value="${esc(v)}" disabled></div>`).join('')}
       </div>
       ${parts.length?`<div class="kit">${parts.map(([kind,model,brand,pcs])=>{
-        const img=imgFor(model);
+        const img=imgFor(model,kind);
         return `<div class="kit-item">
           <div class="kit-pic">${img?`<img src="${esc(img)}" alt="" onerror="this.remove()">`:''}</div>
           <div class="kit-txt"><b>${esc(model||brand)}</b>
