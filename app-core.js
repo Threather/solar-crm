@@ -251,7 +251,7 @@ function buildNav(){
   }
   const work=[['home','Today'],['leads','Leads']];
   if(['manager','admin'].includes(ME.role)) work.push(['pool','Unassigned']);
-  if(['marketing','sales','admin'].includes(ME.role)) work.push(['new','New lead']);
+  if(['marketing','sales','manager','admin'].includes(ME.role)) work.push(['new','New lead']);
   const money=[];
   /* the quotation log carries prices, so it follows quotations_select rather
      than being a wider list that happens to look harmless */

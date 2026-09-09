@@ -527,6 +527,10 @@ function stageTable(){
 
 /* ---------------- QUOTATIONS TAB ---------------- */
 async function renderQuots(){
+  /* the log carries price_usd on every row, so it follows quotations_select
+     rather than being a wider list that happens to look harmless */
+  if(!['sales','admin'].includes(ME.role)){
+    $('main').innerHTML=blank('The quotation log is not open to your role','Quotations are on the lead they belong to.');return;}
   $('main').innerHTML=SKEL;
   /* name the foreign key: since leads.chosen_quotation_id was added there are
      two relationships between these tables, and an unqualified embed is

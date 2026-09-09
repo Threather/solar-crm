@@ -3,6 +3,9 @@
    paintLeads draws — kept apart so switching slice is instant and never
    round-trips to Supabase for rows it already holds. */
 async function renderLeads(scope){
+  /* finance work won deals and their money, from their own screen */
+  if(ME.role==='finance'){
+    $('main').innerHTML=blank('Leads are not open to your role','Won deals and their payments are under Finance.');return;}
   LEADSCOPE=scope||LEADSCOPE;
   $('main').innerHTML=SKEL;
   LEADS=await fetchLeads(q=>{
@@ -243,6 +246,8 @@ function drawLostTable(rows){
 
 /* ---------------- POOL ---------------- */
 async function renderPool(){
+  if(!['manager','admin'].includes(ME.role)){
+    $('main').innerHTML=blank('The pool is manager and admin only','Leads with no sale engineer are handed out from here.');return;}
   $('main').innerHTML=SKEL;
   const pool=await fetchLeads(q=>q.is('assigned_to',null));
   const canAssign=['manager','admin'].includes(ME.role);
@@ -272,6 +277,8 @@ async function assignLead(leadId,staffId){
 
 /* ---------------- NEW LEAD ---------------- */
 function renderNew(){
+  if(!['marketing','sales','manager','admin'].includes(ME.role)){
+    $('main').innerHTML=blank('New lead is not open to your role','Ask sales or marketing to create it.');return;}
   $('main').innerHTML=`
     <h2 style="margin-bottom:12px">New lead</h2>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:820px">
