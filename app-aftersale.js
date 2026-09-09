@@ -7,7 +7,7 @@
    its own cause and its own solution. Their earlier cases are shown beside a
    new one, so whoever takes the call can see this is the third time that
    inverter has failed. */
-const AS_CAUSES=['Installation issue','Sale error','Customer issue','Product issue',
+let AS_CAUSES=['Installation issue','Sale error','Customer issue','Product issue',
                  'Internal issue','Technical issue','Learn more'];
 const AS_STATUS=['Pending','Solved'];
 let ASROWS=[], ASFOUND=[], ASPICK=null, ASFILTER={q:'',status:'',cause:''};

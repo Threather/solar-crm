@@ -25,13 +25,18 @@ const CHANNELS = {
      its own channel keeps cost per lead honest */
   'Existing_Customer':  ['Expansion','Repeat purchase']
 };
-const ROOF_TYPES = ['RC Roof/Awning','Zinc Roof','Tile Roof','Ground Mount','Other'];
+/* These eleven lists are edited by admin on the Lists screen and loaded from
+   `vocabularies` at login. What is written here is the fallback: if that
+   fetch fails, dropdowns must still have their values rather than emptying
+   the app. SYSTEM_TYPES stays a constant with the other locked lists below,
+   because `Off-Grid` is what makes a lead EDC-exempt. */
 const SYSTEM_TYPES = ['On-Grid','Hybrid','Off-Grid'];
-const PHASE_TYPES = ['10A x 1P','20A x 1P','32A x 1P','63A x 1P','32A x 3P','40A x 3P','63A x 3P','100A x 3P'];
-const CUSTOMER_TYPES = ['Residential','C & I'];
-const PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other'];
-const INVERTER_BRANDS = ['Deye','Yinergy','Growatt','Huawei','Sungrow','Solis','Other'];
-const BATTERY_BRANDS = ['Deye','ANTI-DARK','Yinergy','BYD','Pylontech','Growatt','Other'];
+let ROOF_TYPES = ['RC Roof/Awning','Zinc Roof','Tile Roof','Ground Mount','Other'];
+let PHASE_TYPES = ['10A x 1P','20A x 1P','32A x 1P','63A x 1P','32A x 3P','40A x 3P','63A x 3P','100A x 3P'];
+let CUSTOMER_TYPES = ['Residential','C & I'];
+let PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other'];
+let INVERTER_BRANDS = ['Deye','Yinergy','Growatt','Huawei','Sungrow','Solis','Other'];
+let BATTERY_BRANDS = ['Deye','ANTI-DARK','Yinergy','BYD','Pylontech','Growatt','Other'];
 
 /* Cambodia geography comes from geo.js (NCDD official gazetteer):
    25 provinces, every district, every commune. */
@@ -56,7 +61,11 @@ const fmtDT=d=>d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short'
 const daysIn=d=>Math.floor((Date.now()-new Date(d).getTime())/86400000);
 const staffName=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'—';
 const opt=(v,cur)=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}</option>`;
-const optList=(arr,cur,blank=true)=>(blank?`<option value="">—</option>`:'')+arr.map(v=>opt(v,cur)).join('');
+/* a value admin has since hidden is still on older leads, so it is put back
+   at the top for that lead rather than the select silently showing something
+   the record does not say */
+const optList=(arr,cur,blank=true)=>(blank?`<option value="">—</option>`:'')
+  +(cur&&!arr.includes(cur)?opt(cur,cur):'')+arr.map(v=>opt(v,cur)).join('');
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
 /* a shape where the content will be, rather than the word "Loading" */
 const SKEL=`<div class="skel"><i></i><i></i><i></i><i></i><i></i></div>`;
@@ -76,14 +85,14 @@ const LOST='closed_lost';
    is a lost lead, where the current stage tells you nothing — there we fall
    back to the database column, which records whether it ever got that far. */
 const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
-const INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
+let INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
-const ACCOUNT_TYPES=['SWN','SWT'];
+let ACCOUNT_TYPES=['SWN','SWT'];
 const BOQ_STATUS=['Pending','Done'];
 /* Why a deal was lost. A dropdown rather than free text, because "Top
    Closed-Lost Reasons" has to be countable — a column of sentences cannot be
    charted. The note beside it carries the detail. */
-const LOST_REASONS=['Price','Competitor','No budget','Postponed','No response','Not qualified','Other'];
+let LOST_REASONS=['Price','Competitor','No budget','Postponed','No response','Not qualified','Other'];
 /* a follow-up lands on the same day of the month; February keeps the last day */
 function addMonths(d,n){
   if(!d)return '';
@@ -113,7 +122,7 @@ const EDC_LARGE=[['edc_portal_date','Submitted','Document submission date via we
                  ['edc_pp_date','Phnom Penh','EDC Phnom Penh inspection date']];
 const kwac=l=>(Number(l.inverter_kw||0)*Number(l.inverter_pcs||0))||Number(l.inverter_kw_total||0);
 /* the EDC office the paperwork actually goes to. Admin picks it per deal. */
-const EDC_BRANCHES=['អគ្គិសនីកម្ពុជា សាខាវត្តភ្នំ','អគ្គិសនីកម្ពុជា សាខាអូបែកក្អម',
+let EDC_BRANCHES=['អគ្គិសនីកម្ពុជា សាខាវត្តភ្នំ','អគ្គិសនីកម្ពុជា សាខាអូបែកក្អម',
   'អគ្គិសនីកម្ពុជា សាខាចាក់អង្រែក្រោម','អគ្គិសនីកម្ពុជា សាខាទួលពង្រ','អគ្គិសនីកម្ពុជា សាខាអូដឹម'];
 /* three states, not two: EDC applies to on-grid and hybrid, off-grid is
    genuinely exempt, and a blank system type means nobody has said yet —
@@ -172,6 +181,7 @@ async function boot(){
     sb.from('profiles').select('id,full_name,staff_id,role,is_active').order('full_name')
   ]);
   STAGES=stg.data||[];STAFF=stf.data||[];
+  await loadVocab();
   $('login-view').style.display='none';$('app-view').style.display='flex';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
   if(ME.role==='site_engineer')LEADSCOPE='won';
@@ -272,6 +282,7 @@ function buildNav(){
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
   if(ME.role==='admin') admin.push(['targets','Targets']);
+  if(ME.role==='admin') admin.push(['lists','Lists']);
   const group=(label,items)=>items.length
     ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
   $('nav').innerHTML=group('Work',work)+group('Money',money)+group('Company',admin);
@@ -286,7 +297,40 @@ function go(v){
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
-    targets:renderTargets,inc:renderIncentive}[v])();
+    targets:renderTargets,inc:renderIncentive,lists:renderLists}[v])();
+}
+
+/* ---------------- editable lists ---------------- */
+/* Which dropdowns admin may edit, and the global each one fills. Only lists
+   nothing branches on are here: system type, BOQ status, contract status,
+   after-sale status and channel read their exact values somewhere in the app
+   and would break quietly if renamed, so they stay in code. */
+const VOCAB_LISTS=[
+  ['panel_brand','Panel brand',()=>PANEL_BRANDS,v=>PANEL_BRANDS=v,'Shown when the sale engineer keys the system in.'],
+  ['inverter_brand','Inverter brand',()=>INVERTER_BRANDS,v=>INVERTER_BRANDS=v,'A brand with no part number in the code still saves; it prints without one.'],
+  ['battery_brand','Battery brand',()=>BATTERY_BRANDS,v=>BATTERY_BRANDS=v,'A brand with no part number in the code still saves; it prints without one.'],
+  ['roof_type','Roof type',()=>ROOF_TYPES,v=>ROOF_TYPES=v,''],
+  ['phase_type','Ampere & phase',()=>PHASE_TYPES,v=>PHASE_TYPES=v,'Each value must contain 1P or 3P. The inverter part number is worked out from it.'],
+  ['customer_type','Customer type',()=>CUSTOMER_TYPES,v=>CUSTOMER_TYPES=v,'The first value is what a new lead starts on.'],
+  ['install_team','Installation team',()=>INSTALL_TEAMS,v=>INSTALL_TEAMS=v,'The operations report groups by whatever this holds.'],
+  ['lost_reason','Closed-lost reason',()=>LOST_REASONS,v=>LOST_REASONS=v,'Offered as a numbered list when a lead is moved to Closed-Lost.'],
+  ['as_cause','After-sale cause',()=>AS_CAUSES,v=>AS_CAUSES=v,''],
+  ['account_type','Type of account',()=>ACCOUNT_TYPES,v=>ACCOUNT_TYPES=v,''],
+  ['edc_branch','EDC branch',()=>EDC_BRANCHES,v=>EDC_BRANCHES=v,'']
+];
+/* Loaded once at login. A value hidden on the Lists screen leaves the
+   dropdowns, but a lead already carrying it still shows it - see optList. */
+async function loadVocab(){
+  const {data,error}=await sb.from('vocabularies')
+    .select('list_key,value,sort_order,is_active').eq('is_active',true).order('sort_order');
+  /* 42P01 is the table not existing yet. Either way the fallbacks above stand,
+     because an empty dropdown is worse than a slightly stale one. */
+  if(error){console.error('lists',error);return;}
+  if(!data||!data.length)return;
+  for(const [key,,,set] of VOCAB_LISTS){
+    const vals=data.filter(r=>r.list_key===key).map(r=>r.value);
+    if(vals.length)set(vals);
+  }
 }
 
 /* ---------------- data ---------------- */
