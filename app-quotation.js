@@ -261,6 +261,11 @@ function quoteHtml(q,l,c){
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
   .bar label{display:flex;align-items:center;gap:5px;font-size:12px;color:#333;cursor:pointer;white-space:nowrap}
   h1{font-size:17px;text-align:center;margin:6px 0 2px}
+  /* the wordmark is far wider than it is tall, so it is sized on height and
+     capped on width; print-color-adjust keeps the orange from being dropped
+     by a printer economising on ink */
+  .logo{display:block;margin:0 auto 3mm;height:12mm;max-width:80mm;object-fit:contain;
+        print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .co{text-align:center;font-size:9px;line-height:1.35;color:#333}
   .co b{font-size:11px}
   table{width:100%;border-collapse:collapse}
@@ -296,6 +301,7 @@ function quoteHtml(q,l,c){
 </div>
 
 <div class="sheet" contenteditable="true">
+  <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
   <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
   <h1>${QT.title}</h1>
 
@@ -367,6 +373,7 @@ function quoteHtml(q,l,c){
 </div>
 
 <div class="sheet" contenteditable="true">
+  <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
   <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
   <h1 style="font-size:14px">${QT.terms}</h1>
   <table class="items">
