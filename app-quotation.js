@@ -13,6 +13,10 @@ const QT={
   valid:'សុពលភាព:', validDays:'៧ ថ្ងៃ',
   size:'ទំហំប្រព័ន្ធសូឡា:', battsize:'ទំហំអាគុយសូឡា:',
   project:'គម្រោង', projectVal:': ការទិញដាច់ (1 ហ្វា)',
+  /* the project reference is the lead's own ref ID, so a customer and the
+     office are talking about the same deal. It falls back to N/A only for a
+     lead that has not qualified yet and so has no ref. The team reference is
+     still N/A - nothing in the app issues one. */
   projectref:'លេខសម្គាល់គម្រោង', teamref:'លេខសម្គាល់ក្រុម', na:': N/A',
   no:'ល.រ', desc:'បរិយាយ', img:'រូបភាព', qty:'ចំនួន', warranty:'ការធានា',
   supply:'ផ្គត់ផ្គង់, រចនា, និង តម្លើងបន្ទះសូឡា',
@@ -316,7 +320,7 @@ function quoteHtml(q,l,c){
         <td class="lab">${QT.size}</td><td>${qb(46,kwpTxt)} kWp</td></tr>
     <tr><td class="lab">${QT.project}</td><td>${qb(150,QT.projectVal)}</td>
         <td class="lab">${QT.battsize}</td><td>${esc(q.battery_kwh||'')} kWh</td></tr>
-    <tr><td class="lab">${QT.projectref}</td><td>${qb(90,QT.na)}</td>
+    <tr><td class="lab">${QT.projectref}</td><td>${qb(90,l.ref_id?': '+l.ref_id:QT.na)}</td>
         <td class="lab">${QT.teamref}</td><td>${qb(90,QT.na)}</td></tr>
   </table>
 
