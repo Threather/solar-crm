@@ -109,7 +109,7 @@ const URAYZERO={10:'LABCT10KW-WIFI'};
 const BRAND_PATTERNS={
   panel:{LONGi:/longi/i},
   inverter:{Deye:/^deye$/i, Yinergy:/^yinergy$/i, Urayzero:/^uray.?zero$/i},
-  battery:{'ANTI-DARK':/anti.?dark|^ad$/i, Yinergy:/^yinergy$/i}
+  battery:{'ANTI-DARK':/anti.?dark|^ad$/i, Yinergy:/^yinergy$/i, Deye:/^deye$/i}
 };
 const isBrand=(kind,name,brand)=>BRAND_PATTERNS[kind][name].test((brand||'').trim());
 function inverterModel(brand,kw,phaseType){
@@ -130,8 +130,12 @@ const SCAE_A=[[5.12,100],[10.24,200],[15.36,300]];
 /* Yinergy's BLW wall battery is named by its capacity, so the part number is
    the kWh itself. Two sizes are stocked. */
 const YINERGY_BLW=[4.8,9.6];
+/* Deye's F-series battery is named by its capacity, the same shape as the
+   Yinergy BLW. One size stocked. */
+const DEYE_BATT={16:'SE-F16'};
 function batteryModel(brand,kwhEach){
   const k=Number(kwhEach||0);
+  if(isBrand('battery','Deye',brand))return DEYE_BATT[k]||'';
   if(isBrand('battery','Yinergy',brand)){
     const y=YINERGY_BLW.find(kwh=>Math.abs(kwh-k)<0.01);
     return y?'BLW '+y:'';
@@ -154,6 +158,7 @@ function panelModel(brand,watt){
    customer's quotation. */
 const PRODUCT_IMG={
   'LABCT10KW-WIFI':'img/urayzero-labct.png',
+  'SE-F16':'img/deye-se-f16.png',
   'HI-1P6K-LV':'img/yinergy-hi-lv.png',
   'HI-1P8K-LV':'img/yinergy-hi-lv.png',
   'BLW 4.8':'img/yinergy-blw.png',
