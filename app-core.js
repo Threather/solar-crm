@@ -35,7 +35,7 @@ let ROOF_TYPES = ['RC Roof/Awning','Zinc Roof','Tile Roof','Ground Mount','Other
 let PHASE_TYPES = ['10A x 1P','20A x 1P','32A x 1P','63A x 1P','32A x 3P','40A x 3P','63A x 3P','100A x 3P'];
 let CUSTOMER_TYPES = ['Residential','C & I'];
 let PANEL_BRANDS = ['Jinko','LONGi','Trina','JA Solar','Canadian Solar','Other'];
-let INVERTER_BRANDS = ['Deye','Yinergy','Growatt','Huawei','Sungrow','Solis','Other'];
+let INVERTER_BRANDS = ['Deye','Yinergy','Urayzero','Growatt','Huawei','Sungrow','Solis','Other'];
 let BATTERY_BRANDS = ['Deye','ANTI-DARK','Yinergy','BYD','Pylontech','Growatt','Other'];
 
 /* Cambodia geography comes from geo.js (NCDD official gazetteer):

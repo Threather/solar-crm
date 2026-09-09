@@ -98,12 +98,27 @@ const DEYE_SG05LP={'1':[7,8,10],'3':[5,6,8,10,12]};
 /* Yinergy's HI-LV hybrids are single-phase only and stocked at 6 and 8 kW.
    A 3P job on this brand is not a part number we can print. */
 const YINERGY_HI_LV=[6,8];
+/* Urayzero stock one model and its part number does not carry the phase, so
+   this is a plain lookup on size and says nothing about 1P or 3P. */
+const URAYZERO={10:'LABCT10KW-WIFI'};
+/* Admin edits the brand lists, so a brand is matched on what it says rather
+   than on one exact string. ANTI-DARK was shortened to AD on the Lists screen
+   on 9 Sep 2026 and every SCAE-A part number and photo went with it. The
+   answer is to read the name loosely, not to stop her editing: add whatever
+   spelling turns up here and the part numbers follow it. */
+const BRAND_PATTERNS={
+  panel:{LONGi:/longi/i},
+  inverter:{Deye:/^deye$/i, Yinergy:/^yinergy$/i, Urayzero:/^uray.?zero$/i},
+  battery:{'ANTI-DARK':/anti.?dark|^ad$/i, Yinergy:/^yinergy$/i}
+};
+const isBrand=(kind,name,brand)=>BRAND_PATTERNS[kind][name].test((brand||'').trim());
 function inverterModel(brand,kw,phaseType){
   const p=/3P/.test(phaseType||'')?'3':/1P/.test(phaseType||'')?'1':'';
   const n=Number(kw||0);
-  if(brand==='Yinergy')
+  if(isBrand('inverter','Urayzero',brand))return URAYZERO[n]||'';
+  if(isBrand('inverter','Yinergy',brand))
     return (p==='1'&&YINERGY_HI_LV.includes(n))?'HI-1P'+n+'K-LV':'';
-  if(brand!=='Deye')return '';
+  if(!isBrand('inverter','Deye',brand))return '';
   if(!p||!n||!DEYE_SG05LP[p].includes(n))return '';
   return 'SUN-'+n+'K-SG05LP'+p+'-EU-SM2';
 }
@@ -117,11 +132,11 @@ const SCAE_A=[[5.12,100],[10.24,200],[15.36,300]];
 const YINERGY_BLW=[4.8,9.6];
 function batteryModel(brand,kwhEach){
   const k=Number(kwhEach||0);
-  if(brand==='Yinergy'){
+  if(isBrand('battery','Yinergy',brand)){
     const y=YINERGY_BLW.find(kwh=>Math.abs(kwh-k)<0.01);
     return y?'BLW '+y:'';
   }
-  if(!/anti.?dark/i.test(brand||''))return '';
+  if(!isBrand('battery','ANTI-DARK',brand))return '';
   const hit=SCAE_A.find(([kwh])=>Math.abs(kwh-k)<0.01);
   return hit?'SCAE-A-51.2-'+hit[1]:'';
 }
@@ -129,7 +144,7 @@ function batteryModel(brand,kwhEach){
    stays a plain lookup on the wattage the app already stores. */
 const LONGI_LR8={625:'LR8-66HGD-625M',645:'LR8-66HYD-645M'};
 function panelModel(brand,watt){
-  if(!/longi/i.test(brand||''))return '';
+  if(!isBrand('panel','LONGi',brand))return '';
   return LONGI_LR8[Number(watt||0)]||'';
 }
 /* One photo per product family. The Deye SG05LP units share a casing and the
@@ -138,6 +153,7 @@ function panelModel(brand,watt){
    there hides its own cell rather than printing a broken image on a
    customer's quotation. */
 const PRODUCT_IMG={
+  'LABCT10KW-WIFI':'img/urayzero-labct.png',
   'HI-1P6K-LV':'img/yinergy-hi-lv.png',
   'HI-1P8K-LV':'img/yinergy-hi-lv.png',
   'BLW 4.8':'img/yinergy-blw.png',
