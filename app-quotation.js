@@ -268,7 +268,10 @@ function quoteHtml(q,l,c){
   /* the wordmark is far wider than it is tall, so it is sized on height and
      capped on width; print-color-adjust keeps the orange from being dropped
      by a printer economising on ink */
-  .logo{display:block;margin:0 auto 3mm;height:12mm;max-width:80mm;object-fit:contain;
+  /* the logo sits at the left margin and the company block stays centred on
+     the page, so taking the logo out does not shift the address */
+  .hdr{position:relative;min-height:13mm;margin-bottom:2mm}
+  .logo{position:absolute;left:0;top:0;height:11mm;max-width:55mm;object-fit:contain;
         print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .co{text-align:center;font-size:9px;line-height:1.35;color:#333}
   .co b{font-size:11px}
@@ -285,6 +288,12 @@ function quoteHtml(q,l,c){
   .sec{font-weight:bold}
   .fill{display:inline-block;border-bottom:1px dotted #666;min-height:12px;padding:0 3px;
         background:#fffbe8;outline:none}
+  /* the VAT tick lives beside the totals it changes, not up in the toolbar.
+     Unticked, the VAT and grand total lines come off and the sale engineer is
+     left with the price to edit - a discount or a promotion goes in by hand.
+     It is a control, not part of the sheet, so it never prints. */
+  .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555}
+  .vatbox label{cursor:pointer}
   .money{margin-top:6px;margin-left:auto;width:auto}
   .money td{padding:2px 6px;font-size:11px}
   .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
@@ -295,18 +304,19 @@ function quoteHtml(q,l,c){
   .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
   .sign > div{flex:1}
   .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
-  @media print{.bar{display:none}.fill{background:none;border-bottom:1px dotted #666}
+  @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:1px dotted #666}
     .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
 </style></head><body>
 <div class="bar">
   <button onclick="window.print()">Print / Save as PDF</button>
-  <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
   <span style="font-size:11px;color:#555;align-self:center">Every line can be edited. Yellow marks what changes on each quotation.</span>
 </div>
 
 <div class="sheet" contenteditable="true">
-  <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
-  <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  <div class="hdr">
+    <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
+    <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  </div>
   <h1>${QT.title}</h1>
 
   <table class="meta">
@@ -358,8 +368,11 @@ function quoteHtml(q,l,c){
     <tr id="r-vat"><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td>${QT.grand}</td><td class="v" id="o-grand"></td></tr>
   </table>
+  <div class="vatbox" contenteditable="false">
+    <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
+  </div>
 
-  <div style="margin-top:8px">${QT.eff} ${qb(60)}</div>
+  <div style="margin-top:8px;font-weight:bold">${QT.eff}</div>
   <table class="sav" style="width:auto">
     <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
@@ -377,8 +390,10 @@ function quoteHtml(q,l,c){
 </div>
 
 <div class="sheet" contenteditable="true">
-  <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
-  <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  <div class="hdr">
+    <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
+    <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  </div>
   <h1 style="font-size:14px">${QT.terms}</h1>
   <table class="items">
     <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.warranty}</th></tr></thead>
