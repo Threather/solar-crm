@@ -37,6 +37,9 @@ function finTotal(){
 const finFollowDue=r=>!!r.fin?.follow_up_date&&r.fin.follow_up_date<=localDay(new Date())&&finDue(r)-finPaid(r)>0;
 
 async function renderFinance(){
+  /* not on anyone else's nav, so not reachable by typing the route either */
+  if(!canFinance()){
+    $('main').innerHTML=blank('Finance is not open to your role','Ask an admin if you need a contract or a payment recorded.');return;}
   $('main').innerHTML=SKEL;
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const ids=leads.map(l=>l.id);

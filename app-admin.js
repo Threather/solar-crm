@@ -1,5 +1,7 @@
 /* ---------------- USERS (admin) ---------------- */
 async function renderUsers(){
+  if(ME.role!=='admin'){
+    $('main').innerHTML=blank('Users are admin only','Ask an admin to add or change an account.');return;}
   const {data:users}=await sb.from('profiles').select('*').order('created_at');
   $('main').innerHTML=`
     <h2 style="margin-bottom:10px">Users</h2>

@@ -266,7 +266,9 @@ function buildNav(){
   if(ME.role==='admin') admin.push(['edc','EDC']);
   /* every team with a dashboard of its own reaches it here; the scope switch
      inside decides which one they actually see */
-  if(['admin','manager','sales','site_engineer'].includes(ME.role)) admin.push(['aftersale','After-sale']);
+  /* the manager runs sales and marketing; after-sale is the installation
+     team's record and is not theirs (27 Aug 2026) */
+  if(['admin','sales','site_engineer'].includes(ME.role)) admin.push(['aftersale','After-sale']);
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
   if(ME.role==='admin') admin.push(['targets','Targets']);

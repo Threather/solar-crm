@@ -3,6 +3,9 @@
    its outstanding dates, edited in place. The two size bands need different
    columns, so they get a table each. */
 async function renderEdc(){
+  /* admin only, and typing the route must not get round that */
+  if(ME.role!=='admin'){
+    $('main').innerHTML=blank('EDC is admin only','Ask an admin about the grid paperwork.');return;}
   $('main').innerHTML=SKEL;
   const rows=await fetchLeads(q=>q.eq('stage_code',WON));
   const applicable=rows.filter(edcApplies);
