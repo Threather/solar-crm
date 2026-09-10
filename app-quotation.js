@@ -344,9 +344,9 @@ function quoteHtml(q,l,c){
   /* the figure the customer actually pays, highlighted the way their own sheet
      highlights it - grand total with VAT, the negotiated total without. The
      colour has to survive a printer economising on ink, so it is forced. */
-  /* the payment terms are red on their sheet, and the price column carries a
-     heading above it */
-  .pay{color:#c00000;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  /* the price column carries a heading above it. The payment terms are black:
+     their sheet has them red, Kevin wants them black. */
+  .pay{color:#111}
   .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #999;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
