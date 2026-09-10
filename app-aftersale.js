@@ -13,7 +13,7 @@ const AS_STATUS=['Pending','Solved'];
 let ASROWS=[], ASFOUND=[], ASPICK=null, ASFILTER={q:'',status:'',cause:''};
 
 async function renderAfterSale(){
-  if(!['admin','sales','site_engineer'].includes(ME.role)){
+  if(!['admin','sales','site_engineer','manager'].includes(ME.role)){
     $('main').innerHTML=blank('After-sale is not open to your role','Ask an admin if you need a case raised.');return;}
   $('main').innerHTML=SKEL;
   /* leads and after_sales have one foreign key between them, but naming it

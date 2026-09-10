@@ -22,9 +22,14 @@ async function openLead(id){
   /* marketing owns their own leads, plus anything still in an early stage */
   const isMkt=ME.role==='marketing'&&(l.created_by===ME.id||EARLY_STAGES.includes(l.stage_code));
   const isSiteEng=ME.role==='site_engineer'&&l.site_engineer_id===ME.id;
-  const canAssign=isAdmin||ME.role==='manager';
+  /* The sales and marketing manager does everything their two teams do
+     (10 Sep 2026). They already saw every lead and every sale value; now they
+     can key in a system, quote, and own customer identity as well. Kevin's
+     call - a manager who cannot do their people's job cannot cover for them. */
+  const isMgr=ME.role==='manager';
+  const canAssign=isAdmin||isMgr;
   /* sales and engineering are one role now, so the owner does the key-in too */
-  const canEng=isAdmin||isSales;
+  const canEng=isAdmin||isSales||isMgr;
   /* Each role gets its own part of the lead and nothing else. The
      specification box belongs to whoever builds and prices a system, so
      marketing, finance and the site engineer do not see it — the site
@@ -35,20 +40,24 @@ async function openLead(id){
      to them. Finance read the delivery confirmation on their own screen. */
   const seeInstall=['sales','manager','admin','site_engineer'].includes(ME.role);
   /* stage, follow-up and remarks are the day-to-day, open to whoever works the lead */
-  const canSales=isAdmin||ME.role==='manager'||isSales||isMkt;
+  const canSales=isAdmin||isMgr||isSales||isMkt;
   /* customer identity is marketing's to keep. Sales get one pass at it, then it
      locks; admin can reopen it. */
-  const canCustomer=isAdmin||isMkt||(isSales&&!l.customer_locked);
+  const canCustomer=isAdmin||isMkt||isMgr||(isSales&&!l.customer_locked);
   /* Marketing capture a phone number once. After that only admin can change
      it: a number quietly corrected is a lead that silently becomes a
      different customer, and the round-robin has already assigned it. */
-  const canPhone=isAdmin||(isMkt&&!l.phone)||(isSales&&!l.customer_locked);
+  /* the manager gets both teams' rules on the phone, not a wider one: they may
+     capture a number that is not there, or correct one while the customer box
+     is still open, exactly as marketing and sales may. */
+  const canPhone=isAdmin||(isMkt&&!l.phone)||(isSales&&!l.customer_locked)
+    ||(isMgr&&(!l.phone||!l.customer_locked));
   const phoneLocked=isMkt&&!!l.phone;
   const custLocked=isSales&&l.customer_locked;
   /* matches quotations_insert: the salesperson on the lead, or admin */
-  const canQuote=isAdmin||isSales;
+  const canQuote=isAdmin||isSales||isMgr;
   const canSite=isAdmin||isSiteEng;
-  const canMoney=isAdmin||ME.role==='manager'||isSales;
+  const canMoney=isAdmin||isMgr||isSales;
   const contacted=(acts||[]).filter(a=>['call','note','stage_change'].includes(a.activity_type)).length;
   /* what sales asks first: how old, how stale, what was quoted, what was said */
   LEADQUOTS=quots||[];

@@ -281,7 +281,7 @@ function buildNav(){
   const money=[];
   /* the quotation log carries prices, so it follows quotations_select rather
      than being a wider list that happens to look harmless */
-  if(['sales','admin'].includes(ME.role)) money.push(['quots','Quotations']);
+  if(['sales','manager','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
   /* Commissions came out on 27 Aug 2026. Sales are not paid on the value of a
      deal, they are paid by the incentive scheme, so a screen of per-deal
@@ -294,7 +294,7 @@ function buildNav(){
      inside decides which one they actually see */
   /* the manager runs sales and marketing; after-sale is the installation
      team's record and is not theirs (27 Aug 2026) */
-  if(['admin','sales','site_engineer'].includes(ME.role)) admin.push(['aftersale','After-sale']);
+  if(['admin','sales','site_engineer','manager'].includes(ME.role)) admin.push(['aftersale','After-sale']);
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
   if(ME.role==='admin') admin.push(['targets','Targets']);
