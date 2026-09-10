@@ -351,7 +351,10 @@ function quoteHtml(q,l,c){
   .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
   .sign > div{flex:1}
   .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
-  @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:1px dotted #666}
+  /* an empty cell prints as nothing. It used to print a dotted rule, which
+     read as a row of full stops on a customer's sheet rather than as a blank
+     waiting to be filled in. */
+  @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:none}
     .box{background:none;border:1px solid #666}
     .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
 </style></head><body>
