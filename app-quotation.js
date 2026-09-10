@@ -329,6 +329,10 @@ function quoteHtml(q,l,c){
   /* the figure the customer actually pays, highlighted the way their own sheet
      highlights it - grand total with VAT, the negotiated total without. The
      colour has to survive a printer economising on ink, so it is forced. */
+  /* the payment terms are red on their sheet, and the price column carries a
+     heading above it */
+  .pay{color:#c00000;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #999;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
@@ -346,8 +350,16 @@ function quoteHtml(q,l,c){
      and stacking them cost 25mm of a page that has none to spare */
   .lower{display:flex;gap:5mm;align-items:flex-start;margin-top:5px}
   .lower-l{flex:0 0 auto}
-  .fn{flex:1;font-size:8.5px;color:#333;line-height:1.3;
-      border:1px solid #999;border-radius:2px;padding:3px 6px}
+  /* their own sheet's colours: the two headings in red, the body of both
+     blocks in navy. Forced to print - a quotation that loses its colour on
+     paper is not the document they recognise. */
+  .lower-h{font-weight:bold;color:#c00000;
+           print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .sav td{color:#1f3864}
+  .fn{flex:1;font-size:8.5px;color:#1f3864;line-height:1.3;
+      border:1px solid #333;border-radius:2px;padding:3px 6px;
+      print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .fn b{color:#c00000}
   .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
   .sign > div{flex:1}
   .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
@@ -415,11 +427,12 @@ function quoteHtml(q,l,c){
                 part number is derived for it: it is a bundle, not a product.
                 A missing file drops its own cell. */
              'img/electrical.jpg')}
-      ${row('',QT.pay1+'<br>'+QT.pay2+'<br>'+QT.pay3,'')}
+      ${row('','<span class="pay">'+QT.pay1+'<br>'+QT.pay2+'<br>'+QT.pay3+'</span>','')}
     </tbody>
   </table>
 
   <table class="money">
+    <tr><td></td><td class="v hd">${QT.sysprice}</td></tr>
     <tr><td>${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td>${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
@@ -440,7 +453,7 @@ function quoteHtml(q,l,c){
 
   <div class="lower">
    <div class="lower-l">
-    <div style="font-weight:bold">${QT.eff}</div>
+    <div class="lower-h">${QT.eff}</div>
     <table class="sav" style="width:auto">
     <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
