@@ -332,7 +332,13 @@ function quoteHtml(q,l,c){
   .sav td{padding:1px 4px;font-size:10px}
   .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px}
   .rate{font-size:9px;color:#555}
-  .fn{font-size:8.5px;color:#333;margin-top:4px;line-height:1.3}
+  /* the savings figures and the notes sit side by side at the foot of page
+     one, the notes boxed on the right - the client's own sheet reads that way,
+     and stacking them cost 25mm of a page that has none to spare */
+  .lower{display:flex;gap:5mm;align-items:flex-start;margin-top:5px}
+  .lower-l{flex:0 0 auto}
+  .fn{flex:1;font-size:8.5px;color:#333;line-height:1.3;
+      border:1px solid #999;border-radius:2px;padding:3px 6px}
   .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
   .sign > div{flex:1}
   .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
@@ -415,8 +421,10 @@ function quoteHtml(q,l,c){
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
   </div>
 
-  <div style="margin-top:4px;font-weight:bold">${QT.eff}</div>
-  <table class="sav" style="width:auto">
+  <div class="lower">
+   <div class="lower-l">
+    <div style="font-weight:bold">${QT.eff}</div>
+    <table class="sav" style="width:auto">
     <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td>${QT.perYear}</td></tr>
@@ -426,9 +434,10 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td>${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td>${QT.usdMonth}</td></tr>
     <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td>${QT.years}</td></tr>
-  </table>
-
-  <div class="fn">${QT.note}<br>${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
+    </table>
+   </div>
+   <div class="fn"><b>${QT.note}</b><br>${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
+  </div>
   <div class="pg">${QT.page} 1/2</div>
 </div>
 
