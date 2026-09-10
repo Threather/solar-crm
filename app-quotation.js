@@ -234,7 +234,11 @@ function quoteHtml(q,l,c){
   const mBatt=batteryModel(q.battery_brand,q.battery_kwh_each||q.battery_kwh);
   const recalc=`<scr`+`ipt>
     function recalc(){
-      const g=id=>parseFloat((document.getElementById(id).innerText||'').replace(/[^0-9.]/g,''))||0;
+      /* a row can be absent from the sheet entirely - EDC compensation is not
+         printed below 10 kWac - so a missing box reads as nothing, not a crash */
+      const g=id=>{const e=document.getElementById(id);
+        return e?(parseFloat((e.innerText||'').replace(/[^0-9.]/g,''))||0):0;};
+      const put=(id,v)=>{const e=document.getElementById(id);if(e)e.innerText=v;};
       const f=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
       const price=${c.price||0};
       const vat=price*0.10;
@@ -249,7 +253,7 @@ function quoteHtml(q,l,c){
       /* EDC compensation is the band rate on everything produced in the year,
          so it follows the annual figure instead of being typed again */
       const exp=g('f-annual')*g('f-edcrate');
-      document.getElementById('o-export').innerText=f(exp);
+      put('o-export',f(exp));
       const year=val-exp, mon=year/12;
       document.getElementById('o-prod').innerText=f(val);
       document.getElementById('o-year').innerText=f(year);
@@ -434,8 +438,8 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td>${QT.perYear}</td></tr>
     <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td>${QT.usdYear}</td></tr>
-    <tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
-        <td class="v" id="o-export"></td><td>${QT.usdYear}</td></tr>
+    ${(Number(c.kwac)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
+        <td class="v" id="o-export"></td><td>${QT.usdYear}</td></tr>`:''}
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td>${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td>${QT.usdMonth}</td></tr>
     <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td>${QT.years}</td></tr>
