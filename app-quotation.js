@@ -330,7 +330,11 @@ function quoteHtml(q,l,c){
      It is a control, not part of the sheet, so it never prints. */
   .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555}
   .vatbox label{cursor:pointer}
-  .money{margin-top:6px;margin-left:auto;width:auto}
+  .money{margin-top:6px;width:100%;border:1px solid #999;border-collapse:collapse}
+  .money td{border:1px solid #999}
+  .money td.lbl2{border-bottom:none}
+  .money td.tot{text-align:right;font-weight:bold}
+  .money .v{width:30%}
   .money td{padding:1px 6px;font-size:11px}
   /* the figure the customer actually pays, highlighted the way their own sheet
      highlights it - grand total with VAT, the negotiated total without. The
@@ -433,15 +437,21 @@ function quoteHtml(q,l,c){
                 part number is derived for it: it is a bundle, not a product.
                 A missing file drops its own cell. */
              'img/electrical.jpg')}
-      ${row('','<span class="pay">'+QT.pay1+'<br>'+QT.pay2+'<br>'+QT.pay3+'</span>','')}
     </tbody>
   </table>
 
+  <!-- The payment terms and the price sit in one full-width band under the
+       items table, the way their own sheet has it: terms on the left, the
+       price in a column of its own on the right under its heading, and the
+       payable total last. It used to be a row inside the items table with a
+       small money box floated to the right of it. -->
   <table class="money">
-    <tr><td></td><td class="v hd">${QT.sysprice}</td></tr>
-    <tr><td>${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
-    <tr id="r-vat"><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
-    <tr id="r-grand"><td>${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
+    <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
+    <tr><td class="pay">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
+        <td class="v">$${qnum(c.price)}</td></tr>
+    <tr><td class="tot">${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
+    <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
+    <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
     <!-- Off VAT, the price is negotiated instead: two lines to name a
          discount and take it off. Both the label and the amount are typed,
          because "etc." is the point - it is not always a discount. They are
@@ -451,7 +461,7 @@ function quoteHtml(q,l,c){
         <td class="v"><span class="box num" id="f-d1" contenteditable="true"></span></td></tr>
     <tr id="r-d2"><td><span class="box lbl" contenteditable="true"></span></td>
         <td class="v"><span class="box num" id="f-d2" contenteditable="true"></span></td></tr>
-    <tr id="r-net"><td>${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
+    <tr id="r-net"><td class="tot">${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
   </table>
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
