@@ -273,31 +273,31 @@ function quoteHtml(q,l,c){
 <style>
   @page{size:A4;margin:12mm 10mm}
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
-       font-size:10px;color:#111;margin:0;line-height:1.35}
-  .sheet{width:190mm;margin:0 auto;padding:0 0 8mm}
+       font-size:10px;color:#111;margin:0;line-height:1.25}
+  .sheet{width:190mm;margin:0 auto;padding:0 0 2mm}
   .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
   .bar label{display:flex;align-items:center;gap:5px;font-size:12px;color:#333;cursor:pointer;white-space:nowrap}
-  h1{font-size:17px;text-align:center;margin:6px 0 2px}
+  h1{font-size:17px;text-align:center;margin:3px 0 1px}
   /* the wordmark is far wider than it is tall, so it is sized on height and
      capped on width; print-color-adjust keeps the orange from being dropped
      by a printer economising on ink */
   /* the logo sits at the left margin and the company block stays centred on
      the page, so taking the logo out does not shift the address */
-  .hdr{position:relative;min-height:13mm;margin-bottom:2mm}
-  .logo{position:absolute;left:0;top:0;height:11mm;max-width:55mm;object-fit:contain;
+  .hdr{position:relative;min-height:10mm;margin-bottom:1mm}
+  .logo{position:absolute;left:0;top:0;height:9mm;max-width:48mm;object-fit:contain;
         print-color-adjust:exact;-webkit-print-color-adjust:exact}
-  .co{text-align:center;font-size:9px;line-height:1.35;color:#333}
+  .co{text-align:center;font-size:9px;line-height:1.25;color:#333}
   .co b{font-size:11px}
   table{width:100%;border-collapse:collapse}
-  .meta td{padding:2px 4px;font-size:10px;vertical-align:top}
+  .meta td{padding:1px 4px;font-size:10px;vertical-align:top}
   .meta .lab{color:#333;white-space:nowrap}
-  .items{margin-top:8px;border:1px solid #999}
-  .items th{background:#eee;border:1px solid #999;padding:4px;font-size:10px}
+  .items{margin-top:4px;border:1px solid #999}
+  .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
   .items td{border:1px solid #999;padding:2px 5px;vertical-align:top}
   .items td.n{width:24px;text-align:center}
-  .items td.im{width:64px;text-align:center;vertical-align:middle}
-  .items td.im img{max-width:56px;max-height:60px;display:inline-block}
+  .items td.im{width:50px;text-align:center;vertical-align:middle}
+  .items td.im img{max-width:40px;max-height:34px;display:inline-block}
   .items td.q{width:80px;text-align:center}
   .sec{font-weight:bold}
   .fill{display:inline-block;border-bottom:1px dotted #666;min-height:12px;padding:0 3px;
@@ -309,12 +309,12 @@ function quoteHtml(q,l,c){
   .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555}
   .vatbox label{cursor:pointer}
   .money{margin-top:6px;margin-left:auto;width:auto}
-  .money td{padding:2px 6px;font-size:11px}
+  .money td{padding:1px 6px;font-size:11px}
   .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
-  .sav td{padding:2px 4px;font-size:10px}
+  .sav td{padding:1px 4px;font-size:10px}
   .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px}
   .rate{font-size:9px;color:#555}
-  .fn{font-size:8.5px;color:#333;margin-top:8px;line-height:1.45}
+  .fn{font-size:8.5px;color:#333;margin-top:4px;line-height:1.3}
   .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
   .sign > div{flex:1}
   .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
@@ -386,15 +386,7 @@ function quoteHtml(q,l,c){
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
   </div>
 
-  <div class="pg">${QT.page} 1/2</div>
-</div>
-
-<div class="sheet" contenteditable="true">
-  <div class="hdr">
-    <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
-    <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
-  </div>
-  <div style="margin-top:8px;font-weight:bold">${QT.eff}</div>
+  <div style="margin-top:4px;font-weight:bold">${QT.eff}</div>
   <table class="sav" style="width:auto">
     <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
@@ -408,6 +400,14 @@ function quoteHtml(q,l,c){
   </table>
 
   <div class="fn">${QT.note}<br>${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
+  <div class="pg">${QT.page} 1/2</div>
+</div>
+
+<div class="sheet" contenteditable="true">
+  <div class="hdr">
+    <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
+    <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  </div>
   <h1 style="font-size:14px">${QT.terms}</h1>
   <table class="items">
     <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.warranty}</th></tr></thead>
