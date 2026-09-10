@@ -9,8 +9,8 @@
 let TGMONTH='';
 
 async function renderTargets(){
-  if(ME.role!=='admin'){
-    $('main').innerHTML=blank('Targets are admin only','Ask an admin to set them.');return;}
+  if(!['admin','manager'].includes(ME.role)){
+    $('main').innerHTML=blank('Targets are not open to your role','Ask an admin or the sales manager to set them.');return;}
   $('main').innerHTML=SKEL;
   if(!TGMONTH)TGMONTH=monthStart();
   const tg=await loadTargets(TGMONTH);

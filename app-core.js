@@ -297,7 +297,9 @@ function buildNav(){
   if(['admin','sales','site_engineer','manager'].includes(ME.role)) admin.push(['aftersale','After-sale']);
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
-  if(ME.role==='admin') admin.push(['targets','Targets']);
+  /* the manager sets the targets their two teams are measured against
+     (10 Sep 2026, Kevin's call) */
+  if(['admin','manager'].includes(ME.role)) admin.push(['targets','Targets']);
   if(ME.role==='admin') admin.push(['lists','Lists']);
   const group=(label,items)=>items.length
     ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
