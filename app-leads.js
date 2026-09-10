@@ -170,14 +170,16 @@ function drawTable(){
       ${showRemarks()?`<td class="rem">${remarkStack(l)}</td>`:''}</tr>`;
   }).join('')+`</tbody></table>`;
 }
-/* the six things marketing needs: who, what kind, how to reach them, whose it
-   is, where it came from and where it is */
+/* the seven things marketing needs: when it came in, who, what kind, how to
+   reach them, whose it is, where it came from and where it is. The date leads
+   because that is how they work the list - today's calls first. */
 function drawMktTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Customer</th><th>Phone</th><th>Sale engineer</th><th>Channel</th><th>Address</th><th>Follow-up</th>
+    <th>Date</th><th>Customer</th><th>Phone</th><th>Sale engineer</th><th>Channel</th><th>Address</th><th>Follow-up</th>
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
+      <td class="nowrap">${fmtDate(l.created_at)}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
@@ -390,8 +392,8 @@ function geoDist(){
 }
 async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
-  if(!name){toast('Customer name is required');return;}
-  if(!$('f-sub').value){toast('Pick a sub-channel');return;}
+  if(!name){needField('f-name','Customer name is required');return;}
+  if(!$('f-sub').value){needField('f-sub','Pick a sub-channel before creating the lead');return;}
   /* the same number turning up twice is usually a customer who called back,
      not a mistake — so this says so and lets it through. It only sees leads
      the person is allowed to see, so a silent no would be worse than this. */

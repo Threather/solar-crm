@@ -67,6 +67,22 @@ const opt=(v,cur)=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}
 const optList=(arr,cur,blank=true)=>(blank?`<option value="">—</option>`:'')
   +(cur&&!arr.includes(cur)?opt(cur,cur):'')+arr.map(v=>opt(v,cur)).join('');
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
+/* A toast on its own gets missed: it sits in the corner for under three
+   seconds while the eye is on the button just pressed, so a refused save
+   reads as a button that does nothing. Marketing reported exactly that on
+   10 Sep 2026 and the cause was a blank sub-channel. The field that stopped
+   the save now says so itself - scrolled to, focused and outlined until it is
+   filled in. Amber, not red: a field waiting to be filled is not a danger. */
+function needField(id,msg){
+  toast(msg);
+  const e=$(id); if(!e)return;
+  e.classList.add('needs');
+  e.scrollIntoView({block:'center',behavior:'smooth'});
+  try{e.focus({preventScroll:true});}catch(_){e.focus();}
+  const clear=()=>{e.classList.remove('needs');
+    e.removeEventListener('input',clear);e.removeEventListener('change',clear);};
+  e.addEventListener('input',clear);e.addEventListener('change',clear);
+}
 /* a shape where the content will be, rather than the word "Loading" */
 const SKEL=`<div class="skel"><i></i><i></i><i></i><i></i><i></i></div>`;
 /* an empty list should say what would put something in it */

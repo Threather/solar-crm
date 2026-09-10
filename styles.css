@@ -585,3 +585,7 @@ td.numcell b{font-weight:600}
   .who{display:none}
   main{padding:var(--s-4) var(--s-3) 60px}
 }
+
+/* the field that refused a save, marked until it is filled in. Amber rather
+   than red, because red is danger and a required field is not. */
+.needs{outline:2px solid var(--warn);outline-offset:1px;background:#fdf8ec}
