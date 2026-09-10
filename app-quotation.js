@@ -332,7 +332,9 @@ function quoteHtml(q,l,c){
   .vatbox label{cursor:pointer}
   .money{margin-top:6px;width:100%;border:1px solid #999;border-collapse:collapse}
   .money td{border:1px solid #999}
-  .money td.lbl2{border-bottom:none}
+  /* the heading is its own row, ruled off like theirs - dropping the bottom
+     border made it read as one tall merged cell with the terms below it */
+  .money td.hd,.money td.lbl2{padding:3px 6px}
   .money td.tot{text-align:right;font-weight:bold}
   .money .v{width:30%}
   .money td{padding:1px 6px;font-size:11px}
@@ -447,7 +449,7 @@ function quoteHtml(q,l,c){
        small money box floated to the right of it. -->
   <table class="money">
     <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
-    <tr><td class="pay">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
+    <tr><td class="pay" style="padding:5px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
         <td class="v">$${qnum(c.price)}</td></tr>
     <tr><td class="tot">${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
