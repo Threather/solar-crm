@@ -26,7 +26,7 @@ function exportLeads(){
      screen, so the two read the same way round */
   if(ME.role==='marketing'){
     downloadCSV('leads',['Date','Customer','Customer type','Phone','Sale engineer','Channel','Sub-channel','Address','Marketing follow-up'],
-      filteredLeads().map(l=>[localDay(l.created_at),l.customer_name,l.customer_type,l.phone,staffName(l.assigned_to),
+      filteredLeads().map(l=>[l.lead_date||localDay(l.created_at),l.customer_name,l.customer_type,l.phone,staffName(l.assigned_to),
         l.lead_channel||l.lead_source,l.lead_sub_channel,l.site_address,l.mkt_follow_up_date]));
     return;
   }

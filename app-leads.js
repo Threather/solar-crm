@@ -174,12 +174,19 @@ function drawTable(){
    reach them, whose it is, where it came from and where it is. The date leads
    because that is how they work the list - today's calls first. */
 function drawMktTable(rows){
+  /* the list is fetched newest-created first, but the column on screen is the
+     date the lead came in, which the person can backdate. Sorting by anything
+     other than the date being shown reads as a jumbled list, so it is sorted
+     on that, with created_at breaking ties. */
+  rows=rows.slice().sort((a,b)=>
+    ((b.lead_date||localDay(b.created_at))+b.created_at)
+      .localeCompare((a.lead_date||localDay(a.created_at))+a.created_at));
   $('tablewrap').innerHTML=`<table><thead><tr>
     <th>Date</th><th>Customer</th><th>Phone</th><th>Sale engineer</th><th>Channel</th><th>Address</th><th>Follow-up</th>
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
-      <td class="nowrap">${fmtDate(l.created_at)}</td>
+      <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
@@ -294,6 +301,7 @@ function renderNew(){
         <div id="f-found"></div>
       </div>`:''}
       <div class="grid2">
+        <div><label>Date *</label><input id="f-date" type="date" value="${localDay(new Date())}"></div>
         <div><label>Customer name *</label><input id="f-name"></div>
         <div><label>Phone</label><input id="f-phone" placeholder="Can be added later"></div>
         <div><label>Customer type *</label><select id="f-ctype">${optList(CUSTOMER_TYPES,'Residential',false)}</select></div>
@@ -409,6 +417,10 @@ async function createLead(){
   }
   const row={
     customer_name:name,phone:phone||null,
+    /* the day the lead actually came in, which is not always the day it was
+       keyed in - the same split as note_date on a remark. created_at stays
+       as the audit trail. */
+    lead_date:$('f-date').value||localDay(new Date()),
     customer_type:$('f-ctype').value,
     monthly_bill_usd:$('f-bill').value||null,
     lead_channel:$('f-chan').value,
