@@ -326,6 +326,11 @@ function quoteHtml(q,l,c){
   .vatbox label{cursor:pointer}
   .money{margin-top:6px;margin-left:auto;width:auto}
   .money td{padding:1px 6px;font-size:11px}
+  /* the figure the customer actually pays, highlighted the way their own sheet
+     highlights it - grand total with VAT, the negotiated total without. The
+     colour has to survive a printer economising on ink, so it is forced. */
+  .money td.paid{background:#ffe94d;font-size:13px;
+                 print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
   /* a typed figure that changes the total is boxed, and stays boxed in print -
      the dotted .fill underline is for blanks nobody adds up */
@@ -414,7 +419,7 @@ function quoteHtml(q,l,c){
   <table class="money">
     <tr><td>${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
-    <tr id="r-grand"><td>${QT.grand}</td><td class="v" id="o-grand"></td></tr>
+    <tr id="r-grand"><td>${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
     <!-- Off VAT, the price is negotiated instead: two lines to name a
          discount and take it off. Both the label and the amount are typed,
          because "etc." is the point - it is not always a discount. They are
@@ -424,7 +429,7 @@ function quoteHtml(q,l,c){
         <td class="v"><span class="box num" id="f-d1" contenteditable="true"></span></td></tr>
     <tr id="r-d2"><td><span class="box lbl" contenteditable="true"></span></td>
         <td class="v"><span class="box num" id="f-d2" contenteditable="true"></span></td></tr>
-    <tr id="r-net"><td>${QT.netTotal}</td><td class="v" id="o-net"></td></tr>
+    <tr id="r-net"><td>${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
   </table>
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
