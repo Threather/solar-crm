@@ -291,13 +291,13 @@ function dKit(){
   const box=$('d-kit'); if(!box)return;
   const g=id=>{const e=$(id);return e?e.value:'';};
   const parts=[
-    ['Panel',  panelModel(g('d-pbrand'),g('d-pwatt')),   g('d-pbrand'), g('d-pcs')],
-    ['Inverter',inverterModel(g('d-ibrand'),g('d-inv'),g('d-phase')), g('d-ibrand'), g('d-ipcs')],
-    ['Battery', batteryModel(g('d-bbrand'),g('d-beach')), g('d-bbrand'), g('d-bpcs')]
+    ['Panel',  panelModel(g('d-pbrand'),g('d-pwatt')),   g('d-pbrand'), g('d-pcs'), g('d-pwatt')],
+    ['Inverter',inverterModel(g('d-ibrand'),g('d-inv'),g('d-phase')), g('d-ibrand'), g('d-ipcs'), g('d-inv')],
+    ['Battery', batteryModel(g('d-bbrand'),g('d-beach')), g('d-bbrand'), g('d-bpcs'), g('d-beach')]
   ].filter(([,,brand])=>brand);
   if(!parts.length){box.innerHTML='';return;}
-  box.innerHTML=parts.map(([kind,model,brand,pcs])=>{
-    const img=imgFor(model,kind);
+  box.innerHTML=parts.map(([kind,model,brand,pcs,size])=>{
+    const img=imgFor(model,kind,brand,size);
     return `<div class="kit-item">
       <div class="kit-pic">${img?`<img src="${esc(img)}" alt="" onerror="this.remove()">`:''}</div>
       <div class="kit-txt"><b>${esc(model||brand)}</b>

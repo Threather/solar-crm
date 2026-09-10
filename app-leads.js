@@ -481,9 +481,9 @@ async function createLead(){
 function siteSpec(l,always){
   if(!always&&['sales','manager','admin'].includes(ME.role))return '';
   const parts=[
-    ['Panel',   panelModel(l.panel_brand,l.panel_watt),                l.panel_brand,    l.panel_pcs],
-    ['Inverter',inverterModel(l.inverter_brand,l.inverter_kw,l.phase_type), l.inverter_brand, l.inverter_pcs],
-    ['Battery', batteryModel(l.battery_brand,l.battery_kwh_each),      l.battery_brand,  l.battery_pcs]
+    ['Panel',   panelModel(l.panel_brand,l.panel_watt),                l.panel_brand,    l.panel_pcs, l.panel_watt],
+    ['Inverter',inverterModel(l.inverter_brand,l.inverter_kw,l.phase_type), l.inverter_brand, l.inverter_pcs, l.inverter_kw],
+    ['Battery', batteryModel(l.battery_brand,l.battery_kwh_each),      l.battery_brand,  l.battery_pcs, l.battery_kwh_each]
   ].filter(([,,brand])=>brand);
   /* the whole specification, not a summary of it. Finance chase money against
      what was actually sold, so every brand, size and count is named — the
@@ -516,8 +516,8 @@ function siteSpec(l,always){
       <div class="grid3">
         ${facts.map(([k,v])=>`<div><label>${esc(k)}</label><input value="${esc(v)}" disabled></div>`).join('')}
       </div>
-      ${parts.length?`<div class="kit">${parts.map(([kind,model,brand,pcs])=>{
-        const img=imgFor(model,kind);
+      ${parts.length?`<div class="kit">${parts.map(([kind,model,brand,pcs,size])=>{
+        const img=imgFor(model,kind,brand,size);
         return `<div class="kit-item">
           <div class="kit-pic">${img?`<img src="${esc(img)}" alt="" onerror="this.remove()">`:''}</div>
           <div class="kit-txt"><b>${esc(model||brand)}</b>

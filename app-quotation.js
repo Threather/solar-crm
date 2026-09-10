@@ -175,12 +175,26 @@ const PRODUCT_IMG={
    one photo and it shows even where no part number derives. An inverter and a
    battery are not interchangeable to look at, so those stay keyed off the
    part number and an unmatched brand shows nothing rather than the wrong box. */
-function imgFor(model,kind){
+function imgFor(model,kind,brand,size){
   if(model){
     if(/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model))return 'img/deye-sg05lp.png';
     if(PRODUCT_IMG[model])return PRODUCT_IMG[model];
   }
-  return kind==='Panel'?'img/panel.png':'';
+  if(kind==='Panel')return 'img/panel.png';
+  /* An inverter with no ampere-and-phase keyed in derives no part number,
+     because SG05LP1 and SG05LP3 are different things to order. The casing is
+     the same either way, so the picture can still be shown - but only at a
+     size they actually stock, so an unstockable size stays blank the way its
+     part number does. A photo of the wrong hardware is the same mistake as an
+     invented part number. */
+  if(kind==='Inverter'&&size){
+    const n=Number(size)||0;
+    if(isBrand('inverter','Deye',brand)
+       &&(DEYE_SG05LP['1'].includes(n)||DEYE_SG05LP['3'].includes(n)))return 'img/deye-sg05lp.png';
+    if(isBrand('inverter','Yinergy',brand)&&YINERGY_HI_LV.includes(n))return 'img/yinergy-hi-lv.png';
+    if(isBrand('inverter','Urayzero',brand)&&URAYZERO[n])return 'img/urayzero-labct.png';
+  }
+  return '';
 }
 /* a blank the salesperson fills in on screen before printing */
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
@@ -259,7 +273,7 @@ function quoteHtml(q,l,c){
 <style>
   @page{size:A4;margin:12mm 10mm}
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
-       font-size:10px;color:#111;margin:0;line-height:1.55}
+       font-size:10px;color:#111;margin:0;line-height:1.35}
   .sheet{width:190mm;margin:0 auto;padding:0 0 8mm}
   .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
@@ -280,7 +294,7 @@ function quoteHtml(q,l,c){
   .meta .lab{color:#333;white-space:nowrap}
   .items{margin-top:8px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:4px;font-size:10px}
-  .items td{border:1px solid #999;padding:3px 5px;vertical-align:top}
+  .items td{border:1px solid #999;padding:2px 5px;vertical-align:top}
   .items td.n{width:24px;text-align:center}
   .items td.im{width:64px;text-align:center;vertical-align:middle}
   .items td.im img{max-width:56px;max-height:60px;display:inline-block}
@@ -345,15 +359,15 @@ function quoteHtml(q,l,c){
       ${row('',QT.s2a
              +'<br>* '+QT.model+' : '+qb(170,mPanel||q.panel_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.panelsize+' : '+(q.panel_watt||'')+'Wp &nbsp; ធានាលើប្រសិទ្ធភាព: '+qb(22)+' ឆ្នាំ',
-             (q.panel_pcs||'')+' '+QT.unitPanel, imgFor(mPanel,'Panel'))}
+             (q.panel_pcs||'')+' '+QT.unitPanel, imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt))}
       ${row('',QT.s2b
              +'<br>* '+QT.model+' : '+qb(170,mInv||q.inverter_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.invsize+' : '+(c.kwac?c.kwac.toFixed(2):'')+' kWac',
-             (q.inverter_pcs||'')+' '+QT.unitPiece, imgFor(mInv,'Inverter'))}
+             (q.inverter_pcs||'')+' '+QT.unitPiece, imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw))}
       ${row('',QT.s2c
              +'<br>* '+QT.model+' : '+qb(170,mBatt||q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
              +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh',
-             (q.battery_pcs||'')+' '+QT.unitPiece, imgFor(mBatt,'Battery'))}
+             (q.battery_pcs||'')+' '+QT.unitPiece, imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh))}
       ${row('',QT.s2d+'<br>* '+QT.mount1+'<br>* '+QT.mount2+'<br>* '+QT.mount3+'<br>* '+QT.mount4+'<br>* '+QT.mount5,
              qb(60,'1 '+QT.unitSet))}
       ${row('៣','<span class="sec">'+QT.s3+'</span><br>* '+QT.e1+'<br>* '+QT.e2+'<br>* '+QT.e3+' &nbsp; '+QT.warrantyN(7)
@@ -372,6 +386,14 @@ function quoteHtml(q,l,c){
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
   </div>
 
+  <div class="pg">${QT.page} 1/2</div>
+</div>
+
+<div class="sheet" contenteditable="true">
+  <div class="hdr">
+    <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
+    <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
+  </div>
   <div style="margin-top:8px;font-weight:bold">${QT.eff}</div>
   <table class="sav" style="width:auto">
     <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
@@ -386,14 +408,6 @@ function quoteHtml(q,l,c){
   </table>
 
   <div class="fn">${QT.note}<br>${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
-  <div class="pg">${QT.page} 1/2</div>
-</div>
-
-<div class="sheet" contenteditable="true">
-  <div class="hdr">
-    <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
-    <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
-  </div>
   <h1 style="font-size:14px">${QT.terms}</h1>
   <table class="items">
     <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.warranty}</th></tr></thead>
