@@ -44,6 +44,7 @@ const QT={
   pay2:'ខ. ទូទាត់ ៥០% នៅថ្ងៃដែលសម្ភារៈសូឡាបានដឹកជញ្ជូនទៅដល់ទីតាំងរបស់អតិថិជន',
   pay3:'គ. ទូទាត់ ១០% នៅថ្ងៃដែលប្រព័ន្ធសូឡាបានតម្លើងរួចរាល់ ដោយបានបញ្ចប់ការតេស្ដ និង ដាក់អោយដំណើរការប្រព័ន្ធសូឡាបានជោគជ័យ',
   sysprice:'តម្លៃប្រព័ន្ធ', total:'តម្លៃសរុប (ដុល្លា):',
+  discount:'បញ្ចុះតម្លៃ', netTotal:'សរុប/Total :',
   vat10:'អាករលើបន្ថែម/VAT 10% :', grand:'សរុបរួមទាំងអាករ/Grand Total :',
   eff:'ប្រសិទ្ធភាពប្រព័ន្ធសូឡា៖',
   bill:'ថ្លៃវិក័យប័ត្រអគ្គិសនី', perMonth:'ដុល្លា/ខែ',
@@ -239,6 +240,11 @@ function quoteHtml(q,l,c){
       const vat=price*0.10;
       document.getElementById('o-vat').innerText='$'+f(vat);
       document.getElementById('o-grand').innerText='$'+f(price+vat);
+      /* off VAT the price is negotiated: whatever is typed on the two lines
+         comes off, and the total is worked out rather than typed, so nobody
+         does the sum by hand on a customer's sheet */
+      const net=price-g('f-d1')-g('f-d2');
+      document.getElementById('o-net').innerText='$'+f(net);
       const val=g('f-annual')*g('f-tariff');
       /* EDC compensation is the band rate on everything produced in the year,
          so it follows the annual figure instead of being typed again */
@@ -252,7 +258,7 @@ function quoteHtml(q,l,c){
          in years. It follows the VAT tick, because a customer quoted without
          VAT never pays the grand total and should not be shown earning it
          back. */
-      const total=document.getElementById('vat-on').checked?price+vat:price;
+      const total=document.getElementById('vat-on').checked?price+vat:net;
       document.getElementById('o-pay').innerText=year>0?f(total/year):'';
     }
     /* some customers are quoted with VAT and some without, so the two lines
@@ -261,6 +267,12 @@ function quoteHtml(q,l,c){
       const on=document.getElementById('vat-on').checked;
       document.getElementById('r-vat').style.display=on?'':'none';
       document.getElementById('r-grand').style.display=on?'':'none';
+      /* the discount lines are the other half of the same switch: with VAT
+         the customer pays the grand total, without it they pay a negotiated
+         price, and only one of those can be on the sheet at a time */
+      ['r-d1','r-d2','r-net'].forEach(function(id){
+        document.getElementById(id).style.display=on?'none':'';
+      });
       recalc();
     }
     document.addEventListener('input',recalc);
@@ -311,6 +323,12 @@ function quoteHtml(q,l,c){
   .money{margin-top:6px;margin-left:auto;width:auto}
   .money td{padding:1px 6px;font-size:11px}
   .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
+  /* a typed figure that changes the total is boxed, and stays boxed in print -
+     the dotted .fill underline is for blanks nobody adds up */
+  .box{display:inline-block;border:1px solid #999;border-radius:2px;padding:0 4px;
+       min-height:13px;background:#fffbe8;outline:none}
+  .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
+  .box.lbl{min-width:120px;text-align:left;font-weight:normal}
   .sav td{padding:1px 4px;font-size:10px}
   .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px}
   .rate{font-size:9px;color:#555}
@@ -319,6 +337,7 @@ function quoteHtml(q,l,c){
   .sign > div{flex:1}
   .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
   @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:1px dotted #666}
+    .box{background:none;border:1px solid #666}
     .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
 </style></head><body>
 <div class="bar">
@@ -381,6 +400,16 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td>${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td>${QT.grand}</td><td class="v" id="o-grand"></td></tr>
+    <!-- Off VAT, the price is negotiated instead: two lines to name a
+         discount and take it off. Both the label and the amount are typed,
+         because "etc." is the point - it is not always a discount. They are
+         boxed rather than underlined, since a figure that changes what the
+         customer pays should not look like the dotted blanks around it. -->
+    <tr id="r-d1"><td><span class="box lbl" contenteditable="true">${QT.discount}</span></td>
+        <td class="v"><span class="box num" id="f-d1" contenteditable="true"></span></td></tr>
+    <tr id="r-d2"><td><span class="box lbl" contenteditable="true"></span></td>
+        <td class="v"><span class="box num" id="f-d2" contenteditable="true"></span></td></tr>
+    <tr id="r-net"><td>${QT.netTotal}</td><td class="v" id="o-net"></td></tr>
   </table>
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
