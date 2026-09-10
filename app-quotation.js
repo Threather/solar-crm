@@ -330,7 +330,10 @@ function quoteHtml(q,l,c){
      It is a control, not part of the sheet, so it never prints. */
   .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555}
   .vatbox label{cursor:pointer}
-  .money{margin-top:6px;width:100%;border:1px solid #999;border-collapse:collapse}
+  /* -1px, not 0: the items table and this one each draw their own 1px edge,
+     so butting them together would leave a double rule. Overlapping by a pixel
+     makes the two read as one continuous grid, the way theirs does. */
+  .money{margin-top:-1px;width:100%;border:1px solid #999;border-collapse:collapse}
   .money td{border:1px solid #999}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
      border made it read as one tall merged cell with the terms below it */
