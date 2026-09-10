@@ -397,7 +397,12 @@ function quoteHtml(q,l,c){
              qb(60,'1 '+QT.unitSet))}
       ${row('៣','<span class="sec">'+QT.s3+'</span><br>* '+QT.e1+'<br>* '+QT.e2+'<br>* '+QT.e3+' &nbsp; '+QT.warrantyN(7)
              +'<br>* '+QT.e4+'<br>* '+QT.e5+'<br>* '+QT.e6,
-             qb(60,'1 '+QT.unitSet))}
+             qb(60,'1 '+QT.unitSet),
+             /* cables, breakers and the AC/DC boxes - one picture for the
+                whole electrical set, the way their own sheet carries it. No
+                part number is derived for it: it is a bundle, not a product.
+                A missing file drops its own cell. */
+             'img/electrical.jpg')}
       ${row('',QT.pay1+'<br>'+QT.pay2+'<br>'+QT.pay3,'')}
     </tbody>
   </table>
