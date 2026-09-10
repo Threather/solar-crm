@@ -287,10 +287,16 @@ function quoteHtml(q,l,c){
   return `<!doctype html><html lang="km"><head><meta charset="utf-8">
 <title>${QT.title} ${esc(l.customer_name||'')}</title>
 <style>
-  @page{size:A4;margin:12mm 10mm}
+  /* Zero page margin, and the sheet carries its own instead. Chrome prints
+     its URL, date and "1/2" into the page margin, so with no margin there is
+     nowhere for them to go and they stop appearing - no ticking of "Headers
+     and footers" in the print dialog, which nobody remembers to do. The
+     printable area is unchanged: 210mm less 10mm each side is the same 190mm
+     of content, and 297mm less 12mm top and bottom the same 273mm. */
+  @page{size:A4;margin:0}
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
        font-size:10px;color:#111;margin:0;line-height:1.25}
-  .sheet{width:190mm;margin:0 auto;padding:0 0 2mm}
+  .sheet{width:210mm;margin:0 auto;padding:12mm 10mm 12mm;box-sizing:border-box}
   .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
   .bar label{display:flex;align-items:center;gap:5px;font-size:12px;color:#333;cursor:pointer;white-space:nowrap}
