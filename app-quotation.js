@@ -544,11 +544,9 @@ function quoteHtml(q,l,c){
        small money box floated to the right of it. -->
   <table class="money">
     <colgroup><col class="c-l"><col class="c-v"></colgroup>
-    <!-- the terms run the height of both rows: the blank cell beside the
-         តម្លៃប្រព័ន្ធ heading was an empty box for no reason -->
-    <tr><td class="pay" rowspan="2" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
-        <td class="v hd">${QT.sysprice}</td></tr>
-    <tr><td class="v">$${qnum(c.price)}</td></tr>
+    <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
+    <tr><td class="pay" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
+        <td class="v">$${qnum(c.price)}</td></tr>
     <tr><td class="tot">${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
