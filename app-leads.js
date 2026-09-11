@@ -260,8 +260,7 @@ async function renderPool(){
   $('main').innerHTML=SKEL;
   const pool=await fetchLeads(q=>q.is('assigned_to',null));
   const canAssign=['manager','admin'].includes(ME.role);
-  const salesOpts=STAFF.filter(s=>s.role==='sales'&&s.is_active)
-    .map(s=>`<option value="${s.id}">${esc(s.full_name)} (${esc(s.staff_id)})</option>`).join('');
+  const salesOpts=assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">No phone number yet, so no sale engineer. Add a number and one gets assigned automatically. Assign by hand only if you need to.</p>

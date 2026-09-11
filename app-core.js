@@ -60,6 +60,14 @@ const fmtDate=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'
 const fmtDT=d=>d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
 const daysIn=d=>Math.floor((Date.now()-new Date(d).getTime())/86400000);
 const staffName=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'—';
+/* Who a lead can be handed to. The round-robin is untouched and still only
+   reaches sales - this is the manual list, and the manager belongs on it
+   (11 Sep 2026): they cover for their own team and could not take a lead
+   themselves. Whoever already holds the lead stays on the list even if they
+   have since been deactivated, so the select says what the record says. */
+const assignable=holderId=>STAFF.filter(s=>
+  ((s.role==='sales'||s.role==='manager')&&s.is_active)||(holderId&&s.id===holderId));
+const assignLabel=s=>s.full_name+(s.role==='manager'?' (manager)':'');
 const opt=(v,cur)=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}</option>`;
 /* a value admin has since hidden is still on older leads, so it is put back
    at the top for that lead rather than the select silently showing something
