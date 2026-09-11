@@ -350,6 +350,10 @@ function quoteHtml(q,l,c){
      the full height of the row - without them the grid stops dead at this row */
   .grp td{border:none;padding:1px 5px}
   .grp td+td{border-left:1px solid #999}
+  /* a rule under each product. Their own sheet runs these blocks together
+     with no rule at all; Kevin asked for them separated, 11 Sep 2026. The
+     heading and the first block stay joined, so it starts at the third row. */
+  .grp tr:nth-child(n+3) td{border-top:1px solid #999}
   .sec{font-weight:bold}
   .sec2{font-weight:bold;font-size:11px}
   .it{font-style:italic}
