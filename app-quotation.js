@@ -392,7 +392,7 @@ function quoteHtml(q,l,c){
      colour has to survive a printer economising on ink, so it is forced. */
   /* the price column carries a heading above it. The payment terms are black:
      their sheet has them red, Kevin wants them black. */
-  .pay{color:#111}
+  .pay{color:#111;font-weight:bold}
   .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #999;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
@@ -544,9 +544,11 @@ function quoteHtml(q,l,c){
        small money box floated to the right of it. -->
   <table class="money">
     <colgroup><col class="c-l"><col class="c-v"></colgroup>
-    <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
-    <tr><td class="pay" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
-        <td class="v">$${qnum(c.price)}</td></tr>
+    <!-- the terms run the height of both rows: the blank cell beside the
+         តម្លៃប្រព័ន្ធ heading was an empty box for no reason -->
+    <tr><td class="pay" rowspan="2" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
+        <td class="v hd">${QT.sysprice}</td></tr>
+    <tr><td class="v">$${qnum(c.price)}</td></tr>
     <tr><td class="tot">${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
