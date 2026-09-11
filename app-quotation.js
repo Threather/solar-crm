@@ -225,9 +225,14 @@ function printQuote(quotId,leadId){
 function quoteHtml(q,l,c){
   /* onerror empties the cell, so a photo that has not been added yet leaves a
      blank box on the sheet instead of a broken-image icon */
+  /* their column order: number, description, quantity, picture */
+  const cell=(base,img)=>img?`<img src="${esc((base||'')+img)}" alt="" onerror="this.remove()">`:'';
   const row=(no,desc,qty,img)=>`<tr><td class="n">${no||''}</td><td>${desc}</td>`
-    +`<td class="im">${img?`<img src="${esc((c.base||'')+img)}" alt="" onerror="this.remove()">`:''}</td>`
-    +`<td class="q">${qty||''}</td></tr>`;
+    +`<td class="q">${qty||''}</td><td class="im">${cell(c.base,img)}</td></tr>`;
+  /* one product inside the components row: description, quantity with its
+     warranty under it, photo. No rules - the outer row draws the only ones. */
+  const grpRow=(desc,qty,wty,img,base)=>`<tr><td>${desc}</td>`
+    +`<td class="q">${qty||''}${wty||''}</td><td class="im">${cell(base,img)}</td></tr>`;
   /* the part number, worked out from what the salesperson already keyed in */
   const mPanel=panelModel(q.panel_brand,q.panel_watt);
   const mInv=inverterModel(q.inverter_brand,q.inverter_kw,q.ampere_phase);
@@ -258,12 +263,12 @@ function quoteHtml(q,l,c){
       document.getElementById('o-prod').innerText=f(val);
       document.getElementById('o-year').innerText=f(year);
       document.getElementById('o-mon').innerText=f(mon);
-      /* Kevin's formula: grand total over the ANNUAL saving, so the answer is
-         in years. It follows the VAT tick, because a customer quoted without
-         VAT never pays the grand total and should not be shown earning it
-         back. */
+      /* Their own sheet works payback in MONTHS: the total over the monthly
+         saving, and the unit cell reads ខែ. It follows the VAT tick, because a
+         customer quoted without VAT never pays the grand total and should not
+         be shown earning it back. */
       const total=document.getElementById('vat-on').checked?price+vat:net;
-      document.getElementById('o-pay').innerText=year>0?f(total/year):'';
+      document.getElementById('o-pay').innerText=mon>0?f(total/mon):'';
     }
     /* some customers are quoted with VAT and some without, so the two lines
        come off the sheet rather than being crossed out by hand */
@@ -295,33 +300,62 @@ function quoteHtml(q,l,c){
      of content, and 297mm less 12mm top and bottom the same 273mm. */
   @page{size:A4;margin:0}
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
-       font-size:10px;color:#111;margin:0;line-height:1.25}
+       font-size:10px;color:#111;margin:0;line-height:1.2}
   .sheet{width:210mm;margin:0 auto;padding:12mm 10mm 12mm;box-sizing:border-box}
   .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
   .bar label{display:flex;align-items:center;gap:5px;font-size:12px;color:#333;cursor:pointer;white-space:nowrap}
-  h1{font-size:17px;text-align:center;margin:3px 0 1px}
+  h1{font-size:17px;text-align:center;margin:1px 0}
   /* the wordmark is far wider than it is tall, so it is sized on height and
      capped on width; print-color-adjust keeps the orange from being dropped
      by a printer economising on ink */
   /* the logo sits at the left margin and the company block stays centred on
      the page, so taking the logo out does not shift the address */
-  .hdr{position:relative;min-height:10mm;margin-bottom:1mm}
-  .logo{position:absolute;left:0;top:0;height:9mm;max-width:48mm;object-fit:contain;
+  /* their sheet rules off under the header block */
+  .hdr{position:relative;min-height:11mm;margin-bottom:1.5mm;
+       border-bottom:1px solid #333;padding-bottom:1mm}
+  .logo{position:absolute;left:0;top:0;height:10mm;max-width:52mm;object-fit:contain;
         print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .co{text-align:center;font-size:9px;line-height:1.25;color:#333}
   .co b{font-size:11px}
   table{width:100%;border-collapse:collapse}
-  .meta td{padding:1px 4px;font-size:10px;vertical-align:top}
-  .meta .lab{color:#333;white-space:nowrap}
-  .items{margin-top:4px;border:1px solid #999}
+  /* labels run up to the colon and the values start on one line, the way
+     theirs reads - so the label column is right-aligned, not left */
+  .meta td{padding:0 4px;font-size:10px;vertical-align:top}
+  .meta .lab{color:#111;white-space:nowrap;text-align:right;width:1%}
+  .meta .val{font-weight:bold}
+  .meta .num{display:inline-block;min-width:38px;text-align:right;font-weight:bold}
+  .meta .unit{font-weight:normal}
+  .items{margin-top:2px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
-  .items td{border:1px solid #999;padding:2px 5px;vertical-align:top}
-  .items td.n{width:24px;text-align:center}
-  .items td.im{width:50px;text-align:center;vertical-align:middle}
-  .items td.im img{max-width:40px;max-height:34px;display:inline-block}
-  .items td.q{width:80px;text-align:center}
+  .items td{border:1px solid #999;padding:1px 5px;vertical-align:top}
+  .items td.n{text-align:center}
+  /* their column order: number, description, quantity, picture - and the
+     picture column is wide enough for the photo to be read as a photo */
+  .items col.c-n{width:7%} .items col.c-d{width:52%}
+  .items col.c-q{width:16%} .items col.c-i{width:25%}
+  .items td.im{text-align:center;vertical-align:middle}
+  .items td.im img{max-width:92%;max-height:20mm;display:inline-block}
+  .items td.q{text-align:center}
+  /* the quantity, then the warranty under it, both in the quantity column -
+     theirs carries the warranty here rather than inline in the description */
+  .wty{display:block;margin-top:2px}
+  /* one row of the sheet holding several products: an inner table on the same
+     column widths, so each photo and quantity sits beside its own block with
+     no rule drawn between them */
+  .items .kvt td{border:none;padding:0 4px 0 0}
+  td.grp{padding:0}
+  .grp table{width:100%}
+  .grp td{border:none;padding:1px 5px}
   .sec{font-weight:bold}
+  .sec2{font-weight:bold;font-size:11px}
+  .it{font-style:italic}
+  .ind{padding-left:14px}
+  .ind2{padding-left:26px}
+  /* the model and its value on one line with the colons in a column, the way
+     theirs lines them up down the block */
+  .kv{display:inline-block;min-width:120px}
+  .kv2{display:inline-block;min-width:150px}
   .fill{display:inline-block;border-bottom:1px dotted #666;min-height:12px;padding:0 3px;
         background:#fffbe8;outline:none}
   /* the VAT tick lives beside the totals it changes, not up in the toolbar.
@@ -339,7 +373,10 @@ function quoteHtml(q,l,c){
      border made it read as one tall merged cell with the terms below it */
   .money td.hd,.money td.lbl2{padding:3px 6px}
   .money td.tot{text-align:right;font-weight:bold}
-  .money .v{width:30%}
+  /* the same column grid as the items table above it: the terms span the
+     first three columns and the price sits under the picture column, which is
+     where their own sheet puts it */
+  .money col.c-l{width:75%} .money col.c-v{width:25%}
   .money td{padding:1px 6px;font-size:11px}
   /* the figure the customer actually pays, highlighted the way their own sheet
      highlights it - grand total with VAT, the negotiated total without. The
@@ -350,7 +387,8 @@ function quoteHtml(q,l,c){
   .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #999;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
-  .money td.v{text-align:right;font-variant-numeric:tabular-nums;min-width:110px;font-weight:bold}
+  /* centred in its column, as theirs is, not pushed to the right edge */
+  .money td.v{text-align:center;font-variant-numeric:tabular-nums;font-weight:bold;vertical-align:middle}
   /* a typed figure that changes the total is boxed, and stays boxed in print -
      the dotted .fill underline is for blanks nobody adds up */
   .box{display:inline-block;border:1px solid #999;border-radius:2px;padding:0 4px;
@@ -358,12 +396,15 @@ function quoteHtml(q,l,c){
   .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
   .box.lbl{min-width:120px;text-align:left;font-weight:normal}
   .sav td{padding:1px 4px;font-size:10px}
-  .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px}
+  /* figure right-aligned and bold, its unit left-aligned beside it - theirs
+     reads as a column of numbers with a column of units, not a sentence */
+  .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px;font-weight:bold}
+  .sav .u{text-align:left;white-space:nowrap;padding-left:6px}
   .rate{font-size:9px;color:#555}
   /* the savings figures and the notes sit side by side at the foot of page
      one, the notes boxed on the right - the client's own sheet reads that way,
      and stacking them cost 25mm of a page that has none to spare */
-  .lower{display:flex;gap:5mm;align-items:flex-start;margin-top:5px}
+  .lower{display:flex;gap:5mm;align-items:flex-start;margin-top:3px}
   .lower-l{flex:0 0 auto}
   /* their own sheet's colours: the two headings in red, the body of both
      blocks in navy. Forced to print - a quotation that loses its colour on
@@ -375,9 +416,15 @@ function quoteHtml(q,l,c){
       border:1px solid #333;border-radius:2px;padding:3px 6px;
       print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .fn b{color:#c00000}
-  .sign{display:flex;gap:30px;margin-top:20px;font-size:10px}
-  .sign > div{flex:1}
-  .pg{text-align:center;font-size:8.5px;color:#555;margin-top:6px}
+  /* both signature blocks are bordered boxes on their sheet, and the sentence
+     the customer is agreeing to sits inside the customer's own box */
+  .sign{display:flex;gap:10mm;margin-top:8mm;font-size:10px;align-items:stretch}
+  .sign > div{flex:1;border:1px solid #333;padding:4px 6px;min-height:42mm}
+  .sign .dots{margin-top:18mm}
+  /* the red italic note that stands under the terms table on their page two */
+  .rednote{color:#c00000;font-style:italic;font-weight:bold;margin-top:6px;font-size:10px;
+           print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .pg{text-align:right;font-size:8.5px;color:#555;margin-top:6px}
   /* an empty cell prints as nothing. It used to print a dotted rule, which
      read as a row of full stops on a customer's sheet rather than as a blank
      waiting to be filled in. */
@@ -397,46 +444,80 @@ function quoteHtml(q,l,c){
   </div>
   <h1>${QT.title}</h1>
 
+  <!-- Their meta block: the labels run right up to the colon in a column of
+       their own, the values start on one line, and only the date and the
+       validity sit on the right. The project and its two references are not
+       here on their sheet - they are the first row inside the items table. -->
   <table class="meta">
-    <tr><td class="lab">${QT.cust}</td><td>${esc(l.customer_name||'')}</td>
-        <td class="lab">${QT.date}</td><td>${fmtDate(q.released_date||q.created_at)}</td></tr>
+    <colgroup><col style="width:15%"><col style="width:45%"><col style="width:15%"><col style="width:25%"></colgroup>
+    <tr><td class="lab">${QT.cust}</td><td class="val">${esc(l.customer_name||'')}</td>
+        <td></td><td></td></tr>
     <tr><td class="lab">${QT.addr}</td><td>${esc(c.addr)}</td>
-        <td class="lab">${QT.systype}</td><td>${esc(q.system_type||'')}</td></tr>
+        <td></td><td></td></tr>
     <tr><td class="lab">${QT.phone}</td><td>${esc(l.phone||'')}</td>
-        <td class="lab">${QT.valid}</td><td>${qb(50,QT.validDays)}</td></tr>
-    <tr><td class="lab">${QT.vat}</td><td>${qb(110)}</td>
-        <td class="lab">${QT.size}</td><td>${qb(46,kwpTxt)} kWp</td></tr>
-    <tr><td class="lab">${QT.project}</td><td>${qb(150,QT.projectVal)}</td>
-        <td class="lab">${QT.battsize}</td><td>${esc(q.battery_kwh||'')} kWh</td></tr>
-    <tr><td class="lab">${QT.projectref}</td><td>${qb(90,l.ref_id?': '+l.ref_id:QT.na)}</td>
-        <td class="lab">${QT.teamref}</td><td>${qb(90,QT.na)}</td></tr>
+        <td class="lab">${QT.date}</td><td class="val">${fmtDate(q.released_date||q.created_at)}</td></tr>
+    <tr><td class="lab">${QT.systype}</td><td>${esc(q.system_type||'')}</td>
+        <td class="lab">${QT.valid}</td><td>${qb(40,QT.validDays)}</td></tr>
+    <tr><td class="lab">${QT.size}</td><td><span class="num">${qb(40,kwpTxt)}</span> <span class="unit">kWp</span></td>
+        <td></td><td></td></tr>
+    <tr><td class="lab">${QT.battsize}</td><td><span class="num">${esc(q.battery_kwh||'')}</span> <span class="unit">kWh</span></td>
+        <td></td><td></td></tr>
   </table>
 
-  <div style="font-weight:bold;margin-top:8px">${QT.supply}</div>
-  <div>${QT.mgmtFor(q.system_type,kwpTxt)}</div>
-
   <table class="items">
-    <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.qty}</th></tr></thead>
+    <colgroup><col class="c-n"><col class="c-d"><col class="c-q"><col class="c-i"></colgroup>
+    <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.qty}</th><th>${QT.img}</th></tr></thead>
     <tbody>
-      ${row('១','<span class="sec">'+QT.s1+'</span><br>ក. '+QT.s1a+'<br>'+QT.s1b+'<br>'+QT.s1c+'<br>'+QT.s1d+'<br>'+QT.s1e+'<br>'+QT.s1f,'')}
-      ${row('២','<span class="sec">'+QT.s2+'</span>','')}
-      ${row('',QT.s2a
-             +'<br>* '+QT.model+' : '+qb(170,mPanel||q.panel_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
-             +'<br>* '+QT.panelsize+' : '+(q.panel_watt||'')+'Wp &nbsp; ធានាលើប្រសិទ្ធភាព: '+qb(22)+' ឆ្នាំ',
-             (q.panel_pcs||'')+' '+QT.unitPanel, imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt))}
-      ${row('',QT.s2b
-             +'<br>* '+QT.model+' : '+qb(170,mInv||q.inverter_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
-             +'<br>* '+QT.invsize+' : '+(c.kwac?c.kwac.toFixed(2):'')+' kWac',
-             (q.inverter_pcs||'')+' '+QT.unitPiece, imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw))}
-      ${row('',QT.s2c
-             +'<br>* '+QT.model+' : '+qb(170,mBatt||q.battery_brand||'')+' &nbsp; '+QT.warranty+': '+qb(22)+' ឆ្នាំ'
-             +'<br>* '+QT.battcap+' : '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh',
-             (q.battery_pcs||'')+' '+QT.unitPiece, imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh))}
-      ${row('',QT.s2d+'<br>* '+QT.mount1+'<br>* '+QT.mount2+'<br>* '+QT.mount3+'<br>* '+QT.mount4+'<br>* '+QT.mount5,
-             qb(60,'1 '+QT.unitSet))}
-      ${row('៣','<span class="sec">'+QT.s3+'</span><br>* '+QT.e1+'<br>* '+QT.e2+'<br>* '+QT.e3+' &nbsp; '+QT.warrantyN(7)
-             +'<br>* '+QT.e4+'<br>* '+QT.e5+'<br>* '+QT.e6,
-             qb(60,'1 '+QT.unitSet),
+      <!-- the project, its two references and what is being supplied open the
+           table on their sheet, colons lined up in a column of their own -->
+      ${row('','<table class="kvt" style="width:auto"><tr><td>'+QT.project+'</td><td class="val">'+qb(150,QT.projectVal)+'</td></tr>'
+             +'<tr><td>'+QT.projectref+'</td><td class="val">'+qb(90,l.ref_id?': '+l.ref_id:QT.na)+'</td></tr>'
+             +'<tr><td>'+QT.teamref+'</td><td class="val">'+qb(90,QT.na)+'</td></tr></table>'
+             +QT.supply+'<br><span class="sec">'+QT.mgmtFor(q.system_type,kwpTxt)+'</span>','')}
+      ${row('១','<span class="sec">'+QT.s1+'</span>'
+             +'<div class="ind">ក. '+QT.s1a+'</div>'
+             +'<div class="ind it"><b>'+QT.s1b+'</b></div>'
+             +'<div class="ind2">'+QT.s1c+'</div><div class="ind2">'+QT.s1d+'</div>'
+             +'<div class="ind2">'+QT.s1e+'</div><div class="ind2">'+QT.s1f+'</div>','')}
+      <!-- The four main components are one row on their sheet, with no rule
+           drawn between the panel, the inverter, the battery and the mounting.
+           An inner table on the same widths keeps each quantity and photo
+           beside its own block. -->
+      <tr><td class="n">២</td><td class="grp" colspan="3">
+        <div style="padding:2px 5px" class="sec2">${QT.s2}</div>
+        <table>
+          <colgroup><col style="width:56%"><col style="width:17%"><col style="width:27%"></colgroup>
+          ${grpRow(QT.s2a
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
+             (q.panel_pcs||'')+' '+QT.unitPanel,
+             '<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>'
+             +'<span class="wty">ធានាលើប្រសិទ្ធភាព: '+qb(22)+' ឆ្នាំ</span>',
+             imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt),c.base)}
+          ${grpRow(QT.s2b
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mInv||q.inverter_brand||'')+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.invsize+'</span>: '+(c.kwac?c.kwac.toFixed(2):'')+' kWac</div>',
+             (q.inverter_pcs||'')+' '+QT.unitPiece,
+             '<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>',
+             imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw),c.base)}
+          ${grpRow(QT.s2c
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mBatt||q.battery_brand||'')+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.battcap+'</span>: '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh</div>',
+             (q.battery_pcs||'')+' '+QT.unitPiece,
+             '<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>',
+             imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh),c.base)}
+          ${grpRow(QT.s2d
+             +'<div class="ind it">* '+QT.mount1+'</div><div class="ind it">* '+QT.mount2+'</div>'
+             +'<div class="ind it">* '+QT.mount3+'</div><div class="ind it">* '+QT.mount4+'</div>'
+             +'<div class="ind it">* '+QT.mount5+'</div>',
+             qb(50,'1 '+QT.unitSet),'','',c.base)}
+        </table>
+      </td></tr>
+      ${row('៣','<span class="sec">'+QT.s3+'</span>'
+             +'<div class="ind">* '+QT.e1+'</div><div class="ind">* '+QT.e2+'</div>'
+             +'<div class="ind">* '+QT.e3+'</div><div class="ind">* '+QT.e4+'</div>'
+             +'<div class="ind">* '+QT.e5+'</div><div class="ind">* '+QT.e6+'</div>',
+             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>',
              /* cables, breakers and the AC/DC boxes - one picture for the
                 whole electrical set, the way their own sheet carries it. No
                 part number is derived for it: it is a bundle, not a product.
@@ -451,8 +532,9 @@ function quoteHtml(q,l,c){
        payable total last. It used to be a row inside the items table with a
        small money box floated to the right of it. -->
   <table class="money">
+    <colgroup><col class="c-l"><col class="c-v"></colgroup>
     <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
-    <tr><td class="pay" style="padding:5px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
+    <tr><td class="pay" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
         <td class="v">$${qnum(c.price)}</td></tr>
     <tr><td class="tot">${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
@@ -476,15 +558,16 @@ function quoteHtml(q,l,c){
    <div class="lower-l">
     <div class="lower-h">${QT.eff}</div>
     <table class="sav" style="width:auto">
-    <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td>${QT.perMonth}</td></tr>
-    <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td>${QT.perKwh}</td></tr>
-    <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td>${QT.perYear}</td></tr>
-    <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td>${QT.usdYear}</td></tr>
+    <tr><td>${QT.bill}</td><td class="v">${qb(60,l.monthly_bill_usd||'')}</td><td class="u">${QT.perMonth}</td></tr>
+    <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td class="u">${QT.perKwh}</td></tr>
+    <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td class="u">${QT.perYear}</td></tr>
+    <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td class="u">${QT.usdYear}</td></tr>
     ${(Number(c.kwac)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
-        <td class="v" id="o-export"></td><td>${QT.usdYear}</td></tr>`:''}
-    <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td>${QT.usdYear}</td></tr>
-    <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td>${QT.usdMonth}</td></tr>
-    <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td>${QT.years}</td></tr>
+        <td class="v" id="o-export"></td><td class="u">${QT.usdYear}</td></tr>`:''}
+    <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td class="u">${QT.usdYear}</td></tr>
+    <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td class="u">${QT.usdMonth}</td></tr>
+    <!-- their sheet works payback in months, so the unit cell reads ខែ -->
+    <tr><td>${QT.payback}</td><td class="v" id="o-pay"></td><td class="u">${QT.months}</td></tr>
     </table>
    </div>
    <div class="fn"><b>${QT.note}</b><br>${QT.f1}<br>${QT.f2}<br>${QT.f3}<br>${QT.f4}</div>
@@ -498,29 +581,42 @@ function quoteHtml(q,l,c){
     <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
   </div>
   <h1 style="font-size:14px">${QT.terms}</h1>
+  <!-- page two has no picture column on their sheet: number, description,
+       warranty -->
   <table class="items">
-    <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.img}</th><th>${QT.warranty}</th></tr></thead>
+    <colgroup><col style="width:14%"><col style="width:62%"><col style="width:24%"></colgroup>
+    <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.warranty}</th></tr></thead>
     <tbody>
-      ${row('១','<span class="sec">'+QT.t1+'</span><br>* '+QT.t1a+'<br>'+QT.t1b+'<br>'+QT.t1c+'<br>'+QT.t1d
-             +'<br>* '+QT.t1e+'<br>'+QT.t1f,QT.t1w)}
-      ${row('២','<span class="sec">'+QT.t2+'</span><br>'+QT.t2a+'<br>'+QT.t2b+'<br>'+QT.t2c+'<br>'+QT.t2d,'')}
+      <tr><td class="n">១</td><td><span class="sec">${QT.t1}</span>
+        <div class="ind">* ${QT.t1a}</div>
+        <div class="ind2 it">${QT.t1b}</div><div class="ind2 it">${QT.t1c}</div><div class="ind2 it">${QT.t1d}</div>
+        <div class="ind">* ${QT.t1e}</div>
+        <div class="ind2 it">${QT.t1f}</div></td>
+        <td class="q" style="vertical-align:middle">${QT.t1w}</td></tr>
+      <tr><td class="n">២</td><td><span class="sec">${QT.t2}</span>
+        <div class="ind it">${QT.t2a}</div><div class="ind it">${QT.t2b}</div>
+        <div class="ind it"><span class="lower-h">${QT.t2c.slice(0,QT.t2c.indexOf(':')+1)}</span>${QT.t2c.slice(QT.t2c.indexOf(':')+1)}</div></td>
+        <td class="q"></td></tr>
     </tbody>
   </table>
 
-  <p style="margin-top:16px;font-size:10px">${QT.agree1} ${QT.agree2}<br>${QT.agree3}</p>
+  <!-- the red note stands under the table, and the sentence the customer is
+       agreeing to sits inside the customer's own signature box -->
+  <div class="rednote">${QT.t2d}</div>
   <div class="sign">
     <div>
       <div>${QT.approved}</div>
-      <div>${QT.dots}</div>
-      <div>${QT.approverName}</div>
+      <div class="dots">${QT.dots}</div>
+      <div><b>${QT.approverName}</b></div>
       <div>${QT.approverRole}</div>
-      <div>${QT.company}</div>
+      <div><b>${QT.company}</b></div>
     </div>
     <div>
+      <div>${QT.agree1} ${QT.agree2}<br>${QT.agree3}</div>
+      <div class="dots">${QT.dots2}</div>
       <div>${QT.custSign}</div>
-      <div>${QT.dots2}</div>
-      <div>${QT.signName} ${qb(140)}</div>
-      <div>${QT.signDate} ${qb(140)}</div>
+      <div>${QT.signName} ${qb(120)}</div>
+      <div>${QT.signDate} ${qb(120)}</div>
     </div>
   </div>
   <div class="pg">${QT.page} 2/2</div>
