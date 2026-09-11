@@ -346,7 +346,10 @@ function quoteHtml(q,l,c){
   .items .kvt td{border:none;padding:0 4px 0 0}
   td.grp{padding:0}
   .grp table{width:100%}
+  /* no rule between one product and the next, but the column rules still run
+     the full height of the row - without them the grid stops dead at this row */
   .grp td{border:none;padding:1px 5px}
+  .grp td+td{border-left:1px solid #999}
   .sec{font-weight:bold}
   .sec2{font-weight:bold;font-size:11px}
   .it{font-style:italic}
@@ -486,7 +489,9 @@ function quoteHtml(q,l,c){
       <tr><td class="n">២</td><td class="grp" colspan="3">
         <div style="padding:2px 5px" class="sec2">${QT.s2}</div>
         <table>
-          <colgroup><col style="width:53%"><col style="width:22%"><col style="width:25%"></colgroup>
+          <!-- the same proportions as the outer columns, so the rules in this row
+               line up with the rules above and below it -->
+          <colgroup><col style="width:54.8%"><col style="width:20.4%"><col style="width:24.8%"></colgroup>
           ${grpRow(QT.s2a
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
