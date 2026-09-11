@@ -73,8 +73,8 @@ async function openLead(id){
   const stageList=canMoney?STAGES:STAGES.filter(s=>!TERMINAL.includes(s.stage_code)||s.stage_code===l.stage_code);
   const stgOpts=stageList.map(s=>opt(s.stage_code,l.stage_code).replace(`>${esc(s.stage_code)}<`,`>${esc(s.stage_name)}<`)).join('');
   /* assignment dropdowns: always include current assignee even if role changed (bug fix) */
-  const salesPeople=STAFF.filter(s=>(s.role==='sales'&&s.is_active)||s.id===l.assigned_to);
-  const salesOpts=`<option value="">Pool (unassigned)</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(s.full_name)}</option>`).join('');
+  const salesPeople=assignable(l.assigned_to);
+  const salesOpts=`<option value="">Pool (unassigned)</option>`+salesPeople.map(s=>`<option value="${s.id}" ${s.id===l.assigned_to?'selected':''}>${esc(assignLabel(s))}</option>`).join('');
   const PV=l.province||l.city_province||'Phnom Penh';
 
   /* Marketing owns customer identity, not where the deal has got to. They get
@@ -176,7 +176,7 @@ async function openLead(id){
       </div>`:''}
 
       <div class="quothead">Quotations (<span id="quot-n">${(quots||[]).length}</span>)</div>
-      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng,quotInUse(q,l,fin))).join('')
+      <div id="quot-list">${(quots||[]).map(q=>quotCard(q,l.id,canEng,quotInUse(q,l,fin),canQuote)).join('')
         ||'<p class="quot-none">No quotations yet.</p>'}</div>
     </div>`:'';
 
@@ -510,13 +510,14 @@ function quotInUse(q,l,fin){
   if(Number(fin.final_sale_usd)!==Number(q.price_usd))return false;
   return q.panel_pcs==null||Number(q.panel_pcs)===Number(l.panel_pcs);
 }
-function quotCard(q,leadId,canUse,inUse){
+function quotCard(q,leadId,canUse,inUse,canDelete){
   return `<div class="qcard${inUse?' qcard-on':''}"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
     <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date||q.created_at)} by ${esc(staffName(q.provided_by))}</span>
     ${inUse?'<span class="qtag">In use</span>':''}
     <div class="acts">
       <button class="btn-mini" onclick="printQuote('${q.id}','${leadId}')">Quotation document</button>
       ${(canUse&&!inUse)?`<button class="btn-mini" onclick="useQuot('${q.id}','${leadId}')" title="Copy this option's specification onto the lead, so EDC, installation and the export all follow it">Use this one</button>`:''}
+      ${canDelete?`<button class="btn-mini qdel" onclick="delQuot('${q.id}','${leadId}')" title="Remove this option. A quotation has no undo.">Delete</button>`:''}
     </div></div>`;
 }
 async function addQuot(leadId){
@@ -546,11 +547,56 @@ async function addQuot(leadId){
   const list=$('quot-list');
   if(list){
     const none=list.querySelector('.quot-none');if(none)none.remove();
-    list.insertAdjacentHTML('afterbegin',quotCard(data,leadId,true,false));
+    list.insertAdjacentHTML('afterbegin',quotCard(data,leadId,true,false,true));
   }
   const n=$('quot-n');if(n)n.textContent=LEADQUOTS.length;
   $('q-price').value='';
   toast('Quotation saved');
+}
+/* Removing an option. A quotation has no soft delete and no undo, hence the
+   confirm - and the note on the lead afterwards, because `lead_activities` is
+   the only audit trail a deleted quotation leaves.
+
+   Two things that would otherwise go wrong. The lead may be *following* this
+   option through `chosen_quotation_id`, so that is cleared in the same breath
+   or the lead points at a row that is not there; the sale value is left alone,
+   because what the customer agreed to pay did not change. And a delete refused
+   by RLS returns no error and changes nothing - the same trap `after_sales`
+   and `quotations` have both sprung before - so the row is read back and the
+   card only goes when the database agrees it is gone. */
+async function delQuot(quotId,leadId){
+  const q=(LEADQUOTS||[]).find(x=>x.id===quotId);
+  if(!q){toast('Could not find that quotation');return;}
+  /* whether the lead is following this option is read off the card in front of
+     them, not out of LEADS - that array is the list snapshot and is stale, or
+     missing the lead entirely when one is opened straight by id */
+  const card=document.querySelector('.qcard [onclick*="'+quotId+'"]')?.closest('.qcard');
+  const inUse=!!card&&card.classList.contains('qcard-on');
+  const lines=['Delete the '+fmtMoney(q.price_usd)+' quotation?'];
+  if(inUse)lines.push('','The lead is following this option. It will no longer name a chosen quotation; the sale value stays as it is.');
+  lines.push('','This cannot be undone.');
+  if(!confirm(lines.join('\n')))return;
+  if(inUse){
+    const {error:ce}=await sb.from('leads').update({chosen_quotation_id:null}).eq('id',leadId);
+    if(ce){toast('Could not release the chosen option. '+why(ce));return;}
+    const inList=(LEADS||[]).find(x=>x.id===leadId);
+    if(inList)inList.chosen_quotation_id=null;
+  }
+  const {error}=await sb.from('quotations').delete().eq('id',quotId);
+  if(error){toast('Could not delete the quotation. '+why(error));console.error(error);return;}
+  /* the read-back: no error above only means nothing objected out loud */
+  const {data:still}=await sb.from('quotations').select('id').eq('id',quotId).maybeSingle();
+  if(still){toast('The database refused that delete. Ask an admin.');return;}
+  await logActivity(leadId,'note',null,null,'Quotation deleted: '+fmtMoney(q.price_usd));
+  LEADQUOTS=(LEADQUOTS||[]).filter(x=>x.id!==quotId);
+  /* the card goes where it stands. Re-rendering the lead here would throw away
+     specification edits not yet saved, the same reason addQuot inserts in
+     place rather than reopening the lead. */
+  if(card)card.remove();
+  const n=$('quot-n');if(n)n.textContent=LEADQUOTS.length;
+  const list=$('quot-list');
+  if(list&&!LEADQUOTS.length)list.innerHTML='<p class="quot-none">No quotations yet.</p>';
+  toast('Quotation deleted');
 }
 /* Which option is real. The lead carries the specification that EDC, the
    installation screen and the CSV all read, so with several options saved,
