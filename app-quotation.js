@@ -413,7 +413,9 @@ function quoteHtml(q,l,c){
   /* the savings figures and the notes sit side by side at the foot of page
      one, the notes boxed on the right - the client's own sheet reads that way,
      and stacking them cost 25mm of a page that has none to spare */
-  .lower{display:flex;gap:5mm;align-items:flex-start;margin-top:3px}
+  /* the notes box and the savings table finish level: the box stretches to
+     the taller of the two rather than stopping short of it */
+  .lower{display:flex;gap:5mm;align-items:stretch;margin-top:3px}
   .lower-l{flex:0 0 auto}
   /* their own sheet's colours: the two headings in red, the body of both
      blocks in navy. Forced to print - a quotation that loses its colour on
