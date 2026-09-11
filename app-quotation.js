@@ -379,7 +379,9 @@ function quoteHtml(q,l,c){
   /* the same column grid as the items table above it: the terms span the
      first three columns and the price sits under the picture column, which is
      where their own sheet puts it */
-  .money col.c-l{width:75%} .money col.c-v{width:25%}
+  /* the price column must be the width of the picture column above it, or
+     the rule under the items table steps sideways where the two join */
+  .money col.c-l{width:77%} .money col.c-v{width:23%}
   .money td{padding:1px 6px;font-size:11px}
   /* the figure the customer actually pays, highlighted the way their own sheet
      highlights it - grand total with VAT, the negotiated total without. The
