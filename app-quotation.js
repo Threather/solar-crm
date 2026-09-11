@@ -423,7 +423,7 @@ function quoteHtml(q,l,c){
   .lower-h{font-weight:bold;color:#c00000;
            print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .sav td{color:#111}
-  .fn{flex:1;font-size:8.5px;color:#111;line-height:1.3;
+  .fn{flex:1;font-size:9.5px;color:#111;line-height:1.45;
       border:1px solid #333;border-radius:2px;padding:3px 6px;
       print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .fn b{color:#c00000}
