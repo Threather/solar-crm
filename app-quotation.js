@@ -332,14 +332,14 @@ function quoteHtml(q,l,c){
   .items td.n{text-align:center}
   /* their column order: number, description, quantity, picture - and the
      picture column is wide enough for the photo to be read as a photo */
-  .items col.c-n{width:7%} .items col.c-d{width:52%}
-  .items col.c-q{width:16%} .items col.c-i{width:25%}
+  .items col.c-n{width:7%} .items col.c-d{width:51%}
+  .items col.c-q{width:19%} .items col.c-i{width:23%}
   .items td.im{text-align:center;vertical-align:middle}
-  .items td.im img{max-width:92%;max-height:20mm;display:inline-block}
+  .items td.im img{max-width:92%;max-height:16mm;display:inline-block}
   .items td.q{text-align:center}
   /* the quantity, then the warranty under it, both in the quantity column -
      theirs carries the warranty here rather than inline in the description */
-  .wty{display:block;margin-top:2px}
+  .wty{display:block;margin-top:1px;font-size:9px;white-space:nowrap}
   /* one row of the sheet holding several products: an inner table on the same
      column widths, so each photo and quantity sits beside its own block with
      no rule drawn between them */
@@ -395,7 +395,7 @@ function quoteHtml(q,l,c){
        min-height:13px;background:#fffbe8;outline:none}
   .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
   .box.lbl{min-width:120px;text-align:left;font-weight:normal}
-  .sav td{padding:1px 4px;font-size:10px}
+  .sav td{padding:0 4px;font-size:10px}
   /* figure right-aligned and bold, its unit left-aligned beside it - theirs
      reads as a column of numbers with a column of units, not a sentence */
   .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px;font-weight:bold}
@@ -486,25 +486,25 @@ function quoteHtml(q,l,c){
       <tr><td class="n">២</td><td class="grp" colspan="3">
         <div style="padding:2px 5px" class="sec2">${QT.s2}</div>
         <table>
-          <colgroup><col style="width:56%"><col style="width:17%"><col style="width:27%"></colgroup>
+          <colgroup><col style="width:53%"><col style="width:22%"><col style="width:25%"></colgroup>
           ${grpRow(QT.s2a
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
              (q.panel_pcs||'')+' '+QT.unitPanel,
-             '<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>'
-             +'<span class="wty">ធានាលើប្រសិទ្ធភាព: '+qb(22)+' ឆ្នាំ</span>',
+             '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>'
+             +'<span class="wty">ធានាលើប្រសិទ្ធភាព: '+qb(16)+' ឆ្នាំ</span>',
              imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt),c.base)}
           ${grpRow(QT.s2b
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mInv||q.inverter_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.invsize+'</span>: '+(c.kwac?c.kwac.toFixed(2):'')+' kWac</div>',
              (q.inverter_pcs||'')+' '+QT.unitPiece,
-             '<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>',
+             '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
              imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw),c.base)}
           ${grpRow(QT.s2c
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mBatt||q.battery_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.battcap+'</span>: '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh</div>',
              (q.battery_pcs||'')+' '+QT.unitPiece,
-             '<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>',
+             '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
              imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh),c.base)}
           ${grpRow(QT.s2d
              +'<div class="ind it">* '+QT.mount1+'</div><div class="ind it">* '+QT.mount2+'</div>'
@@ -517,7 +517,7 @@ function quoteHtml(q,l,c){
              +'<div class="ind">* '+QT.e1+'</div><div class="ind">* '+QT.e2+'</div>'
              +'<div class="ind">* '+QT.e3+'</div><div class="ind">* '+QT.e4+'</div>'
              +'<div class="ind">* '+QT.e5+'</div><div class="ind">* '+QT.e6+'</div>',
-             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+QT.warranty+': '+qb(22)+' ឆ្នាំ</span>',
+             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
              /* cables, breakers and the AC/DC boxes - one picture for the
                 whole electrical set, the way their own sheet carries it. No
                 part number is derived for it: it is a bundle, not a product.
