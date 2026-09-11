@@ -435,6 +435,13 @@ function quoteHtml(q,l,c){
   /* the red italic note that stands under the terms table on their page two */
   .rednote{color:#c00000;font-style:italic;font-weight:bold;margin-top:6px;font-size:10px;
            print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .p2{line-height:1.5}
+  .p2 .items td{padding:4px 6px}
+  .p2 .items th{padding:5px}
+  .p2 .items td>div{margin-top:2px}
+  .p2 h1{margin:4px 0 6px}
+  .p2 .rednote{margin-top:10px;line-height:1.5}
+  .warn{font-weight:bold}
   .pg{text-align:right;font-size:8.5px;color:#555;margin-top:6px}
   /* an empty cell prints as nothing. It used to print a dotted rule, which
      read as a row of full stops on a customer's sheet rather than as a blank
@@ -588,7 +595,7 @@ function quoteHtml(q,l,c){
   <div class="pg">${QT.page} 1/2</div>
 </div>
 
-<div class="sheet" contenteditable="true">
+<div class="sheet p2" contenteditable="true">
   <div class="hdr">
     <img class="logo" src="${c.base}img/logo.png" alt="" onerror="this.remove()">
     <div class="co"><b>${QT.company}</b><br>${QT.addr1}<br>${QT.addr2}<br>${QT.tel}</div>
@@ -608,7 +615,7 @@ function quoteHtml(q,l,c){
         <td class="q" style="vertical-align:middle">${QT.t1w}</td></tr>
       <tr><td class="n">២</td><td><span class="sec">${QT.t2}</span>
         <div class="ind it">${QT.t2a}</div><div class="ind it">${QT.t2b}</div>
-        <div class="ind it"><span class="lower-h">${QT.t2c.slice(0,QT.t2c.indexOf(':')+1)}</span>${QT.t2c.slice(QT.t2c.indexOf(':')+1)}</div></td>
+        <div class="ind it warn"><span class="lower-h">${QT.t2c.slice(0,QT.t2c.indexOf(':')+1)}</span>${QT.t2c.slice(QT.t2c.indexOf(':')+1)}</div></td>
         <td class="q"></td></tr>
     </tbody>
   </table>
