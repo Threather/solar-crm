@@ -598,7 +598,10 @@ function quoteHtml(q,l,c){
   /* .money td beats a bare .pay on specificity, so these have to be written
      against the table to win */
   .money td.pay{padding:2px 6px;border-top:none;border-bottom:none}
-  .money td.payhead{border-bottom:none}
+  /* red, like the two headings at the foot of the page - it introduces the
+     stages the way ចំណាំ introduces the notes */
+  .money td.payhead{border-bottom:none;color:#c00000;
+                    print-color-adjust:exact;-webkit-print-color-adjust:exact}
   /* borders collapse, so the row above draws the line unless both sides give
      it up - and the band still needs closing at the foot */
   .money tr:last-child td{border-bottom:1px solid #333}
