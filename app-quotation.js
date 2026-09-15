@@ -556,12 +556,12 @@ function quoteHtml(q,l,c){
   .money{margin-top:0;width:100%;border-collapse:collapse}
   /* open, but the sheet's own left edge carries on down through it - without
      that the table looks as though it has been cut away at the bottom left */
-  /* Each totals row is ruled the full width of the sheet, out to the left edge,
-     the way their own sheet has it - the blank carries the horizontals but
-     draws no verticals of its own. The ល.រ rule carries on down through it as
-     well, so both of the items table's left-hand rules continue into the band. */
-  .money td.open{border:none;border-top:1px solid #333;border-bottom:1px solid #333}
-  .money td.numcol{border:1px solid #333}
+  /* Traced against their sheet, 15 Sep 2026: from the left edge there is
+     nothing until the rule before the money column - no ល.រ rule carried down,
+     no box around the label - and every totals row is ruled the full width.
+     So the label simply shares one wide cell with the blank to its left, and
+     that cell's own borders draw the sheet edge, the horizontals and the
+     divider before the figure. */
   .money tr:first-child td{border-top:none}
   .money td{border:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
@@ -581,7 +581,7 @@ function quoteHtml(q,l,c){
      the full width. The heading over the money column went on 15 Sep - with
      the price row gone it sat over nothing - and its width went to the labels,
      which had started wrapping Grand Total onto a second line. */
-  .money col.c-n{width:7%} .money col.c-open{width:45%} .money col.c-lab{width:25%} .money col.c-v{width:23%}
+  .money col.c-l{width:77%} .money col.c-v{width:23%}
   /* 10px, not 11: at 11 the payment terms wrapped to a second line each and
      cost the page 5mm, which is what paid for the padding on every row above */
   .money td{padding:1.5px 6px;font-size:10px}
@@ -798,24 +798,24 @@ function quoteHtml(q,l,c){
        below a heading of their own (15 Sep 2026). It used to carry the three
        terms beside the price, which showed the price twice. -->
   <table class="money">
-    <colgroup><col class="c-n"><col class="c-open"><col class="c-lab"><col class="c-v"></colgroup>
-    <tr><td class="numcol"></td><td class="open"></td><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
-    <tr id="r-vat"><td class="numcol"></td><td class="open"></td><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
-    <tr id="r-grand"><td class="numcol"></td><td class="open"></td><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
+    <colgroup><col class="c-l"><col class="c-v"></colgroup>
+    <tr><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
+    <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
+    <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
     <!-- Off VAT, the price is negotiated instead: two lines to name a
          discount and take it off. Both the label and the amount are typed,
          because "etc." is the point - it is not always a discount. They are
          boxed rather than underlined, since a figure that changes what the
          customer pays should not look like the dotted blanks around it. -->
-    <tr id="r-d1"><td class="numcol"></td><td class="open"></td><td class="dlab"><span class="box lbl" contenteditable="true">${QT.discount}</span></td>
+    <tr id="r-d1"><td class="dlab"><span class="box lbl" contenteditable="true">${QT.discount}</span></td>
         <td class="v"><span class="box num" id="f-d1" contenteditable="true"></span></td></tr>
-    <tr id="r-d2"><td class="numcol"></td><td class="open"></td><td class="dlab"><span class="box lbl" contenteditable="true"></span></td>
+    <tr id="r-d2"><td class="dlab"><span class="box lbl" contenteditable="true"></span></td>
         <td class="v"><span class="box num" id="f-d2" contenteditable="true"></span></td></tr>
-    <tr id="r-net"><td class="numcol"></td><td class="open"></td><td class="tot">${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
-    <tr><td class="payhead" colspan="4">${QT.payHead}</td></tr>
-    <tr><td class="pay" colspan="4">${QT.pay1}</td></tr>
-    <tr><td class="pay" colspan="4">${QT.pay2}</td></tr>
-    <tr><td class="pay" colspan="4">${QT.pay3}</td></tr>
+    <tr id="r-net"><td class="tot">${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
+    <tr><td class="payhead" colspan="2">${QT.payHead}</td></tr>
+    <tr><td class="pay" colspan="2">${QT.pay1}</td></tr>
+    <tr><td class="pay" colspan="2">${QT.pay2}</td></tr>
+    <tr><td class="pay" colspan="2">${QT.pay3}</td></tr>
   </table>
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
