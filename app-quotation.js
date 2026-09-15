@@ -432,9 +432,13 @@ function quoteHtml(q,l,c){
   .sign{display:flex;gap:10mm;margin-top:8mm;font-size:10px;align-items:stretch}
   .sign > div{flex:1;border:1px solid #333;padding:4px 6px;min-height:42mm}
   .sign .dots{margin-top:18mm}
+  /* two lines, as their sheet has it: the first ran to the width of the
+     box and broke ថាមពល from ពន្លឺ, which made three */
+  .agree{font-size:9px;line-height:1.5}
   /* the red italic note that stands under the terms table on their page two */
-  .rednote{color:#c00000;font-style:italic;font-weight:bold;margin-top:6px;font-size:10px;
-           print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  /* the ចំណាំ label is the red part; the sentence it introduces is black */
+  .rednote{color:#111;font-style:italic;font-weight:bold;margin-top:6px;font-size:10px}
+  .warnlab{color:#c00000;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .p2{line-height:1.75}
   .p2 .items td{padding:7px 8px}
   .p2 .items th{padding:6px}
@@ -622,7 +626,7 @@ function quoteHtml(q,l,c){
 
   <!-- the red note stands under the table, and the sentence the customer is
        agreeing to sits inside the customer's own signature box -->
-  <div class="rednote">${QT.t2d}</div>
+  <div class="rednote"><span class="warnlab">${QT.t2d.slice(0,QT.t2d.indexOf(":")+1)}</span>${QT.t2d.slice(QT.t2d.indexOf(":")+1)}</div>
   <div class="sign">
     <div>
       <div>${QT.approved}</div>
@@ -632,7 +636,7 @@ function quoteHtml(q,l,c){
       <div><b>${QT.company}</b></div>
     </div>
     <div>
-      <div>${QT.agree1} ${QT.agree2}<br>${QT.agree3}</div>
+      <div class="agree">${QT.agree1} ${QT.agree2}<br>${QT.agree3}</div>
       <div class="dots">${QT.dots2}</div>
       <div>${QT.custSign}</div>
       <div>${QT.signName} ${qb(120)}</div>
