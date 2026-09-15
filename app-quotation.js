@@ -523,10 +523,10 @@ function quoteHtml(q,l,c){
      the full height of the row - without them the grid stops dead at this row */
   .grp td{border:none;padding:2.5px 5px}
   .grp td+td{border-left:1px solid #333}
-  /* a rule under each product. Their own sheet runs these blocks together
-     with no rule at all; Kevin asked for them separated, 11 Sep 2026. The
-     heading and the first block stay joined, so it starts at the third row. */
-  .grp tr:nth-child(n+3) td{border-top:1px solid #333}
+  /* no rule between one product and the next. They were separated on
+     11 Sep 2026 and run together again on 15 Sep - which is how the client's
+     own sheet has always had them. The column rules still run the full height
+     of the row; only the horizontals go. */
   .sec{font-weight:bold}
   .sec2{font-weight:bold;font-size:11px}
   .it{font-style:italic}
