@@ -498,6 +498,11 @@ function quoteHtml(q,l,c){
      waiting to be filled in. */
   @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:none}
     .box{background:none;border:1px solid #666}
+    /* the discount's own label prints as plain text: the box is there to be
+       typed into on screen, and on paper it reads as a heading beside a
+       figure, like តម្លៃសរុប above it. The amount keeps its border - that one
+       changes what the customer pays. */
+    .box.lbl{border:none}
     .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
 </style></head><body>
 <div class="bar">
