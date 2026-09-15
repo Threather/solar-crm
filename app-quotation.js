@@ -223,11 +223,12 @@ function printQuote(quotId,leadId){
   const price=Number(q.price_usd||0);
   /* their own workbook: kWp x 4 peak sun hours x 365 days */
   const annual=Math.round(kwp*4*365);
-  /* The line turns on inverter kWac, which is what EDC's own card bands on:
-     under 10 kWac off the sheet, at 10 and above on. It was briefly moved to
-     panel kWp earlier on 15 Sep 2026 and moved back the same day - what was
-     actually wrong was the rate printing as 0 at a band that charges nothing,
-     and that box is blank now. */
+  /* The line turns on inverter kWac, which is what EDC's own card bands on,
+     and only above 10: EDC charges nothing at 10 or under, so there is no fee
+     to state. Settled 15 Sep 2026 after a day of it - briefly keyed to panel
+     kWp, briefly shown at exactly 10 with a blank rate, and this is where it
+     landed. The rate box still prints blank rather than 0 if a band ever
+     works out at nothing. */
   const edcRateUsd=edcRate(kwac);
   /* the document opens on about:blank, so a relative img src would resolve
      against nothing — every picture needs the app's own address in front */
@@ -667,7 +668,7 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td class="u">${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td class="u">${QT.perYear}</td></tr>
     <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td class="u">${QT.usdYear}</td></tr>
-    ${(Number(c.kwac)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate?c.edcRate:''}</span> ${QT.perKwh})</span></td>
+    ${(Number(c.kwac)||0)>10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate?c.edcRate:''}</span> ${QT.perKwh})</span></td>
         <td class="v" id="o-export"></td><td class="u">${QT.usdYear}</td></tr>`:''}
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td class="u">${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td class="u">${QT.usdMonth}</td></tr>
