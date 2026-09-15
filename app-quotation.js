@@ -379,7 +379,9 @@ function quoteHtml(q,l,c){
   /* 12mm, not 16: page one has ~9mm of slack and every 0.05 of leading on it
      costs about 5mm, so the room for the text was bought from the photos */
   .items td.im img{max-width:92%;max-height:11mm;display:inline-block}
-  .items td.q{text-align:center}
+  /* centred in the cell, like the photo beside it - a quantity pinned to the
+     top of a five-line block reads as though it belongs to the first line */
+  .items td.q{text-align:center;vertical-align:middle}
   /* the quantity, then the warranty under it, both in the quantity column -
      theirs carries the warranty here rather than inline in the description */
   .wty{display:block;margin-top:1px;font-size:9px;white-space:nowrap}
