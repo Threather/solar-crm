@@ -421,6 +421,9 @@ function quoteHtml(q,l,c){
      border made it read as one tall merged cell with the terms below it */
   .money td.hd,.money td.lbl2{padding:3px 6px}
   .money td.tot{text-align:right;font-weight:bold}
+  /* the discount sits at the right edge of its cell, in line with the
+     តម្លៃសរុប above it, not adrift at the far left of the band */
+  .money td.dlab{text-align:right}
   /* the same column grid as the items table above it: the terms span the
      first three columns and the price sits under the picture column, which is
      where their own sheet puts it */
@@ -611,9 +614,9 @@ function quoteHtml(q,l,c){
          because "etc." is the point - it is not always a discount. They are
          boxed rather than underlined, since a figure that changes what the
          customer pays should not look like the dotted blanks around it. -->
-    <tr id="r-d1"><td><span class="box lbl" contenteditable="true">${QT.discount}</span></td>
+    <tr id="r-d1"><td class="dlab"><span class="box lbl" contenteditable="true">${QT.discount}</span></td>
         <td class="v"><span class="box num" id="f-d1" contenteditable="true"></span></td></tr>
-    <tr id="r-d2"><td><span class="box lbl" contenteditable="true"></span></td>
+    <tr id="r-d2"><td class="dlab"><span class="box lbl" contenteditable="true"></span></td>
         <td class="v"><span class="box num" id="f-d2" contenteditable="true"></span></td></tr>
     <tr id="r-net"><td class="tot">${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
   </table>
