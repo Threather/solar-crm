@@ -571,8 +571,10 @@ function quoteHtml(q,l,c){
      crossing it at all - and boxes only the label and the figure. So the band
      has three columns but the first draws no border: the blank reads as one
      continuous space, while the rows below it, the payment stages, are boxed
-     the full width. */
-  .money col.c-open{width:58%} .money col.c-lab{width:19%} .money col.c-v{width:23%}
+     the full width. The heading over the money column went on 15 Sep - with
+     the price row gone it sat over nothing - and its width went to the labels,
+     which had started wrapping Grand Total onto a second line. */
+  .money col.c-open{width:52%} .money col.c-lab{width:25%} .money col.c-v{width:23%}
   /* 10px, not 11: at 11 the payment terms wrapped to a second line each and
      cost the page 5mm, which is what paid for the padding on every row above */
   .money td{padding:1.5px 6px;font-size:10px}
@@ -780,7 +782,6 @@ function quoteHtml(q,l,c){
        terms beside the price, which showed the price twice. -->
   <table class="money">
     <colgroup><col class="c-open"><col class="c-lab"><col class="c-v"></colgroup>
-    <tr><td class="open" colspan="2"></td><td class="v hd">${QT.sysprice}</td></tr>
     <tr><td class="open"></td><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
     <tr id="r-vat"><td class="open"></td><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td class="open"></td><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
