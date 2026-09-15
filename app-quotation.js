@@ -447,7 +447,9 @@ function quoteHtml(q,l,c){
   .box{display:inline-block;border:1px solid #999;border-radius:2px;padding:0 4px;
        min-height:13px;background:#fffbe8;outline:none}
   .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
-  .box.lbl{min-width:120px;text-align:left;font-weight:normal}
+  /* the text sits at the right edge of its box, so it lands where តម្លៃសរុប
+     and សរុប/Total sit rather than adrift 120px to their left */
+  .box.lbl{min-width:100px;text-align:right;font-weight:normal}
   .sav td{padding:0 4px;font-size:10px}
   /* figure right-aligned and bold, its unit left-aligned beside it - theirs
      reads as a column of numbers with a column of units, not a sentence */
