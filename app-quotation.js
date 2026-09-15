@@ -580,7 +580,11 @@ function quoteHtml(q,l,c){
              +'<div class="ind it">* '+QT.mount1+'</div><div class="ind it">* '+QT.mount2+'</div>'
              +'<div class="ind it">* '+QT.mount3+'</div><div class="ind it">* '+QT.mount4+'</div>'
              +'<div class="ind it">* '+QT.mount5+'</div>',
-             qb(50,'1 '+QT.unitSet),'','',c.base)}
+             qb(50,'1 '+QT.unitSet),'',
+             /* rails, clamps, tile feet, L-brackets and bolts - one picture for
+                the whole mounting set, the way electrical.jpg carries the
+                electrical bundle. No part number: it is a set, not a product. */
+             'img/mounting.png',c.base)}
         </table>
       </td></tr>
       ${row('៣','<span class="sec">'+QT.s3+'</span>'
