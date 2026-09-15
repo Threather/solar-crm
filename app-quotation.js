@@ -369,7 +369,7 @@ function quoteHtml(q,l,c){
   .meta .unit{font-weight:normal}
   .items{margin-top:2px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
-  .items td{border:1px solid #999;padding:1px 5px;vertical-align:top}
+  .items td{border:1px solid #999;padding:2px 5px;vertical-align:top}
   .items td.n{text-align:center}
   /* their column order: number, description, quantity, picture - and the
      picture column is wide enough for the photo to be read as a photo */
@@ -378,7 +378,7 @@ function quoteHtml(q,l,c){
   .items td.im{text-align:center;vertical-align:middle}
   /* 12mm, not 16: page one has ~9mm of slack and every 0.05 of leading on it
      costs about 5mm, so the room for the text was bought from the photos */
-  .items td.im img{max-width:92%;max-height:12mm;display:inline-block}
+  .items td.im img{max-width:92%;max-height:11mm;display:inline-block}
   .items td.q{text-align:center}
   /* the quantity, then the warranty under it, both in the quantity column -
      theirs carries the warranty here rather than inline in the description */
@@ -391,7 +391,7 @@ function quoteHtml(q,l,c){
   .grp table{width:100%}
   /* no rule between one product and the next, but the column rules still run
      the full height of the row - without them the grid stops dead at this row */
-  .grp td{border:none;padding:1px 5px}
+  .grp td{border:none;padding:2px 5px}
   .grp td+td{border-left:1px solid #999}
   /* a rule under each product. Their own sheet runs these blocks together
      with no rule at all; Kevin asked for them separated, 11 Sep 2026. The
@@ -433,7 +433,9 @@ function quoteHtml(q,l,c){
   /* the price column must be the width of the picture column above it, or
      the rule under the items table steps sideways where the two join */
   .money col.c-l{width:77%} .money col.c-v{width:23%}
-  .money td{padding:1px 6px;font-size:11px}
+  /* 10px, not 11: at 11 the payment terms wrapped to a second line each and
+     cost the page 5mm, which is what paid for the padding on every row above */
+  .money td{padding:1px 6px;font-size:10px}
   /* the figure the customer actually pays, highlighted the way their own sheet
      highlights it - grand total with VAT, the negotiated total without. The
      colour has to survive a printer economising on ink, so it is forced. */
