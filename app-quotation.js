@@ -537,9 +537,11 @@ function quoteHtml(q,l,c){
     <tr><td class="lab">${QT.size}</td><td><span class="num">${qb(26,kwpTxt)}</span> <span class="unit">kWp</span></td>
         <td></td><td></td></tr>
     <!-- the number holds a width so kWp and kWh line up, but an empty battery
-         reserved it for nothing and left kWh stranded away from its label -->
-    <tr><td class="lab">${QT.battsize}</td><td>${q.battery_kwh?`<span class="num">${esc(q.battery_kwh)}</span> `:''}<span class="unit">kWh</span></td>
-        <td></td><td></td></tr>
+         reserved it for nothing and left kWh stranded away from its label.
+         An On-Grid system has no battery at all, so the row itself goes, the
+         same way its block goes from the items table. -->
+    ${onGrid?'':`<tr><td class="lab">${QT.battsize}</td><td>${q.battery_kwh?`<span class="num">${esc(q.battery_kwh)}</span> `:''}<span class="unit">kWh</span></td>
+        <td></td><td></td></tr>`}
   </table>
 
   <table class="items">
