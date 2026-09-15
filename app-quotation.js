@@ -556,10 +556,12 @@ function quoteHtml(q,l,c){
   .money{margin-top:0;width:100%;border-collapse:collapse}
   /* open, but the sheet's own left edge carries on down through it - without
      that the table looks as though it has been cut away at the bottom left */
-  .money td.open{border:none}
-  /* the ល.រ rule carries on down through the blank as well, so both of the
-     items table's left-hand rules continue into the band */
-  .money td.numcol{border:none;border-left:1px solid #333;border-right:1px solid #333}
+  /* Each totals row is ruled the full width of the sheet, out to the left edge,
+     the way their own sheet has it - the blank carries the horizontals but
+     draws no verticals of its own. The ល.រ rule carries on down through it as
+     well, so both of the items table's left-hand rules continue into the band. */
+  .money td.open{border:none;border-top:1px solid #333;border-bottom:1px solid #333}
+  .money td.numcol{border:1px solid #333}
   .money tr:first-child td{border-top:none}
   .money td{border:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
