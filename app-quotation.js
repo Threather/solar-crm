@@ -586,7 +586,17 @@ function quoteHtml(q,l,c){
   /* the price column carries a heading above it. The payment terms are black:
      their sheet has them red, Kevin wants them black. */
   /* the payment stages, under the totals and under their own heading */
-  .pay{color:#111;font-weight:bold;padding:2px 6px}
+  /* the three stages read as one block: no rule between them, nor between
+     them and their heading. The line under the totals and the one closing
+     the band are the only horizontals left here. */
+  .pay{color:#111;font-weight:bold}
+  /* .money td beats a bare .pay on specificity, so these have to be written
+     against the table to win */
+  .money td.pay{padding:2px 6px;border-top:none;border-bottom:none}
+  .money td.payhead{border-bottom:none}
+  /* borders collapse, so the row above draws the line unless both sides give
+     it up - and the band still needs closing at the foot */
+  .money tr:last-child td{border-bottom:1px solid #333}
   .money td.payhead{font-weight:bold;padding:3px 6px}
   .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #333;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
