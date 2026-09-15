@@ -357,7 +357,10 @@ function quoteHtml(q,l,c){
       if(on&&!st){
         st=document.createElement('style');st.id=id;
         st.textContent='.fill{background:none!important;border-bottom:none!important}'
-          +'.box{background:none!important;border:none!important}';
+          +'.box{background:none!important;border:none!important}'
+          /* see the print rule: the inner table's single border photographs
+             weaker than the outer table's doubled one */
+          +'.grp td+td{border-left-width:2px!important}';
         document.head.appendChild(st);
       } else if(!on&&st) st.remove();
     }
@@ -643,7 +646,11 @@ function quoteHtml(q,l,c){
   /* an empty cell prints as nothing. It used to print a dotted rule, which
      read as a row of full stops on a customer's sheet rather than as a blank
      waiting to be filled in. */
-  @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:none}
+  /* The outer table draws a border on both cells at every junction, which
+     lands as a fat rule; the inner table of the components row draws one, and
+     came out visibly weaker on paper. It takes 2px there to match. */
+  @media print{.grp td+td{border-left-width:2px}
+    .bar,.vatbox{display:none}.fill{background:none;border-bottom:none}
     /* both discount boxes print as plain text. They are yellow and outlined on
        screen because they are there to be typed into; on paper the line reads
        as a label beside a figure, like តម្លៃសរុប above it, and an unused one
