@@ -197,6 +197,15 @@ function imgFor(model,kind,brand,size){
   }
   return '';
 }
+/* An On-Grid system has no battery, so the battery block comes off the
+   quotation and the mounting block moves up a letter with it (15 Sep 2026).
+   The Khmer letter is stripped off the stored label and re-issued by position,
+   so the labels themselves stay exactly as the client wrote them. Matched
+   loosely, like the brands, because admin edits the system-type list - and
+   "Off-Grid" carries no "on", so it cannot match by accident. */
+const KH_LETTERS=['ក','ខ','គ','ឃ'];
+const khLabel=(i,text)=>KH_LETTERS[i]+'. '+String(text).replace(/^[ក-៿]\.\s*/,'');
+const isOnGrid=sys=>/on[\s-]?grid/i.test(sys||'');
 /* a blank the salesperson fills in on screen before printing */
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
 const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
@@ -237,6 +246,7 @@ function quoteHtml(q,l,c){
   const mPanel=panelModel(q.panel_brand,q.panel_watt);
   const mInv=inverterModel(q.inverter_brand,q.inverter_kw,q.ampere_phase);
   const mBatt=batteryModel(q.battery_brand,q.battery_kwh_each||q.battery_kwh);
+  const onGrid=isOnGrid(q.system_type);
   const recalc=`<scr`+`ipt>
     function recalc(){
       /* a row can be absent from the sheet entirely - EDC compensation is not
@@ -522,26 +532,26 @@ function quoteHtml(q,l,c){
                line up with the rules above and below it -->
           <colgroup><col style="width:54.8%"><col style="width:20.4%"><col style="width:24.8%"></colgroup>
           <tr><td class="sec2">${QT.s2}</td><td class="q"></td><td class="im"></td></tr>
-          ${grpRow(QT.s2a
+          ${grpRow(khLabel(0,QT.s2a)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
              (q.panel_pcs||'')+' '+QT.unitPanel,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>'
              +'<span class="wty">ធានាលើប្រសិទ្ធភាព: '+qb(16)+' ឆ្នាំ</span>',
              imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt),c.base)}
-          ${grpRow(QT.s2b
+          ${grpRow(khLabel(1,QT.s2b)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mInv||q.inverter_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.invsize+'</span>: '+(c.kwac?c.kwac.toFixed(2):'')+' kWac</div>',
              (q.inverter_pcs||'')+' '+QT.unitPiece,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
              imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw),c.base)}
-          ${grpRow(QT.s2c
+          ${onGrid?'':grpRow(khLabel(2,QT.s2c)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mBatt||q.battery_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.battcap+'</span>: '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh</div>',
              (q.battery_pcs||'')+' '+QT.unitPiece,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
              imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh),c.base)}
-          ${grpRow(QT.s2d
+          ${grpRow(khLabel(onGrid?2:3,QT.s2d)
              +'<div class="ind it">* '+QT.mount1+'</div><div class="ind it">* '+QT.mount2+'</div>'
              +'<div class="ind it">* '+QT.mount3+'</div><div class="ind it">* '+QT.mount4+'</div>'
              +'<div class="ind it">* '+QT.mount5+'</div>',
