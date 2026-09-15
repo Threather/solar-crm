@@ -264,9 +264,10 @@ function quoteHtml(q,l,c){
          does the sum by hand on a customer's sheet. The lines only count while
          they are on the sheet - a figure typed, then taken off by unticking,
          must not keep coming off the total. */
-      const disc=document.getElementById('disc-on').checked
-                 &&!document.getElementById('vat-on').checked;
-      const net=price-(disc?g('f-d1')+g('f-d2'):0);
+      /* only a line that is on the sheet comes off the total */
+      const shown=id=>{const e=document.getElementById(id);
+        return !!e&&getComputedStyle(e).display!=='none';};
+      const net=price-(shown('r-d1')?g('f-d1'):0)-(shown('r-d2')?g('f-d2'):0);
       document.getElementById('o-net').innerText='$'+f(net);
       const val=g('f-annual')*g('f-tariff');
       /* EDC compensation is the band rate on everything produced in the year,
@@ -300,17 +301,22 @@ function quoteHtml(q,l,c){
       document.getElementById('disc-box').style.display=on?'none':'';
       discToggle();
     }
+    /* one line per tick. A second is offered only once the first is on the
+       sheet, because most quotations need neither and an unused line prints as
+       an empty box on a customer's sheet. */
     function discToggle(){
-      const show=document.getElementById('disc-on').checked
-                 &&!document.getElementById('vat-on').checked;
-      ['r-d1','r-d2'].forEach(function(id){
-        document.getElementById(id).style.display=show?'':'none';
-      });
+      const one=document.getElementById('disc-on').checked
+                &&!document.getElementById('vat-on').checked;
+      const two=one&&document.getElementById('disc2-on').checked;
+      document.getElementById('r-d1').style.display=one?'':'none';
+      document.getElementById('r-d2').style.display=two?'':'none';
+      document.getElementById('disc2-box').style.display=one?'':'none';
       recalc();
     }
     document.addEventListener('input',recalc);
     document.getElementById('vat-on').addEventListener('change',vatToggle);
     document.getElementById('disc-on').addEventListener('change',discToggle);
+    document.getElementById('disc2-on').addEventListener('change',discToggle);
     window.addEventListener('load',function(){recalc();vatToggle();});
   </scr`+`ipt>`;
   const kwpTxt=c.kwp?c.kwp.toFixed(2):'';
@@ -614,6 +620,7 @@ function quoteHtml(q,l,c){
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
     <label id="disc-box"><input type="checkbox" id="disc-on"> Add a discount line</label>
+    <label id="disc2-box"><input type="checkbox" id="disc2-on"> One more line</label>
   </div>
 
   <div class="lower">
