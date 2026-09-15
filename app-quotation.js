@@ -349,10 +349,14 @@ function quoteHtml(q,l,c){
   @page{size:A4;margin:0}
   /* 9.5px, not 10: Kevin traded type size for room between the rows on page
      one, 15 Sep 2026, after four rounds of trying to find the space anywhere
-     else. Khmer at 9px on paper is a gamble and has not been taken - and the
-     saving buys 4px of padding on every row, which is what he was asking for. */
+     else. Khmer at 9px on paper is a gamble and has not been taken.
+
+     The saving goes into line-height rather than cell padding: what reads as
+     cramped is the distance between the lines inside a cell, and padding only
+     moves the first and last of them. Leading is expensive here - every 0.07
+     of it costs the page 9mm - so 1.35 is what fits. */
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
-       font-size:9.5px;color:#111;margin:0;line-height:1.28}
+       font-size:9.5px;color:#111;margin:0;line-height:1.35}
   .sheet{width:210mm;margin:0 auto;padding:12mm 10mm 12mm;box-sizing:border-box}
   .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
@@ -387,7 +391,7 @@ function quoteHtml(q,l,c){
   .meta .unit{font-weight:normal}
   .items{margin-top:2px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
-  .items td{border:1px solid #999;padding:4px 5px;vertical-align:top}
+  .items td{border:1px solid #999;padding:2.5px 5px;vertical-align:top}
   .items td.n{text-align:center}
   /* their column order: number, description, quantity, picture - and the
      picture column is wide enough for the photo to be read as a photo */
@@ -414,7 +418,7 @@ function quoteHtml(q,l,c){
   .grp table{width:100%}
   /* no rule between one product and the next, but the column rules still run
      the full height of the row - without them the grid stops dead at this row */
-  .grp td{border:none;padding:4px 5px}
+  .grp td{border:none;padding:2.5px 5px}
   .grp td+td{border-left:1px solid #999}
   /* a rule under each product. Their own sheet runs these blocks together
      with no rule at all; Kevin asked for them separated, 11 Sep 2026. The
