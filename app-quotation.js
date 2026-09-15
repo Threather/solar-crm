@@ -40,6 +40,7 @@ const QT={
   e2:'ខ្សែ AC ចម្ងាយ 3.5ម៉ែត្រ ពីទូរភ្លើងសូឡាទៅទូរភ្លើងឌឺសង់ទ័រផ្ទះ',
   e3:'ខ្សែដី ១០០ ម៉ែត្រ (សម្រាប់ផ្ទាំងសូឡា និង អាំងវែទ័រ)',
   e4:'ខ្សែ DC ២៤០ ម៉ែត្រ', e5:'ប្រអប់ភ្លើងAC/DC', e6:'ឧបករណ៍ការពារAC/DC',
+  payHead:'*ដំណាក់កាលទូទាត់ប្រាក់៖',
   pay1:'ក. ទូទាត់ ៤០% នៅថ្ងៃដែលអតិថិជនចុះហត្ថលេខាទៅលើសម្រង់តម្លៃ',
   pay2:'ខ. ទូទាត់ ៥០% នៅថ្ងៃដែលសម្ភារៈសូឡាបានដឹកជញ្ជូនទៅដល់ទីតាំងរបស់អតិថិជន',
   pay3:'គ. ទូទាត់ ១០% នៅថ្ងៃដែលប្រព័ន្ធសូឡាបានតម្លើងរួចរាល់ ដោយបានបញ្ចប់ការតេស្ដ និង ដាក់អោយដំណើរការប្រព័ន្ធសូឡាបានជោគជ័យ',
@@ -576,7 +577,9 @@ function quoteHtml(q,l,c){
      colour has to survive a printer economising on ink, so it is forced. */
   /* the price column carries a heading above it. The payment terms are black:
      their sheet has them red, Kevin wants them black. */
-  .pay{color:#111;font-weight:bold}
+  /* the payment stages, under the totals and under their own heading */
+  .pay{color:#111;font-weight:bold;padding:2px 6px}
+  .money td.payhead{font-weight:bold;padding:3px 6px}
   .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #333;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
@@ -768,16 +771,12 @@ function quoteHtml(q,l,c){
     </tbody>
   </table>
 
-  <!-- The payment terms and the price sit in one full-width band under the
-       items table, the way their own sheet has it: terms on the left, the
-       price in a column of its own on the right under its heading, and the
-       payable total last. It used to be a row inside the items table with a
-       small money box floated to the right of it. -->
+  <!-- Their own sheet runs the totals first and the payment stages under them,
+       below a heading of their own (15 Sep 2026). It used to carry the three
+       terms beside the price, which showed the price twice. -->
   <table class="money">
     <colgroup><col class="c-l"><col class="c-v"></colgroup>
     <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
-    <tr><td class="pay" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
-        <td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
     <tr><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
@@ -791,6 +790,10 @@ function quoteHtml(q,l,c){
     <tr id="r-d2"><td class="dlab"><span class="box lbl" contenteditable="true"></span></td>
         <td class="v"><span class="box num" id="f-d2" contenteditable="true"></span></td></tr>
     <tr id="r-net"><td class="tot">${QT.netTotal}</td><td class="v paid" id="o-net"></td></tr>
+    <tr><td class="payhead" colspan="2">${QT.payHead}</td></tr>
+    <tr><td class="pay" colspan="2">${QT.pay1}</td></tr>
+    <tr><td class="pay" colspan="2">${QT.pay2}</td></tr>
+    <tr><td class="pay" colspan="2">${QT.pay3}</td></tr>
   </table>
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
