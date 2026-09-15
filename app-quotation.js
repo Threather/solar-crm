@@ -456,7 +456,9 @@ function quoteHtml(q,l,c){
   /* no outline on the amount, on screen or on paper - the yellow is enough
      to say it can be typed into, and the dark rule read as part of the
      table's own grid */
-  .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums;
+  /* centred, like every other figure in this column - right-aligned inside a
+     box that is itself centred put the number off to one side */
+  .box.num{min-width:80px;text-align:center;font-variant-numeric:tabular-nums;
            border:none}
   /* the text sits at the right edge of its box, so it lands where តម្លៃសរុប
      and សរុប/Total sit rather than adrift 120px to their left */
