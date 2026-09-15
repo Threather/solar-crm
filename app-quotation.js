@@ -330,6 +330,105 @@ function quoteHtml(q,l,c){
       document.getElementById('disc2-box').style.display=one?'':'none';
       recalc();
     }
+    /* ---- Downloads ----
+       Print writes a PDF through Chrome's own dialog, which nobody finds and
+       which is not a file until they go looking for one. These two buttons
+       hand over a file.
+
+       The PDF is a photograph of the sheet, not typeset text. A PDF library
+       given Khmer puts the vowels in the wrong place - that is why this
+       document is printed by the browser in the first place - but a picture of
+       the page cannot be wrong, because it is what is on the screen. The cost
+       is that its text cannot be selected or searched.
+
+       Both hide the toolbar and the ticks first, and put the sheet into the
+       state it prints in, so the file matches the paper rather than the
+       editing view. */
+    function dlName(ext){
+      const n=(document.querySelector('.meta td.val')||{}).innerText||'quotation';
+      const keep=new RegExp('[^A-Za-z0-9\u1780-\u17FF ]+','g');
+      return 'Quotation-'+String(n).trim().replace(keep,'').split(' ').filter(Boolean).join('-')
+             +'-'+new Date().toISOString().slice(0,10)+'.'+ext;
+    }
+    function asPrinted(on){
+      document.querySelectorAll('.bar,.vatbox').forEach(function(e){e.style.visibility=on?'hidden':'';e.style.display=on?'none':'';});
+      const id='dl-print-css';
+      let st=document.getElementById(id);
+      if(on&&!st){
+        st=document.createElement('style');st.id=id;
+        st.textContent='.fill{background:none!important;border-bottom:none!important}'
+          +'.box{background:none!important;border:none!important}';
+        document.head.appendChild(st);
+      } else if(!on&&st) st.remove();
+    }
+    function load(src){
+      return new Promise(function(ok,bad){
+        const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=bad;
+        document.head.appendChild(s);
+      });
+    }
+    async function dlPdf(btn){
+      const was=btn.textContent;
+      btn.textContent='Working…';btn.disabled=true;
+      try{
+        if(!window.html2canvas) await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+        if(!window.jspdf) await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        asPrinted(true);
+        const sheets=document.querySelectorAll('.sheet');
+        const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+        for(let i=0;i<sheets.length;i++){
+          /* scale 3 is about 200dpi on A4 - sharp on paper without a file
+             nobody can email */
+          const canvas=await window.html2canvas(sheets[i],{scale:3,backgroundColor:'#ffffff',useCORS:true,logging:false});
+          const img=canvas.toDataURL('image/jpeg',0.92);
+          /* the sheet is 210mm wide and never a full 297 tall, so the height
+             follows the picture rather than being stretched to the page */
+          const h=Math.min(297,canvas.height*210/canvas.width);
+          if(i)pdf.addPage();
+          pdf.addImage(img,'JPEG',0,0,210,h);
+        }
+        pdf.save(dlName('pdf'));
+      }catch(e){
+        alert('Could not build the PDF. Use Print instead. '+e.message);
+      }finally{
+        asPrinted(false);btn.textContent=was;btn.disabled=false;
+      }
+    }
+    /* Word opens HTML and keeps the Khmer as text somebody can edit, which the
+       PDF cannot. Flex is beyond it, so the block at the foot of page one is
+       re-emitted as a two-column table; everything else is already tables. */
+    function dlWord(){
+      asPrinted(true);
+      const doc=document.createElement('div');
+      doc.innerHTML=document.body.innerHTML;
+      doc.querySelectorAll('.bar,.vatbox').forEach(function(e){e.remove();});
+      doc.querySelectorAll('.lower').forEach(function(low){
+        const l=low.querySelector('.lower-l'), fn=low.querySelector('.fn');
+        if(!l||!fn)return;
+        const t=document.createElement('table');
+        t.setAttribute('width','100%');
+        const tr=document.createElement('tr');
+        const td1=document.createElement('td');td1.setAttribute('valign','top');td1.appendChild(l);
+        const td2=document.createElement('td');td2.setAttribute('valign','top');td2.appendChild(fn);
+        tr.appendChild(td1);tr.appendChild(td2);t.appendChild(tr);
+        low.parentNode.replaceChild(t,low);
+      });
+      /* each sheet is its own page in Word */
+      const sheets=doc.querySelectorAll('.sheet');
+      sheets.forEach(function(s,i){ if(i)s.style.pageBreakBefore='always'; });
+      const css=document.querySelector('style').textContent;
+      const html='<html xmlns:o="urn:schemas-microsoft-com:office:office" '
+        +'xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+        +'<head><meta charset="utf-8"><title>'+document.title+'</title>'
+        +'<style>@page{size:A4;margin:12mm 10mm}'+css+'</style></head><body>'
+        +doc.innerHTML+'</body></html>';
+      asPrinted(false);
+      const blob=new Blob(['﻿'+html],{type:'application/msword'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);a.download=dlName('doc');
+      document.body.appendChild(a);a.click();a.remove();
+      setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+    }
     document.addEventListener('input',recalc);
     document.getElementById('vat-on').addEventListener('change',vatToggle);
     document.getElementById('disc-on').addEventListener('change',discToggle);
@@ -547,7 +646,9 @@ function quoteHtml(q,l,c){
     .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
 </style></head><body>
 <div class="bar">
-  <button onclick="window.print()">Print / Save as PDF</button>
+  <button onclick="window.print()">Print</button>
+  <button onclick="dlPdf(this)">Download PDF</button>
+  <button onclick="dlWord()">Download Word</button>
   <span style="font-size:11px;color:#555;align-self:center">Every line can be edited. Yellow marks what changes on each quotation.</span>
 </div>
 
