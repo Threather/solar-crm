@@ -327,7 +327,11 @@ function quoteHtml(q,l,c){
   /* 32px is the width of the editable kWp box above it, so a battery that has
      a figure lines its unit up with kWp's. Narrow: the box is right-aligned,
      so every pixel of it is a gap between the label and a short number. */
-  .meta .num{display:inline-block;min-width:32px;text-align:right;font-weight:bold}
+  /* left-aligned, so the figure starts on the same edge as ABC and On-Grid
+     above it; the fixed width still lands kWp and kWh on the same edge too.
+     The editable box loses its left padding or it sits 3px in from the rest. */
+  .meta .num{display:inline-block;min-width:32px;text-align:left;font-weight:bold}
+  .meta .num .fill{padding-left:0}
   .meta .unit{font-weight:normal}
   .items{margin-top:2px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
