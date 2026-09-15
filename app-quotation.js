@@ -87,7 +87,10 @@ const QT={
    up to 50" means 10 itself pays nothing. */
 const EDC_RATES=[[10,0],[50,0.037],[100,0.047],[200,0.052],[500,0.055],[1000,0.058],[Infinity,0.06]];
 /* null, not zero, when the size is unknown: a blank box asks to be filled in,
-   a zero looks like an answer */
+   a zero looks like an answer. The same reasoning prints the rate box empty
+   rather than 0 at a band EDC charges nothing for - Kevin, 15 Sep 2026. The
+   fee beside it still works out to 0.00, because an empty box reads as
+   nothing, and whoever is quoting can type a rate in if EDC ever charges. */
 function edcRate(kwac){
   const k=Number(kwac||0);
   if(!k)return null;
@@ -663,7 +666,7 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td class="u">${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td class="u">${QT.perYear}</td></tr>
     <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td class="u">${QT.usdYear}</td></tr>
-    ${(Number(c.kwp)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
+    ${(Number(c.kwp)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate?c.edcRate:''}</span> ${QT.perKwh})</span></td>
         <td class="v" id="o-export"></td><td class="u">${QT.usdYear}</td></tr>`:''}
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td class="u">${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td class="u">${QT.usdMonth}</td></tr>
