@@ -274,8 +274,8 @@ function quoteHtml(q,l,c){
       const f=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
       const price=${c.price||0};
       const vat=price*0.10;
-      document.getElementById('o-vat').innerText='$'+f(vat);
-      document.getElementById('o-grand').innerText='$'+f(price+vat);
+      document.getElementById('o-vat').innerHTML='<span class="amt"><span class="cur">$</span><span>'+f(vat)+'</span></span>';
+      document.getElementById('o-grand').innerHTML='<span class="amt"><span class="cur">$</span><span>'+f(price+vat)+'</span></span>';
       /* off VAT the price is negotiated: whatever is typed on the two lines
          comes off, and the total is worked out rather than typed, so nobody
          does the sum by hand on a customer's sheet. The lines only count while
@@ -285,7 +285,7 @@ function quoteHtml(q,l,c){
       const shown=id=>{const e=document.getElementById(id);
         return !!e&&getComputedStyle(e).display!=='none';};
       const net=price-(shown('r-d1')?g('f-d1'):0)-(shown('r-d2')?g('f-d2'):0);
-      document.getElementById('o-net').innerText='$'+f(net);
+      document.getElementById('o-net').innerHTML='<span class="amt"><span class="cur">$</span><span>'+f(net)+'</span></span>';
       const val=g('f-annual')*g('f-tariff');
       /* EDC compensation is the band rate on everything produced in the year,
          so it follows the annual figure instead of being typed again */
@@ -580,8 +580,12 @@ function quoteHtml(q,l,c){
   .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #333;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
-  /* centred in its column, as theirs is, not pushed to the right edge */
+  /* Their own sheet sets money out the way a ledger does: the sign held at the
+     left of the column and the figure against the right edge, so a column of
+     amounts lines up on its decimal point. */
   .money td.v{text-align:center;font-variant-numeric:tabular-nums;font-weight:bold;vertical-align:middle}
+  .money .amt{display:flex;justify-content:space-between;gap:8px}
+  .money .amt .cur{font-weight:bold}
   /* a typed figure that changes the total is boxed, and stays boxed in print -
      the dotted .fill underline is for blanks nobody adds up */
   .box{display:inline-block;border:1px solid #999;border-radius:2px;padding:0 4px;
@@ -773,8 +777,8 @@ function quoteHtml(q,l,c){
     <colgroup><col class="c-l"><col class="c-v"></colgroup>
     <tr><td class="lbl2"></td><td class="v hd">${QT.sysprice}</td></tr>
     <tr><td class="pay" style="padding:2px 6px">${QT.pay1}<br>${QT.pay2}<br>${QT.pay3}</td>
-        <td class="v">$${qnum(c.price)}</td></tr>
-    <tr><td class="tot">${QT.total}</td><td class="v">$${qnum(c.price)}</td></tr>
+        <td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
+    <tr><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
     <!-- Off VAT, the price is negotiated instead: two lines to name a
