@@ -300,7 +300,7 @@ function quoteHtml(q,l,c){
      of content, and 297mm less 12mm top and bottom the same 273mm. */
   @page{size:A4;margin:0}
   body{font-family:'Khmer OS Siemreap','Khmer OS','Noto Sans Khmer','Century Gothic',Arial,sans-serif;
-       font-size:10px;color:#111;margin:0;line-height:1.2}
+       font-size:10px;color:#111;margin:0;line-height:1.28}
   .sheet{width:210mm;margin:0 auto;padding:12mm 10mm 12mm;box-sizing:border-box}
   .bar{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #ccc;margin-bottom:10px}
   .bar button{font:inherit;padding:6px 14px;cursor:pointer}
@@ -335,7 +335,9 @@ function quoteHtml(q,l,c){
   .items col.c-n{width:7%} .items col.c-d{width:51%}
   .items col.c-q{width:19%} .items col.c-i{width:23%}
   .items td.im{text-align:center;vertical-align:middle}
-  .items td.im img{max-width:92%;max-height:16mm;display:inline-block}
+  /* 12mm, not 16: page one has ~9mm of slack and every 0.05 of leading on it
+     costs about 5mm, so the room for the text was bought from the photos */
+  .items td.im img{max-width:92%;max-height:12mm;display:inline-block}
   .items td.q{text-align:center}
   /* the quantity, then the warranty under it, both in the quantity column -
      theirs carries the warranty here rather than inline in the description */
