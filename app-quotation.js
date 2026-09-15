@@ -449,7 +449,11 @@ function quoteHtml(q,l,c){
      the dotted .fill underline is for blanks nobody adds up */
   .box{display:inline-block;border:1px solid #999;border-radius:2px;padding:0 4px;
        min-height:13px;background:#fffbe8;outline:none}
-  .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
+  /* no outline on the amount, on screen or on paper - the yellow is enough
+     to say it can be typed into, and the dark rule read as part of the
+     table's own grid */
+  .box.num{min-width:80px;text-align:right;font-variant-numeric:tabular-nums;
+           border:none}
   /* the text sits at the right edge of its box, so it lands where តម្លៃសរុប
      and សរុប/Total sit rather than adrift 120px to their left */
   .box.lbl{min-width:100px;text-align:right;font-weight:normal}
