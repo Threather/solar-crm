@@ -324,7 +324,9 @@ function quoteHtml(q,l,c){
   .meta td{padding:0 4px;font-size:10px;vertical-align:top}
   .meta .lab{color:#111;white-space:nowrap;text-align:right;width:1%}
   .meta .val{font-weight:bold}
-  .meta .num{display:inline-block;min-width:38px;text-align:right;font-weight:bold}
+  /* 46px is the width of the editable kWp box above it, so a battery that
+     has a figure lines its unit up with kWp's */
+  .meta .num{display:inline-block;min-width:46px;text-align:right;font-weight:bold}
   .meta .unit{font-weight:normal}
   .items{margin-top:2px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
@@ -484,7 +486,9 @@ function quoteHtml(q,l,c){
         <td class="lab">${QT.valid}</td><td>${qb(40,QT.validDays)}</td></tr>
     <tr><td class="lab">${QT.size}</td><td><span class="num">${qb(40,kwpTxt)}</span> <span class="unit">kWp</span></td>
         <td></td><td></td></tr>
-    <tr><td class="lab">${QT.battsize}</td><td><span class="num">${esc(q.battery_kwh||'')}</span> <span class="unit">kWh</span></td>
+    <!-- the number holds a width so kWp and kWh line up, but an empty battery
+         reserved it for nothing and left kWh stranded away from its label -->
+    <tr><td class="lab">${QT.battsize}</td><td>${q.battery_kwh?`<span class="num">${esc(q.battery_kwh)}</span> `:''}<span class="unit">kWh</span></td>
         <td></td><td></td></tr>
   </table>
 
