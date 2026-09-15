@@ -186,7 +186,7 @@ const PRODUCT_IMG={
    part number and an unmatched brand shows nothing rather than the wrong box. */
 function imgFor(model,kind,brand,size){
   if(model){
-    if(/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model))return 'img/deye-sg05lp-v2.png';
+    if(/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model))return 'img/deye-sg05lp-v3.png';
     if(PRODUCT_IMG[model])return PRODUCT_IMG[model];
   }
   if(kind==='Panel')return 'img/panel.png';
@@ -199,7 +199,7 @@ function imgFor(model,kind,brand,size){
   if(kind==='Inverter'&&size){
     const n=Number(size)||0;
     if(isBrand('inverter','Deye',brand)
-       &&(DEYE_SG05LP['1'].includes(n)||DEYE_SG05LP['3'].includes(n)))return 'img/deye-sg05lp-v2.png';
+       &&(DEYE_SG05LP['1'].includes(n)||DEYE_SG05LP['3'].includes(n)))return 'img/deye-sg05lp-v3.png';
     if(isBrand('inverter','Yinergy',brand)&&YINERGY_HI_LV.includes(n))return 'img/yinergy-hi-lv.png';
     if(isBrand('inverter','Urayzero',brand)&&URAYZERO[n])return 'img/urayzero-labct.png';
   }
