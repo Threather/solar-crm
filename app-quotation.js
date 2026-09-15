@@ -545,10 +545,12 @@ function quoteHtml(q,l,c){
   .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555;
           display:flex;gap:14px;justify-content:flex-end}
   .vatbox label{cursor:pointer;white-space:nowrap}
-  /* -1px, not 0: the items table and this one each draw their own 1px edge,
-     so butting them together would leave a double rule. Overlapping by a pixel
-     makes the two read as one continuous grid, the way theirs does. */
-  .money{margin-top:-1px;width:100%;border:1px solid #333;border-collapse:collapse}
+  /* The items table already draws the rule they meet on, so this one draws no
+     top edge at all - neither the table nor its first row. Overlapping the two
+     by -1px was the old way, and in the photographed PDF it printed as a thick
+     rule with a half-strength line hanging off it. */
+  .money{margin-top:0;width:100%;border:1px solid #333;border-collapse:collapse;border-top:none}
+  .money tr:first-child td{border-top:none}
   .money td{border:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
      border made it read as one tall merged cell with the terms below it */
