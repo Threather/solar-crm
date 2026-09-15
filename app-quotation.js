@@ -355,7 +355,7 @@ function quoteHtml(q,l,c){
   table{width:100%;border-collapse:collapse}
   /* labels run up to the colon and the values start on one line, the way
      theirs reads - so the label column is right-aligned, not left */
-  .meta td{padding:0 4px;font-size:10px;vertical-align:top}
+  .meta td{padding:1.5px 4px;font-size:10px;vertical-align:top}
   .meta .lab{color:#111;white-space:nowrap;text-align:right;width:1%}
   .meta .val{font-weight:bold}
   /* 32px is the width of the editable kWp box above it, so a battery that has
@@ -471,10 +471,14 @@ function quoteHtml(q,l,c){
   .rate{font-size:9px;color:#555}
   /* the savings figures and the notes sit side by side at the foot of page
      one, the notes boxed on the right - the client's own sheet reads that way,
-     and stacking them cost 25mm of a page that has none to spare */
+     and stacking them cost 25mm of a page that has none to spare.
+     margin-top is 16px because the block sat right under the total and read as
+     cramped. Measure page one with .vatbox hidden when judging whether it
+     fits: the tick row is on screen only and is worth 5.6mm that the printer
+     never sees. */
   /* the notes box and the savings table finish level: the box stretches to
      the taller of the two rather than stopping short of it */
-  .lower{display:flex;gap:5mm;align-items:stretch;margin-top:3px}
+  .lower{display:flex;gap:5mm;align-items:stretch;margin-top:16px}
   .lower-l{flex:0 0 auto}
   /* their own sheet's colours: the two headings in red, the body of both
      blocks in navy. Forced to print - a quotation that loses its colour on
