@@ -435,12 +435,12 @@ function quoteHtml(q,l,c){
   /* the red italic note that stands under the terms table on their page two */
   .rednote{color:#c00000;font-style:italic;font-weight:bold;margin-top:6px;font-size:10px;
            print-color-adjust:exact;-webkit-print-color-adjust:exact}
-  .p2{line-height:1.5}
-  .p2 .items td{padding:4px 6px}
-  .p2 .items th{padding:5px}
-  .p2 .items td>div{margin-top:2px}
-  .p2 h1{margin:4px 0 6px}
-  .p2 .rednote{margin-top:10px;line-height:1.5}
+  .p2{line-height:1.75}
+  .p2 .items td{padding:7px 8px}
+  .p2 .items th{padding:6px}
+  .p2 .items td>div{margin-top:4px}
+  .p2 h1{margin:5px 0 8px}
+  .p2 .rednote{margin-top:14px;line-height:1.75}
   .warn{font-weight:bold}
   .pg{text-align:right;font-size:8.5px;color:#555;margin-top:6px}
   /* an empty cell prints as nothing. It used to print a dotted rule, which
