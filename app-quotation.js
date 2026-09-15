@@ -261,8 +261,12 @@ function quoteHtml(q,l,c){
       document.getElementById('o-grand').innerText='$'+f(price+vat);
       /* off VAT the price is negotiated: whatever is typed on the two lines
          comes off, and the total is worked out rather than typed, so nobody
-         does the sum by hand on a customer's sheet */
-      const net=price-g('f-d1')-g('f-d2');
+         does the sum by hand on a customer's sheet. The lines only count while
+         they are on the sheet - a figure typed, then taken off by unticking,
+         must not keep coming off the total. */
+      const disc=document.getElementById('disc-on').checked
+                 &&!document.getElementById('vat-on').checked;
+      const net=price-(disc?g('f-d1')+g('f-d2'):0);
       document.getElementById('o-net').innerText='$'+f(net);
       const val=g('f-annual')*g('f-tariff');
       /* EDC compensation is the band rate on everything produced in the year,
@@ -286,16 +290,27 @@ function quoteHtml(q,l,c){
       const on=document.getElementById('vat-on').checked;
       document.getElementById('r-vat').style.display=on?'':'none';
       document.getElementById('r-grand').style.display=on?'':'none';
-      /* the discount lines are the other half of the same switch: with VAT
+      /* the negotiated total is the other half of the same switch: with VAT
          the customer pays the grand total, without it they pay a negotiated
          price, and only one of those can be on the sheet at a time */
-      ['r-d1','r-d2','r-net'].forEach(function(id){
-        document.getElementById(id).style.display=on?'none':'';
+      document.getElementById('r-net').style.display=on?'none':'';
+      /* a discount is the exception, not the rule, so the two lines are off
+         the sheet until someone asks for them - and the tick that asks for
+         them is meaningless while VAT is on */
+      document.getElementById('disc-box').style.display=on?'none':'';
+      discToggle();
+    }
+    function discToggle(){
+      const show=document.getElementById('disc-on').checked
+                 &&!document.getElementById('vat-on').checked;
+      ['r-d1','r-d2'].forEach(function(id){
+        document.getElementById(id).style.display=show?'':'none';
       });
       recalc();
     }
     document.addEventListener('input',recalc);
     document.getElementById('vat-on').addEventListener('change',vatToggle);
+    document.getElementById('disc-on').addEventListener('change',discToggle);
     window.addEventListener('load',function(){recalc();vatToggle();});
   </scr`+`ipt>`;
   const kwpTxt=c.kwp?c.kwp.toFixed(2):'';
@@ -388,8 +403,9 @@ function quoteHtml(q,l,c){
      Unticked, the VAT and grand total lines come off and the sale engineer is
      left with the price to edit - a discount or a promotion goes in by hand.
      It is a control, not part of the sheet, so it never prints. */
-  .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555}
-  .vatbox label{cursor:pointer}
+  .vatbox{width:auto;margin:2px 0 0 auto;text-align:right;font-size:10px;color:#555;
+          display:flex;gap:14px;justify-content:flex-end}
+  .vatbox label{cursor:pointer;white-space:nowrap}
   /* -1px, not 0: the items table and this one each draw their own 1px edge,
      so butting them together would leave a double rule. Overlapping by a pixel
      makes the two read as one continuous grid, the way theirs does. */
@@ -597,6 +613,7 @@ function quoteHtml(q,l,c){
   </table>
   <div class="vatbox" contenteditable="false">
     <label><input type="checkbox" id="vat-on" checked> Include VAT (10%)</label>
+    <label id="disc-box"><input type="checkbox" id="disc-on"> Add a discount line</label>
   </div>
 
   <div class="lower">
