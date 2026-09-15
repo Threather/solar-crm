@@ -500,12 +500,11 @@ function quoteHtml(q,l,c){
      read as a row of full stops on a customer's sheet rather than as a blank
      waiting to be filled in. */
   @media print{.bar,.vatbox{display:none}.fill{background:none;border-bottom:none}
-    .box{background:none;border:1px solid #666}
-    /* the discount's own label prints as plain text: the box is there to be
-       typed into on screen, and on paper it reads as a heading beside a
-       figure, like តម្លៃសរុប above it. The amount keeps its border - that one
-       changes what the customer pays. */
-    .box.lbl{border:none}
+    /* both discount boxes print as plain text. They are yellow and outlined on
+       screen because they are there to be typed into; on paper the line reads
+       as a label beside a figure, like តម្លៃសរុប above it, and an unused one
+       leaves no empty rectangle on a customer's sheet. */
+    .box{background:none;border:none}
     .sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}}
 </style></head><body>
 <div class="bar">
