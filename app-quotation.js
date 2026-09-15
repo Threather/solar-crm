@@ -488,9 +488,13 @@ function quoteHtml(q,l,c){
   .meta .num{display:inline-block;min-width:32px;text-align:left;font-weight:bold}
   .meta .num .fill{padding-left:0}
   .meta .unit{font-weight:normal}
-  .items{margin-top:2px;border:1px solid #999}
-  .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
-  .items td{border:1px solid #999;padding:2.5px 5px;vertical-align:top}
+  /* #333, not #999: at the resolution the PDF is photographed at, a grey
+     rule antialiases unevenly - the verticals came out solid and the
+     horizontals washed out, which is what Kevin could see on the downloaded
+     file. Near-black rules land within nine levels of each other. */
+  .items{margin-top:2px;border:1px solid #333}
+  .items th{background:#eee;border:1px solid #333;padding:3px;font-size:10px}
+  .items td{border:1px solid #333;padding:2.5px 5px;vertical-align:top}
   .items td.n{text-align:center}
   /* their column order: number, description, quantity, picture - and the
      picture column is wide enough for the photo to be read as a photo */
@@ -518,11 +522,11 @@ function quoteHtml(q,l,c){
   /* no rule between one product and the next, but the column rules still run
      the full height of the row - without them the grid stops dead at this row */
   .grp td{border:none;padding:2.5px 5px}
-  .grp td+td{border-left:1px solid #999}
+  .grp td+td{border-left:1px solid #333}
   /* a rule under each product. Their own sheet runs these blocks together
      with no rule at all; Kevin asked for them separated, 11 Sep 2026. The
      heading and the first block stay joined, so it starts at the third row. */
-  .grp tr:nth-child(n+3) td{border-top:1px solid #999}
+  .grp tr:nth-child(n+3) td{border-top:1px solid #333}
   .sec{font-weight:bold}
   .sec2{font-weight:bold;font-size:11px}
   .it{font-style:italic}
@@ -544,8 +548,8 @@ function quoteHtml(q,l,c){
   /* -1px, not 0: the items table and this one each draw their own 1px edge,
      so butting them together would leave a double rule. Overlapping by a pixel
      makes the two read as one continuous grid, the way theirs does. */
-  .money{margin-top:-1px;width:100%;border:1px solid #999;border-collapse:collapse}
-  .money td{border:1px solid #999}
+  .money{margin-top:-1px;width:100%;border:1px solid #333;border-collapse:collapse}
+  .money td{border:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
      border made it read as one tall merged cell with the terms below it */
   .money td.hd,.money td.lbl2{padding:3px 6px}
@@ -568,7 +572,7 @@ function quoteHtml(q,l,c){
   /* the price column carries a heading above it. The payment terms are black:
      their sheet has them red, Kevin wants them black. */
   .pay{color:#111;font-weight:bold}
-  .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #999;font-size:11px}
+  .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #333;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
   /* centred in its column, as theirs is, not pushed to the right edge */
