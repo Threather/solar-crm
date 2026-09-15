@@ -220,7 +220,10 @@ function printQuote(quotId,leadId){
   const price=Number(q.price_usd||0);
   /* their own workbook: kWp x 4 peak sun hours x 365 days */
   const annual=Math.round(kwp*4*365);
-  /* the band comes from the inverter, which is why kWac is worked out above */
+  /* Whether the line prints is decided on panel kWp (Kevin, 15 Sep 2026):
+     under 10 kWp it is off the sheet, at 10 and above it prints. The rate
+     on it is still EDC's own band, worked on inverter kWac - so a large
+     array on a 10 kWac inverter prints the line at 0, and he chose that. */
   const edcRateUsd=edcRate(kwac);
   /* the document opens on about:blank, so a relative img src would resolve
      against nothing — every picture needs the app's own address in front */
@@ -645,7 +648,7 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td class="u">${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td class="u">${QT.perYear}</td></tr>
     <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td class="u">${QT.usdYear}</td></tr>
-    ${(Number(c.kwac)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
+    ${(Number(c.kwp)||0)>=10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate==null?'':c.edcRate}</span> ${QT.perKwh})</span></td>
         <td class="v" id="o-export"></td><td class="u">${QT.usdYear}</td></tr>`:''}
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td class="u">${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td class="u">${QT.usdMonth}</td></tr>
