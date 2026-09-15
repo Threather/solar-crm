@@ -369,7 +369,7 @@ function quoteHtml(q,l,c){
   table{width:100%;border-collapse:collapse}
   /* labels run up to the colon and the values start on one line, the way
      theirs reads - so the label column is right-aligned, not left */
-  .meta td{padding:1px 4px;font-size:10px;vertical-align:top}
+  .meta td{padding:.5px 4px;font-size:10px;vertical-align:top}
   .meta .lab{color:#111;white-space:nowrap;text-align:right;width:1%}
   .meta .val{font-weight:bold}
   /* 32px is the width of the editable kWp box above it, so a battery that has
@@ -383,7 +383,7 @@ function quoteHtml(q,l,c){
   .meta .unit{font-weight:normal}
   .items{margin-top:2px;border:1px solid #999}
   .items th{background:#eee;border:1px solid #999;padding:3px;font-size:10px}
-  .items td{border:1px solid #999;padding:2px 5px;vertical-align:top}
+  .items td{border:1px solid #999;padding:2.5px 5px;vertical-align:top}
   .items td.n{text-align:center}
   /* their column order: number, description, quantity, picture - and the
      picture column is wide enough for the photo to be read as a photo */
@@ -410,7 +410,7 @@ function quoteHtml(q,l,c){
   .grp table{width:100%}
   /* no rule between one product and the next, but the column rules still run
      the full height of the row - without them the grid stops dead at this row */
-  .grp td{border:none;padding:2px 5px}
+  .grp td{border:none;padding:2.5px 5px}
   .grp td+td{border-left:1px solid #999}
   /* a rule under each product. Their own sheet runs these blocks together
      with no rule at all; Kevin asked for them separated, 11 Sep 2026. The
@@ -503,7 +503,7 @@ function quoteHtml(q,l,c){
   .lower-h{font-weight:bold;color:#c00000;
            print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .sav td{color:#111}
-  .fn{flex:1;font-size:9.5px;color:#111;line-height:1.45;
+  .fn{flex:1;font-size:9px;color:#111;line-height:1.45;
       border:1px solid #333;border-radius:2px;padding:3px 6px;
       print-color-adjust:exact;-webkit-print-color-adjust:exact}
   .fn b{color:#c00000}
