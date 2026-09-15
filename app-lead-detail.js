@@ -63,7 +63,9 @@ async function openLead(id){
   LEADQUOTS=quots||[];
   const lastQuot=(quots||[])[0];
   /* newest first, by the day the contact happened rather than the day it was typed */
-  const allRemarks=(acts||[]).filter(a=>a.note).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
+  /* the Remarks box is what was said to the customer; the app's own lines
+     stay in the history tab below, which is the audit trail */
+  const allRemarks=humanNotes(acts).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
   const recentNotes=allRemarks.slice(0,3);
   const canEditAny=canSales||canEng||canSite||canAssign;
 

@@ -388,7 +388,7 @@ function quoteHtml(q,l,c){
   /* one row of the sheet holding several products: an inner table on the same
      column widths, so each photo and quantity sits beside its own block with
      no rule drawn between them */
-  .items .kvt td{border:none;padding:0 4px 0 0}
+  .items .kvt td{border:none;padding:1.5px 4px 1.5px 0}
   td.grp{padding:0}
   .grp table{width:100%}
   /* no rule between one product and the next, but the column rules still run

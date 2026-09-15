@@ -32,7 +32,7 @@ async function renderLeads(scope){
     const by={};
     (rem||[]).forEach(a=>{(by[a.lead_id]=by[a.lead_id]||[]).push(a);});
     LEADS.forEach(l=>{
-      l.remarks=(by[l.id]||[]).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
+      l.remarks=humanNotes(by[l.id]).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
       l.last_remark=l.remarks[0]||null;
     });
     /* the last price quoted, for the column that replaces the salesperson's

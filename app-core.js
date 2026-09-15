@@ -60,6 +60,26 @@ const fmtDate=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'
 const fmtDT=d=>d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
 const daysIn=d=>Math.floor((Date.now()-new Date(d).getTime())/86400000);
 const staffName=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'—';
+/* The app writes its own lines into the contact log - a quotation released, a
+   lead created, an EDC date typed - and they are the audit trail, so they stay
+   in the database and in the lead's history tab. But the Remarks column is
+   where sales read what was actually said to the customer, and the app's own
+   lines were burying it (15 Sep 2026). They are matched on the text they are
+   written with; every one of these is generated, never typed by a person. */
+const AUTO_NOTES=[
+  /^Lead created$/i,
+  /^Quotation (released|deleted):/i,
+  /^Lead specification and sale value set from the .* quotation$/i,
+  /^Expansion of .* for the same customer$/i,
+  /^A new deal was opened for this customer$/i,
+  /^Assigned to /i,
+  /^EDC (price|branch|doc|inspection|portal|approval|meter|provincial|pp|fee)/i,
+  /^Delivery confirmed as arrived$/i,
+  /^Installation confirmed as finished$/i,
+  /^Customer details reopened for sales$/i
+];
+const isAutoNote=n=>AUTO_NOTES.some(re=>re.test(String(n||'').trim()));
+const humanNotes=list=>(list||[]).filter(a=>a&&a.note&&!isAutoNote(a.note));
 /* Who a lead can be handed to. The round-robin is untouched and still only
    reaches sales - this is the manual list, and the manager belongs on it
    (11 Sep 2026): they cover for their own team and could not take a lead
