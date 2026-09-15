@@ -554,7 +554,9 @@ function quoteHtml(q,l,c){
      by -1px was the old way, and in the photographed PDF it printed as a thick
      rule with a half-strength line hanging off it. */
   .money{margin-top:0;width:100%;border-collapse:collapse}
-  .money td.open{border:none}
+  /* open, but the sheet's own left edge carries on down through it - without
+     that the table looks as though it has been cut away at the bottom left */
+  .money td.open{border:none;border-left:1px solid #333}
   .money tr:first-child td{border-top:none}
   .money td{border:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
