@@ -558,6 +558,13 @@ td.numcell b{font-weight:600}
 .daybar .sub{font-size:var(--t-meta);color:var(--ink-soft);margin-top:2px}
 .homegrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3);align-items:start}
 @media(max-width:900px){.homegrid{grid-template-columns:1fr}}
+/* Three to a row, which is how his sheet lays the first row out. At the full
+   1180 the three come to 372 each - the width the compact charts are drawn at,
+   so their labels render at the size they are set in rather than scaled. The
+   .three rules repeat the collapse because they outrank the plain one. */
+.homegrid.three{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1040px){.homegrid.three{grid-template-columns:1fr 1fr}}
+@media(max-width:900px){.homegrid.three{grid-template-columns:1fr}}
 .panel{background:var(--card);border-radius:var(--r);padding:var(--s-4) var(--s-5) var(--s-4);
   box-shadow:var(--lift)}
 .panel h4{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-mute);
