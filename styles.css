@@ -11,6 +11,22 @@
   --ok:#2f6b41; --bad:#a8412f; --warn:#86601f;
   --pool:#6c4f7b; --eng:#4a7c8c;
 
+  /* CHART COLOURS, AND THEY ARE COMPUTED, NOT CHOSEN.
+     The interface hues above are deliberately low-chroma - they sit under text
+     on warm paper - and a chart drawn in them reads as one flat wash, which is
+     what Kevin saw. Every one of them is below the 0.10 chroma floor a data
+     mark needs, and --sky, --eng and --pool are within a colourblind delta of
+     1 of each other: three lines nobody could tell apart.
+     These were fitted with the dataviz validator against the #fffefb card, not
+     picked by eye. The pair is the categorical set - no chart here carries
+     more than two series - and clears every check with a colourblind delta of
+     18 and contrast of 5.1 and 4.7. The ramp is one hue light to dark for a
+     progression: the funnel and the pipeline are magnitude, not identity.
+     Re-run scripts/validate_palette.js before changing any of them. */
+  --viz-1:#ae532d; --viz-2:#177ba8; --viz-good:#1d7d3e;
+  --viz-s1:#dda189; --viz-s2:#d08669; --viz-s3:#c26b49;
+  --viz-s4:#b35025; --viz-s5:#9f3600; --viz-s6:#881f00;
+
   /* the handoff is the product: every block carries its owner's hue */
   --own-sales:#a85841; --own-site:#7c7563; --own-eng:#4a7c8c;
   --own-install:#7a6a3f; --own-edc:#6c4f7b; --own-fin:#2f6b41;

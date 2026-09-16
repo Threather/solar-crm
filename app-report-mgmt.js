@@ -174,10 +174,12 @@ async function renderMgmtReport(){
   const prevWord=monthName(prevM);
 
   /* stage distribution, his four bars */
+  /* a progression, so one hue darkening rather than four identities - except
+     the last, which is not a further stage but the other outcome */
   const stageDist=[
-    ['Raw lead',got.length,'#c2b8a4'],
-    ['Qualified',qualified.length,'#a89c86'],
-    ['Closed-Won',wonInWin.length,'var(--ok)'],
+    ['Raw lead',got.length,'var(--viz-s2)'],
+    ['Qualified',qualified.length,'var(--viz-s4)'],
+    ['Closed-Won',wonInWin.length,'var(--viz-good)'],
     ['Closed-Lost',lostInWin.length,'var(--bad)']
   ];
 
@@ -214,15 +216,15 @@ async function renderMgmtReport(){
 
     <div class="homegrid three">
       ${colChart(['Target','Actual'],[leadTarget,mktLeads],
-        {title:'Raw lead target vs actual',color:'var(--sun)',table:false,compact:true,
+        {title:'Raw lead target vs actual',colors:['var(--viz-s2)','var(--viz-1)'],table:false,compact:true,
          cap:'Digital and offline marketing'})}
       ${colChart(stageDist.map(r=>r[0]),stageDist.map(r=>r[1]),
         {title:'Lead stage distribution',colors:stageDist.map(r=>r[2]),
          table:false,compact:true,cap:'All five channels'})}
       ${typePeople.length
         ?groupChart(typePeople.map(p=>p.full_name.split(' ')[0]),
-          [{name:'Residential',color:'var(--own-sales)',values:typePeople.map(p=>typeOf(p,'Residential'))},
-           {name:'C & I',color:'var(--sky)',values:typePeople.map(p=>typeOf(p,'C & I'))}],
+          [{name:'Residential',color:'var(--viz-1)',values:typePeople.map(p=>typeOf(p,'Residential'))},
+           {name:'C & I',color:'var(--viz-2)',values:typePeople.map(p=>typeOf(p,'C & I'))}],
           {title:'Residential vs C&I',compact:true,cap:'By sale engineer'})
         :repPanel('Residential vs C&I',
           blank('No customer type recorded','No lead in the window has the field filled in.'))}
@@ -236,13 +238,13 @@ async function renderMgmtReport(){
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
               open.filter(l=>l.stage_code===code).length]),
-             {color:'var(--sun)',limit:MG_ACTIVE.length,order:true,keepZero:true,
+             {color:'var(--viz-1)',limit:MG_ACTIVE.length,order:true,keepZero:true,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
       ${collPeople.length
         ?colChart(collPeople.map(p=>p.full_name.split(' ')[0]),
           collPeople.map(p=>collByPerson[p.id]||0),
-          {title:'Payment collection by each sales',color:'var(--ok)',compact:true,table:false,
+          {title:'Payment collection by each sales',color:'var(--viz-good)',compact:true,table:false,
            fmt:cash,axisFmt:v=>!v?'0':v>=1000?'$'+(v/1000)+'k':'$'+v})
         :repPanel('Payment collection by each sales',
           blank('Nothing collected '+per,'This fills in as payments are recorded.'))}
@@ -251,7 +253,7 @@ async function renderMgmtReport(){
     <div class="homegrid">
       ${contactAvg.length
         ?colChart(contactAvg.map(r=>r[0].split(' ')[0]),contactAvg.map(r=>r[1]),
-          {title:'Avg customer contacts a day',color:'var(--sun)',compact:true,table:false})
+          {title:'Avg customer contacts a day',color:'var(--viz-2)',compact:true,table:false})
         :repPanel('Avg customer contacts a day',
           blank('No contacts logged','Nothing in the contact log '+per+'.'))}
       ${repPanel('Closed-lost status',
@@ -264,26 +266,26 @@ async function renderMgmtReport(){
     <div class="homegrid">
       ${quotPeople.length
         ?colChart(quotPeople.map(r=>r[0].split(' ')[0]),quotPeople.map(r=>r[1]),
-          {title:'Quotations sent',color:'var(--own-sales)',compact:true,table:false})
+          {title:'Quotations sent',color:'var(--viz-1)',compact:true,table:false})
         :repPanel('Quotations sent',
           blank('None released '+per,'This fills in as quotations are released.'))}
       ${lineChart(months.map(m=>monthName(m)),
-        [{name:'Raw lead',color:'var(--sun)',values:months.map(m=>madeIn(m).length)},
-         {name:'Qualified',color:'var(--ok)',values:months.map(m=>qualIn(m).length)}],
+        [{name:'Raw lead',color:'var(--viz-1)',values:months.map(m=>madeIn(m).length)},
+         {name:'Qualified',color:'var(--viz-2)',values:months.map(m=>qualIn(m).length)}],
         {title:'Lead trend from marketing',compact:true})}
     </div>
 
     <div class="homegrid">
       ${handled.length
         ?groupChart(handled.map(r=>r.name.split(' ')[0]),
-          [{name:'Handled',color:'var(--own-sales)',values:handled.map(r=>r.handled)},
-           {name:'Active',color:'var(--sun)',values:handled.map(r=>r.active)}],
+          [{name:'Handled',color:'var(--viz-1)',values:handled.map(r=>r.handled)},
+           {name:'Active',color:'var(--viz-2)',values:handled.map(r=>r.active)}],
           {title:'Leads held and active',compact:true})
         :repPanel('Leads held and active',
           blank('Nobody holds a lead yet','This fills in as leads are assigned.'))}
       ${months.length
         ?lineChart(months.map(m=>monthName(m)),
-          [{name:'Conversion',color:'var(--ok)',
+          [{name:'Conversion',color:'var(--viz-good)',
             values:months.map(m=>{const r=madeIn(m).length;return r?Math.round(qualIn(m).length/r*100):0;})}],
           {title:'Raw lead to qualified',compact:true,cap:'Percent qualified'})
         :repPanel('Raw lead to qualified',
@@ -296,7 +298,7 @@ async function renderMgmtReport(){
     ${repPanel('Closed-lost, before or after a quotation',
       lostInWin.length
         ?gSplit([['After a quotation',lostAfter.length,'var(--bad)'],
-                 ['Before any quotation',lostBefore.length,'#c2b8a4']],
+                 ['Before any quotation',lostBefore.length,'var(--viz-s2)']],
             'after '+pct(lostAfter.length,lostInWin.length),'before')
          +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
                   ['Before any quotation',lostBefore.length,'']])
