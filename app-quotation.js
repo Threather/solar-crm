@@ -263,7 +263,10 @@ function quoteHtml(q,l,c){
     +`<td class="q">${qty||''}</td><td class="im">${cell(c.base,img)}</td></tr>`;
   /* one product inside the components row: description, quantity with its
      warranty under it, photo. No rules - the outer row draws the only ones. */
-  const grpRow=(desc,qty,wty,img,base)=>`<tr><td>${desc}</td>`
+  /* a component is an ordinary row of the items table, not a row of a table
+     nested inside it. Two tables can never resolve their columns to the same
+     subpixel, and the step where one met the other was visible on paper. */
+  const grpRow=(desc,qty,wty,img,base)=>`<tr class="comp"><td>${desc}</td>`
     +`<td class="q">${qty||''}${wty||''}</td><td class="im">${cell(base,img)}</td></tr>`;
   /* the part number, worked out from what the salesperson already keyed in */
   const mPanel=panelModel(q.panel_brand,q.panel_watt);
@@ -374,10 +377,7 @@ function quoteHtml(q,l,c){
       if(on&&!st){
         st=document.createElement('style');st.id=id;
         st.textContent='.fill{background:none!important;border-bottom:none!important}'
-          +'.box{background:none!important;border:none!important}'
-          /* see the print rule: the inner table's single border photographs
-             weaker than the outer table's doubled one */
-          +'.grp td+td{border-left-width:2px!important}';
+          +'.box{background:none!important;border:none!important}';
         document.head.appendChild(st);
       } else if(!on&&st) st.remove();
     }
@@ -533,16 +533,17 @@ function quoteHtml(q,l,c){
   /* the quantity, then the warranty under it, both in the quantity column -
      theirs carries the warranty here rather than inline in the description */
   .wty{display:block;margin-top:1px;font-size:9px;white-space:nowrap}
-  /* one row of the sheet holding several products: an inner table on the same
-     column widths, so each photo and quantity sits beside its own block with
-     no rule drawn between them */
   .items .kvt td{border:none;padding:1.5px 4px 1.5px 0}
-  td.grp{padding:0}
-  .grp table{width:100%}
-  /* no rule between one product and the next, but the column rules still run
-     the full height of the row - without them the grid stops dead at this row */
-  .grp td{border:none;padding:2.5px 5px}
-  .grp td+td{border-left:1px solid #333}
+  /* The four components used to be one row holding a table of their own, on
+     hand-rounded percentages of the cell. Two tables resolve their columns
+     independently, so the verticals stepped 0.3px and 0.7px sideways where one
+     met the other - straight on screen, a visible kink at 288dpi, and the
+     client saw it. They are ordinary rows now, on the table's own columns, so
+     there is one grid and nothing to line up. The ល.រ cell spans them.
+     Only the horizontals between them go; the number cell keeps its own, which
+     are the top and bottom of the whole block. */
+  .items tr.comp td{border-top:none;border-bottom:none}
+  .items tr.comp td.n{border-top:1px solid #333;border-bottom:1px solid #333}
   /* no rule between one product and the next. They were separated on
      11 Sep 2026 and run together again on 15 Sep - which is how the client's
      own sheet has always had them. The column rules still run the full height
@@ -698,10 +699,7 @@ function quoteHtml(q,l,c){
   /* an empty cell prints as nothing. It used to print a dotted rule, which
      read as a row of full stops on a customer's sheet rather than as a blank
      waiting to be filled in. */
-  /* The outer table draws a border on both cells at every junction, which
-     lands as a fat rule; the inner table of the components row draws one, and
-     came out visibly weaker on paper. It takes 2px there to match. */
-  @media print{.grp td+td{border-left-width:2px}
+  @media print{
     .bar,.vatbox{display:none}.fill{background:none;border-bottom:none}
     /* both discount boxes print as plain text. They are yellow and outlined on
        screen because they are there to be typed into; on paper the line reads
@@ -763,16 +761,12 @@ function quoteHtml(q,l,c){
              +'<div class="ind it"><b>'+QT.s1b+'</b></div>'
              +'<div class="ind2">'+QT.s1c+'</div><div class="ind2">'+QT.s1d+'</div>'
              +'<div class="ind2">'+QT.s1e+'</div><div class="ind2">'+QT.s1f+'</div>','')}
-      <!-- The four main components are one row on their sheet, with no rule
-           drawn between the panel, the inverter, the battery and the mounting.
-           An inner table on the same widths keeps each quantity and photo
-           beside its own block. -->
-      <tr><td class="n">២</td><td class="grp" colspan="3">
-        <table>
-          <!-- the same proportions as the outer columns, so the rules in this row
-               line up with the rules above and below it -->
-          <colgroup><col style="width:54.8%"><col style="width:20.4%"><col style="width:24.8%"></colgroup>
-          <tr><td class="sec2">${QT.s2}</td><td class="q"></td><td class="im"></td></tr>
+      <!-- The four main components read as one block on their sheet, with no
+           rule drawn between the panel, the inverter, the battery and the
+           mounting. They are rows of this table, sharing its columns, and the
+           ល.រ cell spans them. -->
+      <tr class="comp"><td class="n" rowspan="${onGrid?4:5}">២</td>
+          <td class="sec2">${QT.s2}</td><td class="q"></td><td class="im"></td></tr>
           ${grpRow(khLabel(0,QT.s2a)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
@@ -801,8 +795,6 @@ function quoteHtml(q,l,c){
                 the whole mounting set, the way electrical.jpg carries the
                 electrical bundle. No part number: it is a set, not a product. */
              'img/mounting.png',c.base)}
-        </table>
-      </td></tr>
       ${row('៣','<span class="sec">'+QT.s3+'</span>'
              +'<div class="ind">* '+QT.e1+'</div><div class="ind">* '+QT.e2+'</div>'
              +'<div class="ind">* '+QT.e3+'</div><div class="ind">* '+QT.e4+'</div>'
