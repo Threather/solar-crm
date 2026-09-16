@@ -24,10 +24,42 @@ async function renderMktReport(){
   const mtd=rows.filter(l=>inRange(l.created_at,[mStart,localDay(new Date())]));
   const todayRows=rows.filter(l=>inRange(l.created_at,repRange('today')));
   const leadTarget=tg.company.leads??null;
-  const spend=tg.company.spend??null;
+  /* budget is what may be spent, spent is what has been. Both are company rows
+     on the Targets screen, set by the manager each month - the same place
+     every other target in this app lives. */
+  const budget=tg.company.spend??null;
+  const spend=tg.company.spend_actual??null;
   const cpl=spend!=null&&mtd.length?spend/mtd.length:null;
   const mtdQual=mtd.filter(l=>qualText(l)==='Qualified');
   const cpql=spend!=null&&mtdQual.length?spend/mtdQual.length:null;
+  const targetCpl=budget!=null&&leadTarget?budget/leadTarget:null;
+
+  /* Pacing: leads so far against where the month should have got to by today,
+     at a straight line. It follows the month, never the window switch - a
+     figure about how this month is going cannot answer for "all time". */
+  const nowD=new Date(), dim=new Date(nowD.getFullYear(),nowD.getMonth()+1,0).getDate();
+  const dayNow=nowD.getDate();
+  const expectedByNow=leadTarget?leadTarget*(dayNow/dim):null;
+  const pacing=expectedByNow?Math.round((mtd.length-expectedByNow)/expectedByNow*100):null;
+
+  /* his sheet breaks digital down by sub-channel, which is where the money
+     actually goes - Facebook against Telegram, not "digital" as one lump */
+  const subs=[...new Set(got.filter(l=>l.lead_sub_channel).map(l=>l.lead_sub_channel))].sort();
+  const subQ=s=>got.filter(l=>l.lead_sub_channel===s&&qualText(l)==='Qualified').length;
+  const subD=s=>got.filter(l=>l.lead_sub_channel===s&&qualText(l)!=='Qualified').length;
+
+  /* "contact captured" can only mean a phone number: the app records no email
+     on a lead. Marketing capture it once and then only admin may change it. */
+  const capture=MKT_CH.map(c=>{const set=got.filter(l=>chOf(l)===c);
+    return [c.replace(/_/g,' '),set.length,set.filter(l=>l.phone).length];})
+    .filter(r=>r[1]>0);
+
+  /* cumulative leads by day of this month against a straight line to target */
+  const days=Array.from({length:dayNow},(_,i)=>i+1);
+  const cumActual=[];let run=0;
+  days.forEach(d=>{const iso=mStart.slice(0,8)+String(d).padStart(2,'0');
+    run+=rows.filter(l=>localDay(l.created_at)===iso).length;cumActual.push(run);});
+  const cumTarget=leadTarget?days.map(d=>Math.round(leadTarget*(d/dim))):null;
 
   /* conversion is measured on the window's own leads, so it answers "of what
      came in, how much moved" rather than mixing cohorts */
@@ -47,6 +79,7 @@ async function renderMktReport(){
       <span class="track"><span class="fill" style="width:${total?Math.round(n/total*100):0}%"></span></span>
       <span class="ct">${n}</span></div>`;
   const missing=[leadTarget==null?'Lead target':'',spend==null?'marketing spend':''].filter(Boolean);
+  const digital=got.filter(l=>l.lead_channel==='Digital_Marketing');
   /* Marketing owns customer identity, not where the deal has got to, so their
      own copy of this report drops qualification and the funnel. Admin, who
      reaches the same report through the scope switch, keeps all of it. */
@@ -60,56 +93,78 @@ async function renderMktReport(){
   const prevWord=monthName(prevM);
 
   $('main').innerHTML=repBar('Marketing report')+`
-    <div class="kpis">
-      ${kpi({label:'Leads received '+per,value:got.length,lead:true,
+    <!-- his five boxes, in his order -->
+    <div class="kpis six">
+      ${kpi({label:'Total Leads',value:got.length,lead:true,
         delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord,
-        note:leadTarget?mtd.length+' of a '+leadTarget+' target this month':'No lead target set for this month',
-        sub:madeIn(thisM)+' in '+monthName(thisM)+' against '+madeIn(prevM)+' in '+prevWord})}
-      ${noStage?'':kpi({label:'Qualified',value:qualified.length,
-        note:(qualRate===null?'—':qualRate+'%')+' of what came in',
-        sub:disqualified.length+' disqualified, '+Math.max(0,got.length-qualified.length-disqualified.length)+' not decided'})}
-      ${kpi({label:'Cost per lead',value:cash(cpl),
-        note:spend==null?'No marketing spend recorded':fmtMoney(spend)+' spent this month',
-        sub:spend==null?'set it under Targets':mtd.length+' leads month to date'})}
-      ${kpi({label:'Leads today',value:todayRows.length,
-        note:'created today',sub:'a count of today, so there is nothing to compare it against'})}
+        note:leadTarget?mtd.length+' of '+leadTarget+' this month':'no lead target set'})}
+      ${kpi({label:'Digital Leads',value:digital.length,
+        note:pct(digital.length,got.length)+' of total'})}
+      ${noStage?'':kpi({label:'Qualification Rate',value:qualRate===null?'\u2014':qualRate+'%',
+        note:qualified.length+' of '+got.length})}
+      ${kpi({label:'Spend',value:spend==null?'\u2014':fmtMoney(spend),
+        note:budget==null?'no budget set':'of '+fmtMoney(budget)+' budget'})}
+      ${kpi({label:'Cost per Lead',value:cash(cpl),
+        note:targetCpl==null?'no target CPL':'target '+cash(targetCpl)})}
     </div>
     ${missing.length?`<div class="hint">
       <b>${esc(missing.join(' and '))} not set for ${esc(monthName(mStart.slice(0,7)))}.</b>
-      Cost per lead and target progress stay blank until an admin fills ${missing.length>1?'them':'it'} in under Users, Targets.
+      Set under Targets.
     </div>`:''}
 
     <div class="homegrid">
-      ${repPanel('Lead generation',gRank(
-        MKT_CH.map(c=>[c.replace(/_/g,' '),byCh(c)]).concat(byCh('Other')?[['Other',byCh('Other')]]:[]),
-        {color:'var(--sun)',emptyWhy:'Channels appear as leads are created.'}))}
+      ${noStage||!subs.length
+        ?repPanel('Leads by sub-channel',
+          subs.length?gRank(subs.map(s=>[s,got.filter(l=>l.lead_sub_channel===s).length]),
+            {color:'var(--viz-1)'})
+          :blank('No sub-channel recorded','Marketing pick one on the New lead form.'))
+        :groupChart(subs,
+          [{name:'Qualified',color:'var(--viz-good)',values:subs.map(subQ)},
+           {name:'Not qualified',color:'var(--viz-s2)',values:subs.map(subD)}],
+          {title:'Leads by sub-channel and quality',compact:true,stacked:true})}
 
-      ${noStage?'':repPanel('Lead quality',gSplit([
-        ['Qualified',qualified.length,'var(--ok)'],
-        ['Disqualified',disqualified.length,'var(--bad)'],
-        ['Not decided',Math.max(0,got.length-qualified.length-disqualified.length),'#c2b8a4']
-      ],(qualRate===null?'—':qualRate+'%')+' qualified',
-        Math.max(0,got.length-qualified.length-disqualified.length)+' not decided yet'))}
+      ${repPanel('Customer contact captured',
+        capture.length
+          ?gRank(capture.map(r=>[r[0],Math.round(r[2]/r[1]*100)]),
+             {color:'var(--viz-2)',order:true,keepZero:true,limit:capture.length,
+              fmt:v=>v+'%'})
+           +ledger(capture.map(r=>[r[0],r[2]+'/'+r[1],'have a phone number']))
+          :blank('Nothing to count yet','This fills in as leads are created.'))}
+    </div>
 
-      ${repPanel('This month against target',
-        gBullet('Leads month to date',mtd.length,leadTarget,{emptyWhy:'no lead target set for this month'})
-        +ledger([
-          ['Created today',todayRows.length],
-          ['Marketing spend',spend==null?'—':fmtMoney(spend)],
-          ['Cost per lead',cash(cpl)],
-          ...(noStage?[]:[['Cost per qualified lead',cash(cpql)]])
-        ]),true)}
+    <div class="homegrid">
+      ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
+        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
+      ${leadTarget&&days.length>1
+        ?lineChart(days.map(String),
+          [{name:'Actual',color:'var(--viz-1)',values:cumActual},
+           {name:'Target',color:'var(--viz-s2)',values:cumTarget}],
+          {title:'MTD trend, target vs actual',compact:true,
+           cap:'Cumulative, by day of '+monthName(thisM)})
+        : repPanel('MTD trend, target vs actual',
+            blank('No lead target set','The line needs a target for '+monthName(thisM)+', set under Targets.'))}
+    </div>
 
-      ${noStage?'':repPanel('Conversion',gFunnel([
-        ['Leads received',got.length,'#c2b8a4'],
-        ['Qualified',qualified.length,'#a89c86'],
-        ['Quotation sent',toQuot.length,'var(--sun)'],
-        ['Closed-Won',toWon.length,'var(--ok)']
-      ],{cap:'Each bar is a share of all leads received in this window.'})+ledger([
+    <div class="homegrid">
+      ${noStage?'':repPanel('Conversion funnel',gFunnel([
+        ['Total',got.length,'var(--viz-s2)'],
+        ['Qualified',qualified.length,'var(--viz-s4)'],
+        ['Quotation',toQuot.length,'var(--viz-1)'],
+        ['Won',toWon.length,'var(--viz-good)']
+      ])+ledger([
         ['Lead to qualified',pct(qualified.length,got.length)],
         ['Qualified to quotation',pct(toQuot.length,qualified.length)],
         ['Lead to won',pct(toWon.length,got.length)]
-      ]),true)}
+      ]))}
+
+      ${repPanel('Daily and monthly summary',ledger([
+        ['Monthly lead target',leadTarget??'\u2014',leadTarget?mtd.length+' so far':'set under Targets'],
+        ['Monthly budget',budget==null?'\u2014':fmtMoney(budget),
+          spend==null?'nothing spent recorded':fmtMoney(spend)+' spent'],
+        ['Target CPL',cash(targetCpl),cpl==null?'':'actual '+cash(cpl)],
+        ['Pacing',pacing==null?'\u2014':(pacing>0?'+':'')+pacing+'%',
+          pacing==null?'needs a lead target':(pacing>=0?'ahead':'behind')+' on day '+dayNow+' of '+dim]
+      ]))}
     </div>
 
     <h3 style="font-size:15px;margin:22px 0 8px">Leads by channel, last twelve months</h3>

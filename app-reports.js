@@ -521,15 +521,21 @@ function groupChart(labels,series,opts){
   const W=C?372:760, PL=C?30:52, PR=C?8:12, PT=C?14:18,
         PH=C?118:200, AX=C?26:34, H=PT+PH+AX;
   const plotW=W-PL-PR;
-  const all=series.reduce((a,s)=>a.concat(s.values),[]);
-  const max=Math.max(1,...all);
+  const ST=!!o.stacked;
+  /* stacked asks how tall the whole column is; grouped asks how tall any one
+     bar is, so the two scales come off different numbers */
+  const all=ST
+    ?labels.map((_,i)=>series.reduce((a,sr)=>a+Number(sr.values[i]||0),0))
+    :series.reduce((a,s)=>a.concat(s.values),[]);
+  const max=Math.max(1,...all.map(Number));
   const step=axisStep(max);
   const top=step*4;
   const y=v=>PT+PH-(v/top)*PH;
   const band=plotW/Math.max(1,labels.length);
   const n=Math.max(1,series.length);
-  const inner=2;
+  const inner=2, GAP=2;
   const bw=Math.min(C?22:34,(band*0.66-inner*(n-1))/n);
+  const bwS=Math.min(C?40:52,band*0.56);
   const R=3;
   const topPath=(x,yy,w,h,r)=>`M${x},${yy+h}V${yy+r}a${r},${r} 0 0 1 ${r},-${r}h${w-2*r}a${r},${r} 0 0 1 ${r},${r}V${yy+h}Z`;
   let grid='',bars='',xlab='';
@@ -539,18 +545,30 @@ function groupChart(labels,series,opts){
         + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
   }
   labels.forEach((lab,li)=>{
-    const groupW=bw*n+inner*(n-1);
+    const groupW=ST?bwS:bw*n+inner*(n-1);
     const left=PL+band*li+(band-groupW)/2;
+    let acc=0;
     series.forEach((sr,si)=>{
       const v=Number(sr.values[li]||0);
-      const x=left+si*(bw+inner);
-      const yy=y(v), h=PT+PH-yy;
-      if(v>0) bars+=(h>R*2?`<path d="${topPath(x,yy,bw,h,R)}" fill="${sr.color}">`
-                          :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${sr.color}">`)
+      /* stacked: every segment sits on the one below, in the same column.
+         Grouped: each series gets its own column beside the others. */
+      const x=ST?left:left+si*(bw+inner);
+      const w=ST?bwS:bw;
+      const yy=ST?y(acc+v):y(v);
+      let h=ST?(y(acc)-y(acc+v)):(PT+PH-yy);
+      const capped=!ST||si===series.length-1||series.slice(si+1).every(o=>!Number(o.values[li]));
+      if(ST&&si>0&&h>GAP)h-=GAP;
+      if(v>0) bars+=(capped&&h>R*2?`<path d="${topPath(x,yy,w,h,R)}" fill="${sr.color}">`
+                          :`<rect x="${x}" y="${yy}" width="${w}" height="${Math.max(1,h)}" fill="${sr.color}">`)
           + `<title>${esc(lab)} \u00b7 ${esc(sr.name)}: ${v}</title>`
-          + (h>R*2?'</path>':'</rect>');
-      if(v>0) bars+=`<text class="seglabel" x="${x+bw/2}" y="${yy-4}" text-anchor="middle" fill="var(--ink-2)">${v}</text>`;
+          + (capped&&h>R*2?'</path>':'</rect>');
+      if(v>0&&ST&&h>=12) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
+      if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" fill="var(--ink-2)">${v}</text>`;
+      acc+=v;
     });
+    /* a stacked column carries its own total above it, the way his sheet
+       labels each bar - the segments inside it carry their own parts */
+    if(ST&&acc>0) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-5}" text-anchor="middle" fill="var(--ink-2)">${acc}</text>`;
     xlab+=`<text class="tick" x="${PL+band*li+band/2}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
   });
   return `

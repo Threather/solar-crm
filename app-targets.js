@@ -46,8 +46,10 @@ async function renderTargets(){
       ${repPanel('Company',`<div class="grid2">
         <div><label>Lead target, raw leads</label>
           <input id="tg-leads" type="number" step="1" value="${num(tg.company.leads)}" placeholder="700"></div>
-        <div><label>Marketing spend (USD)</label>
+        <div><label>Marketing budget (USD)</label>
           <input id="tg-spend" type="number" step="0.01" value="${num(tg.company.spend)}" placeholder="200"></div>
+        <div><label>Marketing spent (USD)</label>
+          <input id="tg-spent" type="number" step="0.01" value="${num(tg.company.spend_actual)}" placeholder="0"></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveTargets()">Save targets</button></div>`,true)}
     </div>
@@ -94,6 +96,9 @@ async function saveTargets(){
   };
   push('leads',null,'tg-leads');
   push('spend',null,'tg-spend');
+  /* what was actually spent that month, beside the budget it is judged
+     against. Cost per lead is this over the leads that came in. */
+  push('spend_actual',null,'tg-spent');
   /* the operations turnaround targets, in days. Company rows like the two
      above - a step is the company's, not a person's. */
   push('sla_boq',null,'tg-sla-boq');
