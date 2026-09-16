@@ -282,12 +282,18 @@ function gSplit(parts,left,right){
   }).join('')+`</div>
   <div class="gsplit-l"><span>${esc(left||'')}</span><span>${esc(right||'')}</span></div>`;
 }
-/* who holds what, longest first */
+/* who holds what, longest first.
+   A pipeline is the exception on both counts: its rungs have a fixed order and
+   an empty one is a fact about the pipeline, not a row to leave out. `order`
+   keeps the list as given and `keepZero` keeps the empty rungs on it. */
 function gRank(items,opts){
   const o=opts||{};
-  const rows=[...items].filter(r=>Number(r[1]||0)>0).sort((a,b)=>b[1]-a[1]).slice(0,o.limit||8);
+  let rows=[...items];
+  if(!o.keepZero)rows=rows.filter(r=>Number(r[1]||0)>0);
+  if(!o.order)rows=rows.sort((a,b)=>b[1]-a[1]);
+  rows=rows.slice(0,o.limit||8);
   if(!rows.length)return blank('Nothing to rank yet',o.emptyWhy||'This fills in as deals are recorded.');
-  const max=Math.max(...rows.map(r=>Number(r[1])));
+  const max=Math.max(1,...rows.map(r=>Number(r[1])));
   return `<div class="grank">`+rows.map(([k,v])=>
     `<div class="row"><span class="k" title="${esc(k)}">${esc(k)}</span>
       <span class="track"><span class="fill" style="width:${Math.round((v/max)*100)}%;background:${o.color||'var(--own-sales)'}"></span></span>

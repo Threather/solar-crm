@@ -234,7 +234,7 @@ async function renderMgmtReport(){
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
               open.filter(l=>l.stage_code===code).length]),
-             {color:'var(--sun)',limit:MG_ACTIVE.length,
+             {color:'var(--sun)',limit:MG_ACTIVE.length,order:true,keepZero:true,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
       ${collPeople.length
