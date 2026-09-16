@@ -242,6 +242,16 @@ const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'
                 Offline_Marketing:'#eda100',Existing_Customer:'#6c4f7b',Other:'#898781'};
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
+/* An axis divided by four lands on whatever quarter of the maximum happens to
+   be - $10,000 gives a step of 1,750 and gridlines at 0, 2k, 4k, 5k, 7k, which
+   reads as an arithmetic mistake rather than a scale. This rounds the step up
+   to a 1, 2, 2.5 or 5 of its own magnitude. Counts of ten or fewer keep the
+   old whole-number step, because a scale of 2.5 leads is nonsense. */
+function axisStep(max){
+  if(max<=10)return Math.max(1,Math.ceil(max/4));
+  const raw=max/4, mag=Math.pow(10,Math.floor(Math.log10(raw))), n=raw/mag;
+  return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*mag;
+}
 /* Stacked column chart, hand-rolled SVG: no chart library, no build step. */
 /* ---- report graphics ----------------------------------------------------
    Four forms for four questions. Drawing every one of them as the same bar is
@@ -425,7 +435,7 @@ function colChart(labels,values,opts){
         PH=C?118:200, AX=C?26:34, H=PT+PH+AX;
   const plotW=W-PL-PR;
   const max=Math.max(1,...values);
-  const step=Math.max(1,Math.ceil(max/4));
+  const step=axisStep(max);
   const top=step*4;
   const y=v=>PT+PH-(v/top)*PH;
   const band=plotW/Math.max(1,labels.length);
@@ -482,7 +492,7 @@ function groupChart(labels,series,opts){
   const plotW=W-PL-PR;
   const all=series.reduce((a,s)=>a.concat(s.values),[]);
   const max=Math.max(1,...all);
-  const step=Math.max(1,Math.ceil(max/4));
+  const step=axisStep(max);
   const top=step*4;
   const y=v=>PT+PH-(v/top)*PH;
   const band=plotW/Math.max(1,labels.length);
@@ -523,6 +533,55 @@ function groupChart(labels,series,opts){
     </svg>
   </div>`;
 }
+/* One or two series over time as lines, which is what he drew for the lead
+   trend and the conversion rate. A line says "this is a path through time" in
+   a way columns do not, and with two series it is the only form where the gap
+   between them reads as the thing itself. Points are marked, because with a
+   handful of months the segments between them are the only data there is.
+   Shares colChart's geometry, compact included. */
+function lineChart(labels,series,opts){
+  const o=opts||{};
+  const C=!!o.compact;
+  const W=C?372:760, PL=C?30:52, PR=C?10:14, PT=C?14:18,
+        PH=C?118:200, AX=C?26:34, H=PT+PH+AX;
+  const plotW=W-PL-PR;
+  const all=series.reduce((a,sr)=>a.concat(sr.values),[]).map(Number);
+  const max=Math.max(1,...all);
+  const step=axisStep(max);
+  const top=step*4;
+  const y=v=>PT+PH-(v/top)*PH;
+  const n=Math.max(1,labels.length);
+  const x=i=>n===1?PL+plotW/2:PL+(plotW/(n-1))*i;
+  let grid='',lines='',xlab='';
+  for(let i=0;i<=4;i++){
+    const v=step*i, yy=y(v);
+    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
+        + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
+  }
+  series.forEach(sr=>{
+    const pts=sr.values.map((v,i)=>x(i)+','+y(Number(v||0))).join(' ');
+    if(labels.length>1)
+      lines+=`<polyline points="${pts}" fill="none" stroke="${sr.color}" stroke-width="2"
+               stroke-linejoin="round" stroke-linecap="round"/>`;
+    sr.values.forEach((v,i)=>{
+      lines+=`<circle cx="${x(i)}" cy="${y(Number(v||0))}" r="${C?2.6:3.2}" fill="${sr.color}">`
+           + `<title>${esc(labels[i])} · ${esc(sr.name)}: ${Number(v||0)}</title></circle>`;
+    });
+  });
+  labels.forEach((lab,i)=>{
+    xlab+=`<text class="tick" x="${x(i)}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
+  });
+  return `
+  <div class="chartcard">
+    <h3>${esc(o.title||'')}</h3>
+    ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
+    <div class="legend">${series.map(sr=>`<span><i style="background:${sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
+    <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
+      ${grid}${lines}${xlab}
+      <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
+    </svg>
+  </div>`;
+}
 /* the last twelve months a report can talk about, oldest first */
 function lastMonths(rows,dateOf,n){
   const keys=[...new Set((rows||[]).map(r=>localDay(dateOf(r)).slice(0,7)).filter(Boolean))].sort().slice(-(n||12));
@@ -532,7 +591,7 @@ function barChart(months,counts,used){
   const W=760,PL=42,PR=12,PT=12,PH=210,AX=34,H=PT+PH+AX;
   const plotW=W-PL-PR;
   const max=Math.max(1,...months.map(m=>used.reduce((a,c)=>a+counts[m][c],0)));
-  const step=Math.max(1,Math.ceil(max/4));
+  const step=axisStep(max);
   const top=step*4;
   const y=v=>PT+PH-(v/top)*PH;
   const band=plotW/months.length;

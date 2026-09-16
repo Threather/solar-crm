@@ -112,6 +112,9 @@ async function renderMgmtReport(){
   const nameOf=id=>staffName(id);
 
   const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  /* a column chart draws nothing for a zero, so an axis of people who have
+     collected nothing and quoted nothing is an empty frame. Only whoever has
+     a figure goes on it, and the panel says so when nobody has. */
   const cash=v=>v==null?'—':fmtMoney(Math.round(v));
 
   /* collection per salesperson: money received in the window, against the
@@ -121,11 +124,14 @@ async function renderMgmtReport(){
     const l=rows.find(x=>x.id===p.lead_id); if(!l||!l.assigned_to)return;
     collByPerson[l.assigned_to]=(collByPerson[l.assigned_to]||0)+Number(p.amount_usd||0);
   });
+  const collPeople=people.filter(p=>(collByPerson[p.id]||0)>0);
 
   /* quotations sent, counted per person on who released them */
   const quotByPerson={};
   quots.filter(q=>inWin(q.released_date||q.created_at)).forEach(q=>{
     const k=q.provided_by||'none'; quotByPerson[k]=(quotByPerson[k]||0)+1;});
+  const quotPeople=Object.entries(quotByPerson)
+    .map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]).filter(r=>r[1]>0);
 
   /* Average customer contacts a day. A contact is a line in the contact log;
      the divisor is the days that person actually logged something on, not the
@@ -231,16 +237,21 @@ async function renderMgmtReport(){
              {color:'var(--sun)',limit:MG_ACTIVE.length,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
-      ${repPanel('Payment collection by each sales',
-        gRank(people.map(p=>[p.full_name,collByPerson[p.id]||0]),
-          {color:'var(--ok)',fmt:cash,emptyWhy:'This fills in as payments are recorded '+per+'.'}))}
+      ${collPeople.length
+        ?colChart(collPeople.map(p=>p.full_name.split(' ')[0]),
+          collPeople.map(p=>collByPerson[p.id]||0),
+          {title:'Payment collection by each sales',color:'var(--ok)',compact:true,table:false,
+           fmt:cash,axisFmt:v=>!v?'0':v>=1000?'$'+(v/1000)+'k':'$'+v})
+        :repPanel('Payment collection by each sales',
+          blank('Nothing collected '+per,'This fills in as payments are recorded.'))}
     </div>
 
     <div class="homegrid">
-      ${repPanel('Avg customer contacts a day',
-        contactAvg.length
-          ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--sun)',fmt:v=>v+' a day'})
-          :blank('No contacts logged','Nothing in the contact log '+per+'.'))}
+      ${contactAvg.length
+        ?colChart(contactAvg.map(r=>r[0].split(' ')[0]),contactAvg.map(r=>r[1]),
+          {title:'Avg customer contacts a day',color:'var(--sun)',compact:true,table:false})
+        :repPanel('Avg customer contacts a day',
+          blank('No contacts logged','Nothing in the contact log '+per+'.'))}
       ${repPanel('Closed-lost status',
         lostInWin.length
           ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,
@@ -249,36 +260,32 @@ async function renderMgmtReport(){
     </div>
 
     <div class="homegrid">
-      ${repPanel('Quotations sent',
-        gRank(Object.entries(quotByPerson).map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]),
-          {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
-      ${colChart(months.map(m=>monthName(m)),months.map(m=>madeIn(m).length),
-        {title:'Lead trend from marketing',color:'var(--sun)',compact:true,table:false,
-         cap:'Raw leads by month'})}
+      ${quotPeople.length
+        ?colChart(quotPeople.map(r=>r[0].split(' ')[0]),quotPeople.map(r=>r[1]),
+          {title:'Quotations sent',color:'var(--own-sales)',compact:true,table:false})
+        :repPanel('Quotations sent',
+          blank('None released '+per,'This fills in as quotations are released.'))}
+      ${lineChart(months.map(m=>monthName(m)),
+        [{name:'Raw lead',color:'var(--sun)',values:months.map(m=>madeIn(m).length)},
+         {name:'Qualified',color:'var(--ok)',values:months.map(m=>qualIn(m).length)}],
+        {title:'Lead trend from marketing',compact:true})}
     </div>
 
     <div class="homegrid">
-      ${repPanel('Leads held and still active',
-        handled.length
-          ?`<div class="tablewrap"><table><thead><tr>
-              <th>Person</th><th>Handled ${esc(per)}</th><th>Active</th>
-            </tr></thead><tbody>${handled.map(r=>`<tr>
-              <td>${esc(r.name)}</td>
-              ${numCell(r.handled,colMax(handled,x=>x.handled))}
-              ${numCell(r.active,colMax(handled,x=>x.active))}
-            </tr>`).join('')}</tbody></table></div>`
-          :blank('Nobody holds a lead yet','This fills in as leads are assigned.'))}
-      ${repPanel('Raw lead to qualified',
-        months.length
-          ?`<div class="tablewrap"><table><thead><tr>
-              <th>Month</th><th>Raw</th><th>Qualified</th><th>%</th>
-            </tr></thead><tbody>${months.map(m=>{
-              const r=madeIn(m).length,q=qualIn(m).length;
-              return `<tr><td>${esc(monthName(m))}</td>
-                ${numCell(r,Math.max(1,...months.map(x=>madeIn(x).length)))}
-                ${numCell(q,Math.max(1,...months.map(x=>qualIn(x).length)))}
-                <td>${esc(pct(q,r))}</td></tr>`;}).join('')}</tbody></table></div>`
-          :blank('No months to show yet','This fills in as leads accumulate.'))}
+      ${handled.length
+        ?groupChart(handled.map(r=>r.name.split(' ')[0]),
+          [{name:'Handled',color:'var(--own-sales)',values:handled.map(r=>r.handled)},
+           {name:'Active',color:'var(--sun)',values:handled.map(r=>r.active)}],
+          {title:'Leads held and active',compact:true})
+        :repPanel('Leads held and active',
+          blank('Nobody holds a lead yet','This fills in as leads are assigned.'))}
+      ${months.length
+        ?lineChart(months.map(m=>monthName(m)),
+          [{name:'Conversion',color:'var(--ok)',
+            values:months.map(m=>{const r=madeIn(m).length;return r?Math.round(qualIn(m).length/r*100):0;})}],
+          {title:'Raw lead to qualified',compact:true,cap:'Percent qualified'})
+        :repPanel('Raw lead to qualified',
+          blank('No months to show yet','This fills in as leads accumulate.'))}
     </div>
 
     <!-- asked for on 16 Sep 2026 and not on the sheet, so it follows the rows
