@@ -512,9 +512,18 @@ function quoteHtml(q,l,c){
      rule antialiases unevenly - the verticals came out solid and the
      horizontals washed out, which is what Kevin could see on the downloaded
      file. Near-black rules land within nine levels of each other. */
-  .items{margin-top:2px;border:1px solid #333}
-  .items th{background:#eee;border:1px solid #333;padding:3px;font-size:10px}
-  .items td{border:1px solid #333;padding:2.5px 5px;vertical-align:top}
+  /* EVERY RULE IS DECLARED ONCE, AND HAS TO STAY THAT WAY. border-collapse
+     resolves two 1px borders to one rule on screen, but html2canvas paints
+     both, so a junction where two cells declare a border photographed at 6
+     device pixels against 3 where only one did - half weight and double weight
+     on the same sheet, which is what the client could see. So a cell draws its
+     top and its left, the table draws its own right and bottom, and no edge is
+     ever declared from both sides. Adding a plain border to a cell here brings
+     the heavy rules straight back. */
+  .items{margin-top:2px;border:0;border-right:1px solid #333;border-bottom:1px solid #333}
+  .items th,.items td{border:0;border-top:1px solid #333;border-left:1px solid #333}
+  .items th{background:#eee;padding:3px;font-size:10px}
+  .items td{padding:2.5px 5px;vertical-align:top}
   .items td.n{text-align:center}
   /* their column order: number, description, quantity, picture - and the
      picture column is wide enough for the photo to be read as a photo */
@@ -540,10 +549,15 @@ function quoteHtml(q,l,c){
      met the other - straight on screen, a visible kink at 288dpi, and the
      client saw it. They are ordinary rows now, on the table's own columns, so
      there is one grid and nothing to line up. The ល.រ cell spans them.
-     Only the horizontals between them go; the number cell keeps its own, which
-     are the top and bottom of the whole block. */
-  .items tr.comp td{border-top:none;border-bottom:none}
-  .items tr.comp td.n{border-top:1px solid #333;border-bottom:1px solid #333}
+     Every horizontal inside the block goes, the ល.រ cell included: the rows
+     above and below already draw the block's own top and bottom. Giving the
+     ល.រ cell them as well put two declarations on those two rules in that one
+     column and one in the other three, and a doubled junction photographs
+     heavier - 5 pixels against 3 at 288dpi, which is the step the client could
+     see where the two met. */
+  /* the first of them keeps its top border - that is the block's own top edge,
+     and with cells drawing no bottom border there is nothing else to draw it */
+  .items tr.comp+tr.comp td{border-top:none}
   /* no rule between one product and the next. They were separated on
      11 Sep 2026 and run together again on 15 Sep - which is how the client's
      own sheet has always had them. The column rules still run the full height
@@ -570,7 +584,11 @@ function quoteHtml(q,l,c){
      top edge at all - neither the table nor its first row. Overlapping the two
      by -1px was the old way, and in the photographed PDF it printed as a thick
      rule with a half-strength line hanging off it. */
-  .money{margin-top:0;width:100%;border-collapse:collapse}
+  /* the same single-declaration model as the items table above - see the note
+     there. The band closes itself at the right and the foot; every cell draws
+     only its top and its left. */
+  .money{margin-top:0;width:100%;border-collapse:collapse;
+         border-right:1px solid #333;border-bottom:1px solid #333}
   /* open, but the sheet's own left edge carries on down through it - without
      that the table looks as though it has been cut away at the bottom left */
   /* Traced against their sheet, 15 Sep 2026: from the left edge there is
@@ -584,7 +602,7 @@ function quoteHtml(q,l,c){
      row is left at the top has to give up its top edge in its place - the
      items table above already draws that rule */
   .money tr.topless td{border-top:none}
-  .money td{border:1px solid #333}
+  .money td{border:0;border-top:1px solid #333;border-left:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
      border made it read as one tall merged cell with the terms below it */
   .money td.hd,.money td.lbl2{padding:3px 6px}
@@ -618,16 +636,13 @@ function quoteHtml(q,l,c){
   .pay{color:#111;font-weight:bold}
   /* .money td beats a bare .pay on specificity, so these have to be written
      against the table to win */
-  .money td.pay{padding:2px 6px;border-top:none;border-bottom:none}
+  .money td.pay{padding:2px 6px;border-top:none}
   /* red, like the two headings at the foot of the page - it introduces the
      stages the way ចំណាំ introduces the notes */
-  .money td.payhead{border-bottom:none;color:#c00000;
+  .money td.payhead{color:#c00000;
                     print-color-adjust:exact;-webkit-print-color-adjust:exact}
-  /* borders collapse, so the row above draws the line unless both sides give
-     it up - and the band still needs closing at the foot */
-  .money tr:last-child td{border-bottom:1px solid #333}
   .money td.payhead{font-weight:bold;padding:3px 6px}
-  .money td.hd{text-align:center;font-weight:bold;border-bottom:1px solid #333;font-size:11px}
+  .money td.hd{text-align:center;font-weight:bold;font-size:11px}
   .money td.paid{background:#ffe94d;font-size:13px;
                  print-color-adjust:exact;-webkit-print-color-adjust:exact}
   /* Their own sheet sets money out the way a ledger does: the sign held at the
