@@ -415,32 +415,42 @@ function ledger(rows){
 function colChart(labels,values,opts){
   const o=opts||{};
   const fmt=o.fmt||(v=>String(v));
-  const W=760,PL=52,PR=12,PT=18,PH=200,AX=34,H=PT+PH+AX;
+  /* compact is for a chart sharing a row with another. The viewBox scales to
+     the width it lands in, so a full-width 760 drawing squeezed into half a
+     row takes its 10px labels down to five with it. The compact grid is drawn
+     at the width it will actually occupy, so the type comes out the size it
+     says. */
+  const C=!!o.compact;
+  const W=C?372:760, PL=C?30:52, PR=C?8:12, PT=C?14:18,
+        PH=C?118:200, AX=C?26:34, H=PT+PH+AX;
   const plotW=W-PL-PR;
   const max=Math.max(1,...values);
   const step=Math.max(1,Math.ceil(max/4));
   const top=step*4;
   const y=v=>PT+PH-(v/top)*PH;
   const band=plotW/Math.max(1,labels.length);
-  const bw=Math.min(52,band*0.56);
+  const bw=Math.min(C?42:52,band*0.56);
   const R=4;
   const topPath=(x,yy,w,h,r)=>`M${x},${yy+h}V${yy+r}a${r},${r} 0 0 1 ${r},-${r}h${w-2*r}a${r},${r} 0 0 1 ${r},${r}V${yy+h}Z`;
   let grid='',bars='',xlab='';
   for(let i=0;i<=4;i++){
     const v=step*i, yy=y(v);
     grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
-        + `<text class="tick" x="${PL-8}" y="${yy+3}" text-anchor="end">${esc(o.axisFmt?o.axisFmt(v):v)}</text>`;
+        + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${esc(o.axisFmt?o.axisFmt(v):v)}</text>`;
   }
   labels.forEach((lab,i)=>{
     const v=values[i]||0;
     const cx=PL+band*i+band/2, x=cx-bw/2;
     const yy=y(v), h=PT+PH-yy;
-    if(v>0) bars+=(h>R*2?`<path d="${topPath(x,yy,bw,h,R)}" fill="${o.color||'var(--own-sales)'}">`
-                        :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${o.color||'var(--own-sales)'}">`)
+    /* a colour per column where the columns mean different things - the four
+       stages of the funnel - and one colour for the rest */
+    const fill=(o.colors&&o.colors[i])||o.color||'var(--own-sales)';
+    if(v>0) bars+=(h>R*2?`<path d="${topPath(x,yy,bw,h,R)}" fill="${fill}">`
+                        :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${fill}">`)
         + `<title>${esc(lab)}: ${esc(fmt(v))}</title>`
         + (h>R*2?'</path>':'</rect>');
     if(v>0) bars+=`<text class="seglabel" x="${cx}" y="${yy-6}" text-anchor="middle" fill="var(--ink-2)">${esc(fmt(v))}</text>`;
-    xlab+=`<text class="tick" x="${cx}" y="${PT+PH+18}" text-anchor="middle">${esc(lab)}</text>`;
+    xlab+=`<text class="tick" x="${cx}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
   });
   return `
   <div class="chartcard">
@@ -457,7 +467,7 @@ function colChart(labels,values,opts){
   +(o.table===false?'':`
   <div class="tablewrap" style="margin-bottom:18px"><table style="min-width:420px"><thead><tr>
     <th>${esc(o.xhead||'Month')}</th><th>${esc(o.yhead||'Value')}</th>
-  </tr></thead><tbody>${labels.map((lab,i)=>`<tr><td>${esc(lab)}</td><td>${esc(fmt(values[i]||0))}</td></tr>`).join('')}</tbody></table>`)+`</div>`;
+  </tr></thead><tbody>${labels.map((lab,i)=>`<tr><td>${esc(lab)}</td><td>${esc(fmt(values[i]||0))}</td></tr>`).join('')}</tbody></table></div>`);
 }
 /* the last twelve months a report can talk about, oldest first */
 function lastMonths(rows,dateOf,n){

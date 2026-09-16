@@ -205,22 +205,18 @@ async function renderMgmtReport(){
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
-    ${colChart(['Target','Actual'],[leadTarget,mktLeads],
-      {title:'Raw lead target vs actual',color:'var(--sun)',table:false,
-       cap:'Digital and offline marketing'})}
+    <div class="homegrid">
+      ${colChart(['Target','Actual'],[leadTarget,mktLeads],
+        {title:'Raw lead target vs actual',color:'var(--sun)',table:false,compact:true,
+         cap:'Digital and offline marketing'})}
+      ${colChart(stageDist.map(r=>r[0]),stageDist.map(r=>r[1]),
+        {title:'Lead stage distribution',colors:stageDist.map(r=>r[2]),
+         table:false,compact:true,cap:'All five channels'})}
+    </div>
 
     <div class="homegrid">
       ${repPanel('Leads by channel',
         ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
-      ${repPanel('Lead stages',gFunnel(stageDist))}
-    </div>
-
-    <div class="homegrid">
-      ${repPanel('Residential vs C&I',
-        Object.keys(typeCount).length
-          ?gRank(Object.entries(typeCount),{color:'var(--own-sales)',
-             emptyWhy:'This fills in as leads record a customer type.'})
-          :blank('No customer type recorded','Every lead in the window has the field blank.'))}
       ${repPanel('Active pipeline',
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
@@ -231,14 +227,25 @@ async function renderMgmtReport(){
     </div>
 
     <div class="homegrid">
-      ${repPanel('Collection per person',
-        gRank(people.map(p=>[p.full_name,collByPerson[p.id]||0]),
-          {color:'var(--ok)',fmt:cash,emptyWhy:'This fills in as payments are recorded '+per+'.'}))}
+      ${repPanel('Residential vs C&I',
+        Object.keys(typeCount).length
+          ?gRank(Object.entries(typeCount),{color:'var(--own-sales)',
+             emptyWhy:'This fills in as leads record a customer type.'})
+          :blank('No customer type recorded','Every lead in the window has the field blank.'))}
       ${repPanel('Closed-lost status',
         lostInWin.length
           ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,
              emptyWhy:'This fills in as leads are lost.'})
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
+    </div>
+
+    <div class="homegrid">
+      ${repPanel('Collection per person',
+        gRank(people.map(p=>[p.full_name,collByPerson[p.id]||0]),
+          {color:'var(--ok)',fmt:cash,emptyWhy:'This fills in as payments are recorded '+per+'.'}))}
+      ${repPanel('Quotations per person',
+        gRank(Object.entries(quotByPerson).map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]),
+          {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
     </div>
 
     ${repPanel('Closed-lost, before or after a quotation',
@@ -250,15 +257,10 @@ async function renderMgmtReport(){
                   ['Before any quotation',lostBefore.length,'']])
         :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'),true)}
 
-    <div class="homegrid">
-      ${repPanel('Quotations per person',
-        gRank(Object.entries(quotByPerson).map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]),
-          {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
-      ${repPanel('Contacts a day',
-        contactAvg.length
-          ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--sun)',fmt:v=>v+' a day'})
-          :blank('No contacts logged','Nothing in the contact log '+per+'.'))}
-    </div>
+    ${repPanel('Contacts a day',
+      contactAvg.length
+        ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--sun)',fmt:v=>v+' a day'})
+        :blank('No contacts logged','Nothing in the contact log '+per+'.'),true)}
 
     ${repPanel('Leads per person',
       handled.length
