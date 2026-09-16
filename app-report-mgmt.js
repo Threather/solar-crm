@@ -184,7 +184,7 @@ async function renderMgmtReport(){
     chCount[c]=(chCount[c]||0)+1;});
 
   $('main').innerHTML=repBar('Management dashboard')+`
-    <div class="kpis">
+    <div class="kpis six">
       ${kpi({label:'Collected '+per,value:cash(collected),lead:true,
         alert:!!(target&&collected<target),
         delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,

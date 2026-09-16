@@ -467,6 +467,11 @@ td.numcell b{font-weight:600}
   color:var(--ink-soft);font-variant-numeric:tabular-nums;white-space:nowrap}
 .kpi .chip.up{background:#dfe9df;color:var(--ok)}
 .kpi .chip.down{background:#f2e0db;color:var(--bad)}
+/* Six figures on one row. The lead card gives up its double width so the row
+   divides evenly, and the minimum drops to suit six columns rather than four;
+   it keeps the larger figure, which is what marks it out. */
+.kpis.six{grid-template-columns:repeat(auto-fit,minmax(148px,1fr))}
+.kpis.six .kpi.lead{grid-column:span 1}
 .kpi.lead{grid-column:span 2}
 .kpi.lead .n{font-size:38px}
 .kpi.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
