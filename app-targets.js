@@ -45,11 +45,11 @@ async function renderTargets(){
     <div class="homegrid">
       ${repPanel('Company',`<div class="grid2">
         <div><label>Lead target, raw leads</label>
-          <input id="tg-leads" type="number" step="1" value="${num(tg.company.leads)}" placeholder="700"></div>
+          ${numBox('tg-leads',num(tg.company.leads),{attrs:'placeholder="700"'},true)}</div>
         <div><label>Marketing budget (USD)</label>
-          <input id="tg-spend" type="number" step="0.01" value="${num(tg.company.spend)}" placeholder="200"></div>
+          ${numBox('tg-spend',num(tg.company.spend),{attrs:'placeholder="200"'})}</div>
         <div><label>Marketing spent (USD)</label>
-          <input id="tg-spent" type="number" step="0.01" value="${num(tg.company.spend_actual)}" placeholder="0"></div>
+          ${numBox('tg-spent',num(tg.company.spend_actual),{attrs:'placeholder="0"'})}</div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveTargets()">Save targets</button></div>`,true)}
     </div>
@@ -59,13 +59,13 @@ async function renderTargets(){
     <div class="homegrid">
       ${repPanel('Target turnaround',`<div class="grid2">
         <div><label>BOQ to installation</label>
-          <input id="tg-sla-boq" type="number" step="0.5" value="${num(tg.company.sla_boq)}" placeholder="3"></div>
+          ${numBox('tg-sla-boq',num(tg.company.sla_boq),{attrs:'placeholder="3"'})}</div>
         <div><label>Installation duration</label>
-          <input id="tg-sla-install" type="number" step="0.5" value="${num(tg.company.sla_install)}" placeholder="4"></div>
+          ${numBox('tg-sla-install',num(tg.company.sla_install),{attrs:'placeholder="4"'})}</div>
         <div><label>Installation to EDC submission</label>
-          <input id="tg-sla-edcinform" type="number" step="0.5" value="${num(tg.company.sla_edcinform)}" placeholder="2"></div>
+          ${numBox('tg-sla-edcinform',num(tg.company.sla_edcinform),{attrs:'placeholder="2"'})}</div>
         <div><label>EDC submission to inspection</label>
-          <input id="tg-sla-edcinspect" type="number" step="0.5" value="${num(tg.company.sla_edcinspect)}" placeholder="5"></div>
+          ${numBox('tg-sla-edcinspect',num(tg.company.sla_edcinspect),{attrs:'placeholder="5"'})}</div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveTargets()">Save targets</button></div>`,true)}
     </div>
@@ -77,7 +77,7 @@ async function renderTargets(){
       <tr>
         <td><b>${esc(p.full_name)}</b><span class="days">${esc(p.staff_id||'')}</span></td>
         <td>${esc(p.role)}</td>
-        <td><input id="tg-p-${p.id}" type="number" step="0.01" value="${num(tg.person[p.id]?.collection)}" placeholder="0"></td>
+        <td>${numBox('tg-p-'+p.id,num(tg.person[p.id]?.collection),{attrs:'placeholder="0"'})}</td>
       </tr>`).join('')+`</tbody>
       <tfoot><tr><td><b>Team total</b></td><td></td>
         <td><b>${fmtMoney(teamTotal)}</b></td></tr></tfoot>

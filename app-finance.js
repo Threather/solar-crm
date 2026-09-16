@@ -257,7 +257,7 @@ function openFinance(id){
         <div><label>Contract status</label><select id="f-status">${optList(CONTRACT_STATUS,f.contract_status)}</select></div>
         <div><label>Date signed</label><input id="f-signed" type="date" value="${f.contract_signed_date||''}"></div>
         <div><label>Contract total (USD)</label><input id="f-total" value="${fmtMoney(finContract(r))}" disabled title="The sale value at closing, plus anything additional"></div>
-        <div><label>Additional (USD)</label><input id="f-extra" type="number" step="0.01" value="${f.contract_extra_usd??''}" placeholder="Only if there is more" oninput="finTotal()"></div>
+        <div><label>Additional (USD)</label>${numBox('f-extra',f.contract_extra_usd,{then:'finTotal()',attrs:'placeholder="Only if there is more"'})}</div>
         <div style="grid-column:2/-1"><label>What it is for</label><input id="f-extranote" value="${esc(f.contract_extra_note||'')}" placeholder="Optional"></div>
         <div><label>Type of account</label><select id="f-acct">${optList(ACCOUNT_TYPES,f.account_type)}</select></div>
         <div style="grid-column:2/-1"><label>Payment term</label><input id="f-term" value="${esc(f.payment_term||'')}" placeholder="50% deposit, 50% on completion"></div>
@@ -269,9 +269,9 @@ function openFinance(id){
     <div class="section sec-fin"><h4>Record a payment</h4>
       <div class="grid3">
         <div><label>Date</label><input id="p-date" type="date"></div>
-        <div><label>Amount (USD)</label><input id="p-amt" type="number" step="0.01"></div>
+        <div><label>Amount (USD)</label>${numBox('p-amt','')}</div>
         <div><label>Note</label><input id="p-note" placeholder="Deposit, second instalment…"></div>
-        <div><label>Other fee (USD)</label><input id="p-fee" type="number" step="0.01" placeholder="Only if there is one"></div>
+        <div><label>Other fee (USD)</label>${numBox('p-fee','',{attrs:'placeholder="Only if there is one"'})}</div>
         <div style="grid-column:2/-1"><label>What the fee is for</label><input id="p-feenote" placeholder="Extra battery, longer cable run…"></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="addPayment('${r.id}')">Add payment</button></div>

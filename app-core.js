@@ -55,6 +55,55 @@ function why(e){
   return m.slice(0,90);
 }
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* A NUMBER BOX THAT ACCEPTS KHMER DIGITS.
+   `type="number"` silently throws away anything it does not recognise: the
+   client typed ៦៥០ on a Khmer keyboard and the box stayed empty, which reads
+   as a field that will not take a value. It does the same to "650 W", to a
+   comma decimal, and - with step="1" - it refuses 450.5. And it happily takes
+   -5, which is not a panel.
+
+   So these are text boxes that behave like number boxes. Khmer and
+   Arabic-Indic digits are folded to ASCII, a comma is read as a decimal point,
+   and anything else is dropped as it is typed. inputmode="decimal" still gives
+   a phone its number pad. */
+const KH_DIGITS='០១២៣៤៥៦៧៨៩', AR_DIGITS='٠١٢٣٤٥٦٧٨٩';
+function normNum(v,opt){
+  let out='';
+  for(const ch of String(v==null?'':v)){
+    const k=KH_DIGITS.indexOf(ch), a=AR_DIGITS.indexOf(ch);
+    if(k>=0){out+=k;continue;}
+    if(a>=0){out+=a;continue;}
+    if(ch>='0'&&ch<='9'){out+=ch;continue;}
+    if(ch===','){
+      /* a comma groups thousands here - 5,500 is 5500. As a decimal comma it
+         is handled below, where a whole-number field has no decimals anyway. */
+      if(opt&&opt.int)continue;
+      if(!out.includes('.')){out+='.';}
+      continue;
+    }
+    if(ch==='.'){
+      /* on a whole-number field everything after the point is dropped, so
+         450.5 reads 450 rather than silently becoming 4505 */
+      if(opt&&opt.int)break;
+      if(!out.includes('.'))out+='.';
+      continue;
+    }
+  }
+  /* a lone dot is not a number yet, but someone is mid-way through typing one */
+  return out;
+}
+/* bound to oninput: fold what was typed and keep the caret at the end */
+function numIn(el,int){
+  const clean=normNum(el.value,{int:int});
+  if(clean!==el.value)el.value=clean;
+  return clean;
+}
+/* the markup for one of them. `int` refuses a decimal point outright. */
+const numBox=(id,value,extra,int)=>
+  `<input id="${id}" type="text" inputmode="${int?'numeric':'decimal'}" `
+  +`value="${value==null||value===''?'':esc(String(value))}" `
+  +`oninput="numIn(this,${int?'true':'false'})${extra&&extra.then?';'+extra.then:''}" `
+  +`${extra&&extra.attrs?extra.attrs:''}>`;
 const fmtMoney=v=>v==null||v===''?'—':'$'+Number(v).toLocaleString(undefined,{maximumFractionDigits:2});
 const fmtDate=d=>d?new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
 const fmtDT=d=>d?new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';

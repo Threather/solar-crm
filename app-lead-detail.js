@@ -98,7 +98,7 @@ async function openLead(id){
         <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
         ${canMoney?`<div id="d-salewrap" style="display:${(l.stage_code===WON||fin?.final_sale_usd!=null)?'block':'none'}">
-          <label>Final sale value (USD)</label><input id="d-sale" type="number" step="0.01" value="${fin?.final_sale_usd??''}"></div>`:''}
+          <label>Final sale value (USD)</label>${numBox('d-sale',fin?.final_sale_usd)}</div>`:''}
         ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
         <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
         <div><label>Estimated close date</label><input id="d-closedate" type="date" value="${l.expected_close_date||''}" ${canEng?'':'disabled'} title="Optional. When you expect this to be signed — usually set once the quotation has gone out."></div>`:''}
@@ -143,7 +143,7 @@ async function openLead(id){
         <div><label>District</label><select id="d-district" onchange="dDist()" ${canCustomer?'':'disabled'}>${optList(Object.keys(GEO[PV]||{}),l.district)}</select></div>
         <div><label>Commune</label><select id="d-commune" ${canCustomer?'':'disabled'}>${optList(((GEO[PV]||{})[l.district])||[],l.commune)}</select></div>
         <div><label>Type of site</label><input id="d-sitetype" value="${esc(l.site_type||'')}" ${canCustomer?'':'disabled'}></div>
-        <div><label>Monthly bill (USD)</label><input id="d-bill" type="number" step="0.01" value="${l.monthly_bill_usd??''}" ${canCustomer?'':'disabled'}></div>
+        <div><label>Monthly bill (USD)</label>${numBox('d-bill',l.monthly_bill_usd,{attrs:canCustomer?'':'disabled'})}</div>
       </div>
     </div>`;
   const custFirst=ME.role==='marketing';
@@ -158,22 +158,22 @@ async function openLead(id){
         <div><label>System type</label><select id="d-sys" ${canEng?'':'disabled'}>${optList(SYSTEM_TYPES,l.system_type)}</select></div>
         <div><label>Ampere &amp; phase</label><select id="d-phase" ${canEng?'':'disabled'}>${optList(PHASE_TYPES,l.phase_type)}</select></div>
         <div><label>Panel brand</label><select id="d-pbrand" ${canEng?'':'disabled'}>${optList(PANEL_BRANDS,l.panel_brand)}</select></div>
-        <div><label>Panel watt (W)</label><input id="d-pwatt" type="number" step="1" value="${l.panel_watt??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
-        <div><label>Panel (pcs)</label><input id="d-pcs" type="number" step="1" value="${l.panel_pcs??''}" oninput="dKwp()" ${canEng?'':'disabled'}></div>
+        <div><label>Panel watt (W)</label>${numBox('d-pwatt',l.panel_watt,{then:'dKwp()',attrs:canEng?'':'disabled'},true)}</div>
+        <div><label>Panel (pcs)</label>${numBox('d-pcs',l.panel_pcs,{then:'dKwp()',attrs:canEng?'':'disabled'},true)}</div>
         <div><label>Panel (kWp), auto</label><input id="d-kwp" type="number" step="0.01" value="${l.panel_kwp??''}" readonly title="watt × pcs ÷ 1000"></div>
         <div><label>Inverter brand</label><select id="d-ibrand" ${canEng?'':'disabled'}>${optList(INVERTER_BRANDS,l.inverter_brand)}</select></div>
-        <div><label>Inverter (kW each)</label><input id="d-inv" type="number" step="0.01" value="${l.inverter_kw??''}" ${canEng?'':'disabled'}></div>
-        <div><label>Inverter (pcs)</label><input id="d-ipcs" type="number" step="1" value="${l.inverter_pcs??''}" ${canEng?'':'disabled'}></div>
+        <div><label>Inverter (kW each)</label>${numBox('d-inv',l.inverter_kw,{attrs:canEng?'':'disabled'})}</div>
+        <div><label>Inverter (pcs)</label>${numBox('d-ipcs',l.inverter_pcs,{attrs:canEng?'':'disabled'},true)}</div>
         <div><label>Battery brand</label><select id="d-bbrand" ${canEng?'':'disabled'}>${optList(BATTERY_BRANDS,l.battery_brand)}</select></div>
-        <div><label>Battery (kWh each)</label><input id="d-beach" type="number" step="0.01" value="${l.battery_kwh_each??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
-        <div><label>Battery (pcs)</label><input id="d-bpcs" type="number" step="1" value="${l.battery_pcs??''}" oninput="dBatt()" ${canEng?'':'disabled'}></div>
+        <div><label>Battery (kWh each)</label>${numBox('d-beach',l.battery_kwh_each,{then:'dBatt()',attrs:canEng?'':'disabled'})}</div>
+        <div><label>Battery (pcs)</label>${numBox('d-bpcs',l.battery_pcs,{then:'dBatt()',attrs:canEng?'':'disabled'},true)}</div>
         <div><label>Battery total (kWh), auto</label><input id="d-batt" value="${esc(l.battery_kwh||'')}" readonly title="kWh each x pcs"></div>
         <div style="grid-column:1/-1"><label>Location link to the house</label><input id="d-sitelink" type="url" placeholder="https://maps.app.goo.gl/…" value="${esc(l.site_link||'')}" ${canEng?'':'disabled'} title="The sale engineer pastes the map link here; the site engineer uses it to find the house"></div>
       </div>
       <div id="d-kit" class="kit"></div>
 
       ${canQuote?`<div class="quotbar">
-        <div><label>Price (USD)</label><input id="q-price" type="number" step="0.01" placeholder="Price for this option"></div>
+        <div><label>Price (USD)</label>${numBox('q-price','',{attrs:'placeholder="Price for this option"'})}</div>
         <button class="btn-sun" onclick="addQuot('${l.id}')" title="Saves the specification above as a quotation, priced">Save as quotation</button>
       </div>`:''}
 

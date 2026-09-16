@@ -131,7 +131,7 @@ function edcTable(title,rows,fields){
       <td class="refid" style="cursor:pointer" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${kwac(l)} kWac · ${esc(staffName(l.site_engineer_id))}</span></td>
       <td><select style="min-width:170px" onchange="setEdcBranch('${l.id}',this.value)">${optList(EDC_BRANCHES,l.edc_branch)}</select></td>
-      <td><input type="number" step="0.01" style="min-width:110px" value="${l.edc_fee_usd??''}" placeholder="—" onchange="setEdcFee('${l.id}',this.value)"></td>
+      <td>${numBox('edcfee-'+l.id,l.edc_fee_usd,{attrs:`style="min-width:110px" placeholder="\u2014" onchange="setEdcFee('${l.id}',this.value)"`})}</td>
       ${fields.map(([k])=>`<td class="${next&&next[0]===k?'edc-next':''}"><input type="date" style="min-width:130px" value="${l[k]||''}" onchange="setEdcDate('${l.id}','${k}',this.value)"></td>`).join('')}
       <td><b>${edcDone(l)}/${fields.length}</b></td>
     </tr>`;}).join('')+`</tbody></table></div>`;

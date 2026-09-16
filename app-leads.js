@@ -304,7 +304,7 @@ function renderNew(){
         <div><label>Customer name *</label><input id="f-name"></div>
         <div><label>Phone</label><input id="f-phone" placeholder="Can be added later"></div>
         <div><label>Customer type *</label><select id="f-ctype">${optList(CUSTOMER_TYPES,'Residential',false)}</select></div>
-        <div><label>Monthly electricity bill (USD)</label><input id="f-bill" type="number" min="0" step="0.01"></div>
+        <div><label>Monthly electricity bill (USD)</label>${numBox('f-bill','')}</div>
         <div><label>Lead channel *</label><select id="f-chan" onchange="subChan()">${optList(Object.keys(CHANNELS),'Digital_Marketing',false)}</select></div>
         <div><label>Sub-channel *</label><select id="f-sub"></select></div>
       </div>
