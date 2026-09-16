@@ -94,9 +94,11 @@ let REPSCOPE='', REPPERIOD='mtd', REPFILTER={person:'',team:'',channel:''};
 /* Which report a role may see, and which one exists yet. The reports land one
    at a time, so a scope whose renderer has not shipped is left out rather than
    offered as a button that opens a blank page. */
-const REP_RENDER={sales:'renderSalesReport',ops:'renderOpsReport',mkt:'renderMktReport'};
+const REP_RENDER={mgmt:'renderMgmtReport',sales:'renderSalesReport',ops:'renderOpsReport',mkt:'renderMktReport'};
 function repScopes(){
   const s=[];
+  /* the management board leads, and only for the two roles it is drawn for */
+  if(['manager','admin'].includes(ME.role))s.push(['mgmt','Management']);
   if(['sales','manager','admin'].includes(ME.role))s.push(['sales','Sales']);
   if(['site_engineer','admin'].includes(ME.role))s.push(['ops','Operations']);
   /* the sales manager runs marketing as well as sales, so they get both
