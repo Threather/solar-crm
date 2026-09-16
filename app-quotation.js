@@ -279,6 +279,10 @@ function quoteHtml(q,l,c){
       const put=(id,v)=>{const e=document.getElementById(id);if(e)e.innerText=v;};
       const f=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
       const price=${c.price||0};
+      /* the band rate off EDC's card. It used to print beside the label as an
+         editable box; the customer's sheet only needs the fee, so the rate is
+         held here and the figure is still derived rather than typed. */
+      const edcRate=${Number(c.edcRate)||0};
       const vat=price*0.10;
       document.getElementById('o-vat').innerHTML='<span class="amt"><span class="cur">$</span><span>'+f(vat)+'</span></span>';
       document.getElementById('o-grand').innerHTML='<span class="amt"><span class="cur">$</span><span>'+f(price+vat)+'</span></span>';
@@ -295,7 +299,7 @@ function quoteHtml(q,l,c){
       const val=g('f-annual')*g('f-tariff');
       /* EDC compensation is the band rate on everything produced in the year,
          so it follows the annual figure instead of being typed again */
-      const exp=g('f-annual')*g('f-edcrate');
+      const exp=g('f-annual')*edcRate;
       put('o-export',f(exp));
       const year=val-exp, mon=year/12;
       document.getElementById('o-prod').innerText=f(val);
@@ -331,6 +335,13 @@ function quoteHtml(q,l,c){
       const one=document.getElementById('disc-on').checked
                 &&!document.getElementById('vat-on').checked;
       const two=one&&document.getElementById('disc2-on').checked;
+      /* With VAT off and nothing coming off the price, the subtotal and the
+         payable total are the same figure printed twice. Only the yellow one
+         stays. A discount line brings the subtotal back, because then the two
+         differ and the sheet has to show the arithmetic. */
+      const bare=one?false:!document.getElementById('vat-on').checked;
+      document.getElementById('r-sub').style.display=bare?'none':'';
+      document.getElementById('r-net').classList.toggle('topless',bare);
       document.getElementById('r-d1').style.display=one?'':'none';
       document.getElementById('r-d2').style.display=two?'':'none';
       document.getElementById('disc2-box').style.display=one?'':'none';
@@ -568,6 +579,10 @@ function quoteHtml(q,l,c){
      that cell's own borders draw the sheet edge, the horizontals and the
      divider before the figure. */
   .money tr:first-child td{border-top:none}
+  /* off VAT with no discount the subtotal row is off the sheet, so whichever
+     row is left at the top has to give up its top edge in its place - the
+     items table above already draws that rule */
+  .money tr.topless td{border-top:none}
   .money td{border:1px solid #333}
   /* the heading is its own row, ruled off like theirs - dropping the bottom
      border made it read as one tall merged cell with the terms below it */
@@ -639,7 +654,6 @@ function quoteHtml(q,l,c){
      reads as a column of numbers with a column of units, not a sentence */
   .sav .v{text-align:right;font-variant-numeric:tabular-nums;min-width:80px;font-weight:bold}
   .sav .u{text-align:left;white-space:nowrap;padding-left:6px}
-  .rate{font-size:9px;color:#555}
   /* the savings figures and the notes sit side by side at the foot of page
      one, the notes boxed on the right - the client's own sheet reads that way,
      and stacking them cost 25mm of a page that has none to spare.
@@ -807,7 +821,7 @@ function quoteHtml(q,l,c){
        terms beside the price, which showed the price twice. -->
   <table class="money">
     <colgroup><col class="c-l"><col class="c-v"></colgroup>
-    <tr><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
+    <tr id="r-sub"><td class="tot">${QT.total}</td><td class="v"><span class="amt"><span class="cur">$</span><span>${qnum(c.price)}</span></span></td></tr>
     <tr id="r-vat"><td class="tot">${QT.vat10}</td><td class="v" id="o-vat"></td></tr>
     <tr id="r-grand"><td class="tot">${QT.grand}</td><td class="v paid" id="o-grand"></td></tr>
     <!-- Off VAT, the price is negotiated instead: two lines to name a
@@ -839,7 +853,7 @@ function quoteHtml(q,l,c){
     <tr><td>${QT.tariff}</td><td class="v"><span class="fill" id="f-tariff" contenteditable="true">0.183</span></td><td class="u">${QT.perKwh}</td></tr>
     <tr><td>${QT.yearly}</td><td class="v"><span class="fill" id="f-annual" contenteditable="true">${c.annual||''}</span></td><td class="u">${QT.perYear}</td></tr>
     <tr><td>${QT.produced}</td><td class="v" id="o-prod"></td><td class="u">${QT.usdYear}</td></tr>
-    ${(Number(c.kwac)||0)>10?`<tr><td>${QT.exported} <span class="rate">(<span class="fill" id="f-edcrate" contenteditable="true">${c.edcRate?c.edcRate:''}</span> ${QT.perKwh})</span></td>
+    ${(Number(c.kwac)||0)>10?`<tr><td>${QT.exported}</td>
         <td class="v" id="o-export"></td><td class="u">${QT.usdYear}</td></tr>`:''}
     <tr><td>${QT.saved}</td><td class="v" id="o-year"></td><td class="u">${QT.usdYear}</td></tr>
     <tr><td>${QT.savedMonth}</td><td class="v" id="o-mon"></td><td class="u">${QT.usdMonth}</td></tr>
