@@ -469,6 +469,60 @@ function colChart(labels,values,opts){
     <th>${esc(o.xhead||'Month')}</th><th>${esc(o.yhead||'Value')}</th>
   </tr></thead><tbody>${labels.map((lab,i)=>`<tr><td>${esc(lab)}</td><td>${esc(fmt(values[i]||0))}</td></tr>`).join('')}</tbody></table></div>`);
 }
+/* Two or three series across the same categories, drawn as columns side by
+   side inside each category rather than stacked. Stacking answers "what does
+   this person's book add up to"; grouping answers "how do these two compare,
+   for each person", which is the question Residential against C&I asks. Reuses
+   colChart's geometry, including compact. */
+function groupChart(labels,series,opts){
+  const o=opts||{};
+  const C=!!o.compact;
+  const W=C?372:760, PL=C?30:52, PR=C?8:12, PT=C?14:18,
+        PH=C?118:200, AX=C?26:34, H=PT+PH+AX;
+  const plotW=W-PL-PR;
+  const all=series.reduce((a,s)=>a.concat(s.values),[]);
+  const max=Math.max(1,...all);
+  const step=Math.max(1,Math.ceil(max/4));
+  const top=step*4;
+  const y=v=>PT+PH-(v/top)*PH;
+  const band=plotW/Math.max(1,labels.length);
+  const n=Math.max(1,series.length);
+  const inner=2;
+  const bw=Math.min(C?22:34,(band*0.66-inner*(n-1))/n);
+  const R=3;
+  const topPath=(x,yy,w,h,r)=>`M${x},${yy+h}V${yy+r}a${r},${r} 0 0 1 ${r},-${r}h${w-2*r}a${r},${r} 0 0 1 ${r},${r}V${yy+h}Z`;
+  let grid='',bars='',xlab='';
+  for(let i=0;i<=4;i++){
+    const v=step*i, yy=y(v);
+    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
+        + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
+  }
+  labels.forEach((lab,li)=>{
+    const groupW=bw*n+inner*(n-1);
+    const left=PL+band*li+(band-groupW)/2;
+    series.forEach((sr,si)=>{
+      const v=Number(sr.values[li]||0);
+      const x=left+si*(bw+inner);
+      const yy=y(v), h=PT+PH-yy;
+      if(v>0) bars+=(h>R*2?`<path d="${topPath(x,yy,bw,h,R)}" fill="${sr.color}">`
+                          :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${sr.color}">`)
+          + `<title>${esc(lab)} \u00b7 ${esc(sr.name)}: ${v}</title>`
+          + (h>R*2?'</path>':'</rect>');
+      if(v>0) bars+=`<text class="seglabel" x="${x+bw/2}" y="${yy-4}" text-anchor="middle" fill="var(--ink-2)">${v}</text>`;
+    });
+    xlab+=`<text class="tick" x="${PL+band*li+band/2}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
+  });
+  return `
+  <div class="chartcard">
+    <h3>${esc(o.title||'')}</h3>
+    ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
+    <div class="legend">${series.map(sr=>`<span><i style="background:${sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
+    <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
+      ${grid}${bars}${xlab}
+      <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
+    </svg>
+  </div>`;
+}
 /* the last twelve months a report can talk about, oldest first */
 function lastMonths(rows,dateOf,n){
   const keys=[...new Set((rows||[]).map(r=>localDay(dateOf(r)).slice(0,7)).filter(Boolean))].sort().slice(-(n||12));

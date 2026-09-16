@@ -183,6 +183,10 @@ async function renderMgmtReport(){
      anything else is a lead nobody filled the field in on. */
   const typeCount={};
   got.forEach(l=>{const t=l.customer_type||'Not recorded';typeCount[t]=(typeCount[t]||0)+1;});
+  /* his sheet splits this per salesperson, two columns each, rather than
+     giving the two totals for the whole company */
+  const typePeople=people.filter(p=>got.some(l=>l.assigned_to===p.id));
+  const typeOf=(p,want)=>got.filter(l=>l.assigned_to===p.id&&l.customer_type===want).length;
 
   const mktLeads=got.filter(l=>MG_MARKETING.includes(l.lead_channel)).length;
   const chCount={};
@@ -191,16 +195,18 @@ async function renderMgmtReport(){
 
   $('main').innerHTML=repBar('Management dashboard')+`
     <div class="kpis six">
-      ${kpi({label:'Collected '+per,value:cash(collected),lead:true,
+      <!-- his six boxes, in his order and his wording. They are the headings
+           he reads the sheet by, so they are not tidied. -->
+      ${kpi({label:'Monthly Target',value:cash(target||null)})}
+      ${kpi({label:'Payment Collected',value:cash(collected),lead:true,
         alert:!!(target&&collected<target),
         delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,
         note:target?pct(collected,target)+' of target':''})}
-      ${kpi({label:'Target',value:cash(target||null)})}
-      ${kpi({label:'Outstanding',value:cash(outstanding),
+      ${kpi({label:'Outstanding Payment',value:cash(outstanding),
         note:owingNoDate?owingNoDate+' with no date set':''})}
-      ${kpi({label:'Achievement',value:achievement==null?'—':achievement+'%'})}
-      ${kpi({label:'Remaining',value:remaining==null?'—':cash(remaining)})}
-      ${kpi({label:'Run rate',value:runPct==null?cash(runRate):runPct+'%',
+      ${kpi({label:'Achievement %',value:achievement==null?'—':achievement+'%'})}
+      ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
+      ${kpi({label:'Run Rate %',value:runPct==null?cash(runRate):runPct+'%',
         note:runRate==null?'':cash(runRate)+' by month end'})}
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
@@ -227,11 +233,13 @@ async function renderMgmtReport(){
     </div>
 
     <div class="homegrid">
-      ${repPanel('Residential vs C&I',
-        Object.keys(typeCount).length
-          ?gRank(Object.entries(typeCount),{color:'var(--own-sales)',
-             emptyWhy:'This fills in as leads record a customer type.'})
-          :blank('No customer type recorded','Every lead in the window has the field blank.'))}
+      ${typePeople.length
+        ?groupChart(typePeople.map(p=>p.full_name.split(' ')[0]),
+          [{name:'Residential',color:'var(--own-sales)',values:typePeople.map(p=>typeOf(p,'Residential'))},
+           {name:'C & I',color:'var(--sky)',values:typePeople.map(p=>typeOf(p,'C & I'))}],
+          {title:'Residential vs C&I',compact:true,cap:'By sale engineer'})
+        :repPanel('Residential vs C&I',
+          blank('No customer type recorded','No lead in the window has the field filled in.'))}
       ${repPanel('Closed-lost status',
         lostInWin.length
           ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,
