@@ -31,6 +31,8 @@
 
 /* the five channels, in the order the New lead form offers them */
 const MG_CHANNELS=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Existing_Customer'];
+const MG_LABEL={Digital_Marketing:'Digital',Third_Party:'Third party',Direct_Sales:'Direct',
+  Offline_Marketing:'Offline',Existing_Customer:'Existing customer',Other:'Not recorded'};
 /* the live rungs, which is what "active pipeline" means on his sheet */
 const MG_ACTIVE=['info_gathering','telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff'];
 
@@ -183,41 +185,25 @@ async function renderMgmtReport(){
 
   $('main').innerHTML=repBar('Management dashboard')+`
     <div class="kpis">
-      ${kpi({label:'Payment collected '+per,value:cash(collected),lead:true,
+      ${kpi({label:'Collected '+per,value:cash(collected),lead:true,
         alert:!!(target&&collected<target),
         delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,
-        note:target?pct(collected,target)+' of the '+cash(target)+' target':'No collection target set for this month',
-        sub:cash(paidIn(thisM))+' in '+monthName(thisM)+' against '+cash(paidIn(prevM))+' in '+prevWord})}
-      ${kpi({label:'Monthly target',value:cash(target||null),
-        note:target?'every salesperson’s collection target added up':'nobody has a target for this month',
-        sub:'set per person under Targets, for '+monthName(thisM)})}
-      ${kpi({label:'Outstanding payment',value:cash(outstanding),
-        note:owingNoDate?owingNoDate+' owing with no collection date set':'on '+won.length+' won deals',
-        sub:'what is still owed right now, so there is nothing to compare it against'})}
-      ${kpi({label:'Achievement',value:achievement==null?'—':achievement+'%',
-        note:achievement==null?'needs a target for this month':cash(collected)+' of '+cash(target),
-        sub:'collected against target, following the window above'})}
-      ${kpi({label:'Target remaining',value:remaining==null?'—':cash(remaining),
-        note:remaining==null?'needs a target for this month':(remaining?'still to collect':'target met'),
-        sub:'target less what has come in'})}
+        note:target?pct(collected,target)+' of target':''})}
+      ${kpi({label:'Target',value:cash(target||null)})}
+      ${kpi({label:'Outstanding',value:cash(outstanding),
+        note:owingNoDate?owingNoDate+' with no date set':''})}
+      ${kpi({label:'Achievement',value:achievement==null?'—':achievement+'%'})}
+      ${kpi({label:'Remaining',value:remaining==null?'—':cash(remaining)})}
       ${kpi({label:'Run rate',value:runPct==null?cash(runRate):runPct+'%',
-        note:runRate==null?'—':cash(runRate)+' projected for '+monthName(thisM),
-        sub:cash(mtdCollected)+' banked over '+dayNow+' of '+dim+' days — this month only, whatever the window says'})}
+        note:runRate==null?'':cash(runRate)+' by month end'})}
     </div>
-    ${!target?`<div class="hint"><b>No collection target set for ${esc(monthName(thisM))}.</b>
-      Achievement, Target remaining and Run rate stay blank until targets are set under Targets.</div>`:''}
+    ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
     <div class="homegrid">
-      ${repPanel('Raw lead target vs actual',
-        (leadTarget
-          ?gBullet('Leads received '+per,got.length,leadTarget,{color:'var(--own-mkt)'})
-          :gBullet('Leads received '+per,got.length,0,{color:'var(--own-mkt)',
-             emptyWhy:'no company lead target set for '+monthName(thisM)}))
-        +ledger([['Digital marketing',chCount.Digital_Marketing||0],
-                 ['Offline marketing',chCount.Offline_Marketing||0],
-                 ['Everything else',got.length-(chCount.Digital_Marketing||0)-(chCount.Offline_Marketing||0)]]))}
-      ${repPanel('Lead stage distribution',gFunnel(stageDist,
-        {cap:'All five channels. Each bar is a share of the leads received in the window.'}))}
+      ${repPanel('Raw leads against target',
+        gBullet('Leads '+per,got.length,leadTarget,{color:'var(--own-mkt)',emptyWhy:'no target set'})
+        +ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
+      ${repPanel('Lead stages',gFunnel(stageDist))}
     </div>
 
     <div class="homegrid">
@@ -226,7 +212,7 @@ async function renderMgmtReport(){
           ?gRank(Object.entries(typeCount),{color:'var(--own-sales)',
              emptyWhy:'This fills in as leads record a customer type.'})
           :blank('No customer type recorded','Every lead in the window has the field blank.'))}
-      ${repPanel('Active pipeline by stage',
+      ${repPanel('Active pipeline',
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
               open.filter(l=>l.stage_code===code).length]),
@@ -236,7 +222,7 @@ async function renderMgmtReport(){
     </div>
 
     <div class="homegrid">
-      ${repPanel('Payment collection by each sales',
+      ${repPanel('Collection per person',
         gRank(people.map(p=>[p.full_name,collByPerson[p.id]||0]),
           {color:'var(--ok)',fmt:cash,emptyWhy:'This fills in as payments are recorded '+per+'.'}))}
       ${repPanel('Closed-lost status',
@@ -246,33 +232,26 @@ async function renderMgmtReport(){
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
 
-    ${repPanel('Closed-lost: before or after a quotation',
+    ${repPanel('Closed-lost, before or after a quotation',
       lostInWin.length
-        ?gSplit([['Lost after a quotation',lostAfter.length,'var(--bad)'],
-                 ['Lost before any quotation',lostBefore.length,'#c2b8a4']],
-            lostAfter.length+' after a price went out',
-            lostBefore.length+' before one ever did')
-         +ledger([
-           ['Lost after a quotation',lostAfter.length,cash(lostAfterValue)+' of quoted work'],
-           ['Lost before any quotation',lostBefore.length,'never received a price'],
-           ['Share lost after quoting',pct(lostAfter.length,lostInWin.length),'']])
-         +`<div class="cap" style="margin-top:12px">Read off the quotations themselves, not the pipeline stage — a quotation is often released without the stage being moved.</div>`
+        ?gSplit([['After a quotation',lostAfter.length,'var(--bad)'],
+                 ['Before any quotation',lostBefore.length,'#c2b8a4']],
+            'after '+pct(lostAfter.length,lostInWin.length),'before')
+         +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
+                  ['Before any quotation',lostBefore.length,'']])
         :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'),true)}
 
     <div class="homegrid">
-      ${repPanel('Quotations sent per person',
+      ${repPanel('Quotations per person',
         gRank(Object.entries(quotByPerson).map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]),
           {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
-      ${repPanel('Average customer contacts a day',
+      ${repPanel('Contacts a day',
         contactAvg.length
-          ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--own-mkt)',
-             fmt:v=>v+' a day'})
-           +ledger(contactAvg.map(r=>[r[0],r[2]+' contact'+(r[2]===1?'':'s'),
-             'over '+r[3]+' day'+(r[3]===1?'':'s')]))
-          :blank('No contacts logged '+per,'This counts dated lines in the contact log.'))}
+          ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--own-mkt)',fmt:v=>v+' a day'})
+          :blank('No contacts logged','Nothing in the contact log '+per+'.'))}
     </div>
 
-    ${repPanel('Leads handled and still active, per person',
+    ${repPanel('Leads per person',
       handled.length
         ?`<div class="tablewrap"><table><thead><tr>
             <th>Person</th><th>Handled ${esc(per)}</th><th>Still active</th>
@@ -284,11 +263,9 @@ async function renderMgmtReport(){
         :blank('Nobody holds a lead yet','This fills in as leads are assigned.'),true)}
 
     ${colChart(months.map(m=>monthName(m)),months.map(m=>madeIn(m).length),
-      {title:'Lead trend from marketing',color:'var(--own-mkt)',
-       xhead:'Month',yhead:'Raw leads',
-       cap:'Raw leads by the month they came in. Qualified is the table below.'})}
+      {title:'Lead trend',color:'var(--own-mkt)',xhead:'Month',yhead:'Raw leads'})}
 
-    ${repPanel('Conversion from raw lead to qualified, by month',
+    ${repPanel('Raw to qualified, by month',
       months.length
         ?`<div class="tablewrap"><table><thead><tr>
             <th>Month</th><th>Raw leads</th><th>Qualified</th><th>Conversion</th>
@@ -300,7 +277,7 @@ async function renderMgmtReport(){
               <td>${esc(pct(q,r))}</td></tr>`;}).join('')}</tbody></table></div>`
         :blank('No months to show yet','This fills in as leads accumulate.'),true)}
 
-    ${repPanel('Won value, month by month',
+    ${repPanel('Won value by month',
       months.length
         ?ledger(months.slice(-6).map(m=>[monthName(m),cash(wonValIn(m)),
             rows.filter(l=>l.stage_code===WON&&l.stage_entered_at
