@@ -12,7 +12,11 @@ const QT={
   vat:'លេខអត្ដសញ្ញាណកម្ម(VATTIN):', systype:'ប្រភេទប្រព័ន្ធសូឡា:',
   valid:'សុពលភាព:', validDays:'៧ ថ្ងៃ',
   size:'ទំហំប្រព័ន្ធសូឡា:', battsize:'ទំហំអាគុយសូឡា:',
-  project:'គម្រោង', projectVal:': ការទិញដាច់ (1 ហ្វា)',
+  /* the phase in this line is the one the sale engineer keyed in, read off
+     ampere_phase the same way the inverter part number reads it. A lead
+     with no phase keyed in prints no bracket rather than guessing 1 - the
+     box is editable and a blank asks to be filled in. */
+  project:'គម្រោង', projectVal:ph=>': ការទិញដាច់'+(ph?' ('+ph+' ហ្វា)':''),
   /* the project reference is the lead's own ref ID, so a customer and the
      office are talking about the same deal. It falls back to N/A only for a
      lead that has not qualified yet and so has no ref. The team reference is
@@ -121,8 +125,9 @@ const BRAND_PATTERNS={
   battery:{'ANTI-DARK':/anti.?dark|^ad$/i, Yinergy:/^yinergy$/i, Deye:/^deye$/i}
 };
 const isBrand=(kind,name,brand)=>BRAND_PATTERNS[kind][name].test((brand||'').trim());
+function phaseNum(phaseType){return /3P/.test(phaseType||'')?'3':/1P/.test(phaseType||'')?'1':'';}
 function inverterModel(brand,kw,phaseType){
-  const p=/3P/.test(phaseType||'')?'3':/1P/.test(phaseType||'')?'1':'';
+  const p=phaseNum(phaseType);
   const n=Number(kw||0);
   if(isBrand('inverter','Urayzero',brand))return URAYZERO[n]||'';
   if(isBrand('inverter','Yinergy',brand))
@@ -735,7 +740,7 @@ function quoteHtml(q,l,c){
     <tbody>
       <!-- the project, its two references and what is being supplied open the
            table on their sheet, colons lined up in a column of their own -->
-      ${row('','<table class="kvt" style="width:auto"><tr><td>'+QT.project+'</td><td class="val">'+qb(150,QT.projectVal)+'</td></tr>'
+      ${row('','<table class="kvt" style="width:auto"><tr><td>'+QT.project+'</td><td class="val">'+qb(150,QT.projectVal(phaseNum(q.ampere_phase)))+'</td></tr>'
              +'<tr><td>'+QT.projectref+'</td><td class="val">'+qb(90,l.ref_id?': '+l.ref_id:QT.na)+'</td></tr>'
              +'<tr><td>'+QT.teamref+'</td><td class="val">'+qb(90,QT.na)+'</td></tr></table>'
              +QT.supply+'<br><span class="sec">'+QT.mgmtFor(q.system_type,kwpTxt)+'</span>','')}
