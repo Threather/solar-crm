@@ -227,39 +227,69 @@ async function renderMgmtReport(){
           blank('No customer type recorded','No lead in the window has the field filled in.'))}
     </div>
 
+    <!-- From here down the rows are his, in the order he drew them: active
+         pipeline beside collection, contacts beside closed-lost, quotations
+         beside the lead trend, leads held beside the conversion. -->
     <div class="homegrid">
-      ${repPanel('Leads by channel',
-        ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
-      ${repPanel('Active pipeline',
+      ${repPanel('Active pipeline stage',
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
               open.filter(l=>l.stage_code===code).length]),
              {color:'var(--sun)',limit:MG_ACTIVE.length,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
-    </div>
-
-    <div class="homegrid">
-      ${repPanel('Closed-lost status',
-        lostInWin.length
-          ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,
-             emptyWhy:'This fills in as leads are lost.'})
-          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
-      ${repPanel('Collection per person',
+      ${repPanel('Payment collection by each sales',
         gRank(people.map(p=>[p.full_name,collByPerson[p.id]||0]),
           {color:'var(--ok)',fmt:cash,emptyWhy:'This fills in as payments are recorded '+per+'.'}))}
     </div>
 
     <div class="homegrid">
-      ${repPanel('Quotations per person',
-        gRank(Object.entries(quotByPerson).map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]),
-          {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
-      ${repPanel('Contacts a day',
+      ${repPanel('Avg customer contacts a day',
         contactAvg.length
           ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--sun)',fmt:v=>v+' a day'})
           :blank('No contacts logged','Nothing in the contact log '+per+'.'))}
+      ${repPanel('Closed-lost status',
+        lostInWin.length
+          ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,
+             emptyWhy:'This fills in as leads are lost.'})
+          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
 
+    <div class="homegrid">
+      ${repPanel('Quotations sent',
+        gRank(Object.entries(quotByPerson).map(([id,n])=>[id==='none'?'Not recorded':nameOf(id),n]),
+          {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
+      ${colChart(months.map(m=>monthName(m)),months.map(m=>madeIn(m).length),
+        {title:'Lead trend from marketing',color:'var(--sun)',compact:true,table:false,
+         cap:'Raw leads by month'})}
+    </div>
+
+    <div class="homegrid">
+      ${repPanel('Leads held and still active',
+        handled.length
+          ?`<div class="tablewrap"><table><thead><tr>
+              <th>Person</th><th>Handled ${esc(per)}</th><th>Active</th>
+            </tr></thead><tbody>${handled.map(r=>`<tr>
+              <td>${esc(r.name)}</td>
+              ${numCell(r.handled,colMax(handled,x=>x.handled))}
+              ${numCell(r.active,colMax(handled,x=>x.active))}
+            </tr>`).join('')}</tbody></table></div>`
+          :blank('Nobody holds a lead yet','This fills in as leads are assigned.'))}
+      ${repPanel('Raw lead to qualified',
+        months.length
+          ?`<div class="tablewrap"><table><thead><tr>
+              <th>Month</th><th>Raw</th><th>Qualified</th><th>%</th>
+            </tr></thead><tbody>${months.map(m=>{
+              const r=madeIn(m).length,q=qualIn(m).length;
+              return `<tr><td>${esc(monthName(m))}</td>
+                ${numCell(r,Math.max(1,...months.map(x=>madeIn(x).length)))}
+                ${numCell(q,Math.max(1,...months.map(x=>qualIn(x).length)))}
+                <td>${esc(pct(q,r))}</td></tr>`;}).join('')}</tbody></table></div>`
+          :blank('No months to show yet','This fills in as leads accumulate.'))}
+    </div>
+
+    <!-- asked for on 16 Sep 2026 and not on the sheet, so it follows the rows
+         that are. Below it, two of ours that are on neither. -->
     ${repPanel('Closed-lost, before or after a quotation',
       lostInWin.length
         ?gSplit([['After a quotation',lostAfter.length,'var(--bad)'],
@@ -269,39 +299,15 @@ async function renderMgmtReport(){
                   ['Before any quotation',lostBefore.length,'']])
         :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'),true)}
 
-
-
-    ${repPanel('Leads per person',
-      handled.length
-        ?`<div class="tablewrap"><table><thead><tr>
-            <th>Person</th><th>Handled ${esc(per)}</th><th>Still active</th>
-          </tr></thead><tbody>${handled.map(r=>`<tr>
-            <td>${esc(r.name)}</td>
-            ${numCell(r.handled,colMax(handled,x=>x.handled))}
-            ${numCell(r.active,colMax(handled,x=>x.active))}
-          </tr>`).join('')}</tbody></table></div>`
-        :blank('Nobody holds a lead yet','This fills in as leads are assigned.'),true)}
-
-    ${colChart(months.map(m=>monthName(m)),months.map(m=>madeIn(m).length),
-      {title:'Lead trend',color:'var(--sun)',xhead:'Month',yhead:'Raw leads'})}
-
-    ${repPanel('Raw to qualified, by month',
-      months.length
-        ?`<div class="tablewrap"><table><thead><tr>
-            <th>Month</th><th>Raw leads</th><th>Qualified</th><th>Conversion</th>
-          </tr></thead><tbody>${months.map(m=>{
-            const r=madeIn(m).length,q=qualIn(m).length;
-            return `<tr><td>${esc(monthName(m))}</td>
-              ${numCell(r,Math.max(1,...months.map(x=>madeIn(x).length)))}
-              ${numCell(q,Math.max(1,...months.map(x=>qualIn(x).length)))}
-              <td>${esc(pct(q,r))}</td></tr>`;}).join('')}</tbody></table></div>`
-        :blank('No months to show yet','This fills in as leads accumulate.'),true)}
-
-    ${repPanel('Won value by month',
-      months.length
-        ?ledger(months.slice(-6).map(m=>[monthName(m),cash(wonValIn(m)),
-            rows.filter(l=>l.stage_code===WON&&l.stage_entered_at
-              &&localDay(l.stage_entered_at).slice(0,7)===m).length+' won']))
-        :blank('Nothing won yet','This fills in as deals close.'),true)}
+    <div class="homegrid">
+      ${repPanel('Leads by channel',
+        ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
+      ${repPanel('Won value by month',
+        months.length
+          ?ledger(months.slice(-6).map(m=>[monthName(m),cash(wonValIn(m)),
+              rows.filter(l=>l.stage_code===WON&&l.stage_entered_at
+                &&localDay(l.stage_entered_at).slice(0,7)===m).length+' won']))
+          :blank('Nothing won yet','This fills in as deals close.'))}
+    </div>
   `;
 }

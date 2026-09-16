@@ -562,6 +562,13 @@ td.numcell b{font-weight:600}
    1180 the three come to 372 each - the width the compact charts are drawn at,
    so their labels render at the size they are set in rather than scaled. The
    .three rules repeat the collapse because they outrank the plain one. */
+/* A grid child is min-width:auto by default, so it refuses to shrink below
+   its contents - and `table` carries min-width:860px for the full-width lists.
+   A three-column table in half a row then pushed the whole page sideways. The
+   track may shrink, and a table inside one of these panels sizes to its own
+   columns rather than to the lists' minimum. */
+.homegrid>*{min-width:0}
+.homegrid .panel table{min-width:0}
 .homegrid.three{grid-template-columns:repeat(3,1fr)}
 @media(max-width:1040px){.homegrid.three{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.homegrid.three{grid-template-columns:1fr}}
