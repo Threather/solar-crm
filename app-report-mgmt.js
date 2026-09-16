@@ -31,8 +31,6 @@
 
 /* the five channels, in the order the New lead form offers them */
 const MG_CHANNELS=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Existing_Customer'];
-const MG_LABEL={Digital_Marketing:'Digital',Third_Party:'Third party',Direct_Sales:'Direct',
-  Offline_Marketing:'Offline',Existing_Customer:'Existing customer',Other:'Not recorded'};
 /* the live rungs, which is what "active pipeline" means on his sheet */
 const MG_ACTIVE=['info_gathering','telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff'];
 
@@ -167,8 +165,6 @@ async function renderMgmtReport(){
     const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
   const paidIn=m=>pays.filter(p=>p.paid_on&&localDay(p.paid_on).slice(0,7)===m)
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
-  const wonValIn=m=>rows.filter(l=>l.stage_code===WON&&l.stage_entered_at
-    &&localDay(l.stage_entered_at).slice(0,7)===m).reduce((a,l)=>a+(saleBy[l.id]||0),0);
   const prevWord=monthName(prevM);
 
   /* stage distribution, his four bars */
@@ -189,9 +185,6 @@ async function renderMgmtReport(){
   const typeOf=(p,want)=>got.filter(l=>l.assigned_to===p.id&&l.customer_type===want).length;
 
   const mktLeads=got.filter(l=>MG_MARKETING.includes(l.lead_channel)).length;
-  const chCount={};
-  got.forEach(l=>{const c=MG_CHANNELS.includes(l.lead_channel)?l.lead_channel:'Other';
-    chCount[c]=(chCount[c]||0)+1;});
 
   $('main').innerHTML=repBar('Management dashboard')+`
     <div class="kpis six">
@@ -289,7 +282,8 @@ async function renderMgmtReport(){
     </div>
 
     <!-- asked for on 16 Sep 2026 and not on the sheet, so it follows the rows
-         that are. Below it, two of ours that are on neither. -->
+         that are. Nothing else does: leads by channel and won value by month
+         were ours, were on neither, and were dropped. -->
     ${repPanel('Closed-lost, before or after a quotation',
       lostInWin.length
         ?gSplit([['After a quotation',lostAfter.length,'var(--bad)'],
@@ -298,16 +292,5 @@ async function renderMgmtReport(){
          +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
                   ['Before any quotation',lostBefore.length,'']])
         :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'),true)}
-
-    <div class="homegrid">
-      ${repPanel('Leads by channel',
-        ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
-      ${repPanel('Won value by month',
-        months.length
-          ?ledger(months.slice(-6).map(m=>[monthName(m),cash(wonValIn(m)),
-              rows.filter(l=>l.stage_code===WON&&l.stage_entered_at
-                &&localDay(l.stage_entered_at).slice(0,7)===m).length+' won']))
-          :blank('Nothing won yet','This fills in as deals close.'))}
-    </div>
   `;
 }
