@@ -51,7 +51,12 @@ function why(e){
   const m=e.message||'';
   if(e.code==='42703')return 'A column is missing from the database.';
   if(e.code==='23505')return 'That already exists.';
-  if(e.code==='42501'||/row-level security/i.test(m))return 'Your role is not allowed to do that.';
+  if(e.code==='42501'||/row-level security/i.test(m)){
+    /* the same code covers "you may not" and "nobody is signed in any more" */
+    checkSession();
+    return 'Your role is not allowed to do that.';
+  }
+  if(e.code==='PGRST301'||/JWT|token is expired/i.test(m)){sessionLost();return 'Your session expired. Sign in again.';}
   return m.slice(0,90);
 }
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -255,6 +260,43 @@ async function doLogin(){
 }
 async function doLogout(){await sb.auth.signOut();location.reload();}
 
+/* AN EXPIRED SESSION LOOKS EXACTLY LIKE A REFUSED ROLE, AND IT IS NOT ONE.
+   ME is read once at boot, so the interface carries on looking signed in long
+   after the token behind it has gone: the nav is there, the leads are on
+   screen, and then the first write comes back 42501 because auth.uid() is
+   null and every policy tests against it. The app then said "Your role is not
+   allowed to do that", which sent marketing to us believing they had lost a
+   permission. Reproduced on the live site: sign in, drop the session, keep ME,
+   and the insert fails with exactly that message.
+
+   So a write that is refused checks whether anybody is still signed in, and if
+   nobody is, says so and returns to the login screen. */
+let AUTH_LOST=false;
+function sessionLost(){
+  if(AUTH_LOST)return;
+  AUTH_LOST=true;
+  /* ME is deliberately left alone. Every render function reads ME.role, so
+     clearing it turns one dead token into a crash on the next route. The
+     login screen is in front now and go() refuses to run; the stale copy
+     behind it is never read again. */
+  const lv=$('login-view'), av=$('app-view'), err=$('li-err');
+  if(lv)lv.style.display='flex';
+  if(av)av.style.display='none';
+  if(err)err.textContent='Your session expired. Please sign in again \u2014 nothing you typed was saved.';
+}
+/* called on a refused write; the check is a round trip, so it runs after the
+   toast rather than holding it up */
+async function checkSession(){
+  const {data}=await sb.auth.getSession();
+  if(!data||!data.session){sessionLost();return false;}
+  return true;
+}
+/* supabase-js gives up on a refresh token it cannot renew by signing out, so
+   this catches the same thing a moment earlier - before the next write */
+sb.auth.onAuthStateChange((event)=>{
+  if(event==='SIGNED_OUT'&&ME)sessionLost();
+});
+
 async function boot(){
   const {data:{session}}=await sb.auth.getSession();
   if(!session){$('login-view').style.display='flex';$('app-view').style.display='none';return;}
@@ -383,6 +425,9 @@ function buildNav(){
   $('nav').innerHTML=group('Work',work)+group('Money',money)+group('Company',admin);
 }
 function go(v){
+  /* nothing renders once the session has gone - the login screen is up and a
+     render would only read a profile that no longer has a token behind it */
+  if(AUTH_LOST)return;
   VIEW=v;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
