@@ -450,10 +450,14 @@ function colChart(labels,values,opts){
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
     </svg>
-  </div>
+  </div>`
+  /* The table repeats the chart so nothing lives only in a picture. Two
+     columns that are already labelled with their own figures do not need
+     saying a third time, so a caller can turn it off. */
+  +(o.table===false?'':`
   <div class="tablewrap" style="margin-bottom:18px"><table style="min-width:420px"><thead><tr>
     <th>${esc(o.xhead||'Month')}</th><th>${esc(o.yhead||'Value')}</th>
-  </tr></thead><tbody>${labels.map((lab,i)=>`<tr><td>${esc(lab)}</td><td>${esc(fmt(values[i]||0))}</td></tr>`).join('')}</tbody></table></div>`;
+  </tr></thead><tbody>${labels.map((lab,i)=>`<tr><td>${esc(lab)}</td><td>${esc(fmt(values[i]||0))}</td></tr>`).join('')}</tbody></table>`)+`</div>`;
 }
 /* the last twelve months a report can talk about, oldest first */
 function lastMonths(rows,dateOf,n){

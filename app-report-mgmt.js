@@ -99,8 +99,13 @@ async function renderMgmtReport(){
   const runRate=dayNow?mtdCollected/dayNow*dim:null;
   const runPct=(target&&runRate!=null)?Math.round(runRate/target*100):null;
 
-  /* ---- raw leads against the company target ---- */
+  /* ---- raw leads against target ----
+     Target and actual both count MARKETING'S OWN CHANNELS ONLY - digital and
+     offline - which is what his sheet writes under the axis. Third party,
+     direct sales and a customer coming back are not leads marketing generated,
+     so counting them would flatter the number the target is set against. */
   const leadTarget=Number(tg.company.leads||0);
+  const MG_MARKETING=['Digital_Marketing','Offline_Marketing'];
   const qualified=got.filter(l=>qualText(l)==='Qualified');
 
   /* ---- per person, on whoever holds the rows ---- */
@@ -179,6 +184,7 @@ async function renderMgmtReport(){
   const typeCount={};
   got.forEach(l=>{const t=l.customer_type||'Not recorded';typeCount[t]=(typeCount[t]||0)+1;});
 
+  const mktLeads=got.filter(l=>MG_MARKETING.includes(l.lead_channel)).length;
   const chCount={};
   got.forEach(l=>{const c=MG_CHANNELS.includes(l.lead_channel)?l.lead_channel:'Other';
     chCount[c]=(chCount[c]||0)+1;});
@@ -199,10 +205,13 @@ async function renderMgmtReport(){
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
+    ${colChart(['Target','Actual'],[leadTarget,mktLeads],
+      {title:'Raw lead target vs actual',color:'var(--sun)',table:false,
+       cap:'Digital and offline marketing'})}
+
     <div class="homegrid">
-      ${repPanel('Raw leads against target',
-        gBullet('Leads '+per,got.length,leadTarget,{color:'var(--own-mkt)',emptyWhy:'no target set'})
-        +ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
+      ${repPanel('Leads by channel',
+        ledger(MG_CHANNELS.filter(c=>chCount[c]).map(c=>[MG_LABEL[c],chCount[c]])))}
       ${repPanel('Lead stages',gFunnel(stageDist))}
     </div>
 
@@ -247,7 +256,7 @@ async function renderMgmtReport(){
           {color:'var(--own-sales)',emptyWhy:'This fills in as quotations are released '+per+'.'}))}
       ${repPanel('Contacts a day',
         contactAvg.length
-          ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--own-mkt)',fmt:v=>v+' a day'})
+          ?gRank(contactAvg.map(r=>[r[0],r[1]]),{color:'var(--sun)',fmt:v=>v+' a day'})
           :blank('No contacts logged','Nothing in the contact log '+per+'.'))}
     </div>
 
@@ -263,7 +272,7 @@ async function renderMgmtReport(){
         :blank('Nobody holds a lead yet','This fills in as leads are assigned.'),true)}
 
     ${colChart(months.map(m=>monthName(m)),months.map(m=>madeIn(m).length),
-      {title:'Lead trend',color:'var(--own-mkt)',xhead:'Month',yhead:'Raw leads'})}
+      {title:'Lead trend',color:'var(--sun)',xhead:'Month',yhead:'Raw leads'})}
 
     ${repPanel('Raw to qualified, by month',
       months.length
