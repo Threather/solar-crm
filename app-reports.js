@@ -409,6 +409,31 @@ function gBullet(label,value,target,opts){
     <div class="foot"><span>${pc}% of target</span><span>target ${esc(fmt(t))}</span></div>
   </div>`;
 }
+/* Actual against target for several steps at once, two bars to a row. gBullet
+   says the same thing for ONE measure; this is the form for a list of them,
+   and it is what the operations sheet draws. Both bars share one scale, so a
+   step that is twice another's is twice as long on the page. */
+function gPair(rows,opts){
+  const o=opts||{};
+  const has=rows.filter(r=>r[1]!=null&&r[1]!=='\u2014');
+  if(!has.length)return blank('No turnaround yet',o.emptyWhy||'This needs a date at both ends of a step.');
+  const max=Math.max(1,...rows.map(r=>Math.max(Number(r[1])||0,Number(r[2])||0)));
+  const w=v=>Math.max(2,Math.round((Number(v)||0)/max*100));
+  return `<div class="gpair">`+rows.map(([k,v,t])=>{
+    const miss=v==null||v==='\u2014';
+    const over=!miss&&t&&Number(v)>Number(t);
+    return `<div class="row">
+      <span class="k">${esc(k)}</span>
+      <span class="bars">
+        <span class="b act${over?' over':''}" style="width:${miss?0:w(v)}%"></span>
+        <span class="b tgt" style="width:${t?w(t):0}%"></span>
+      </span>
+      <span class="v">${miss?'<i>no data</i>':`<b>${esc(v)}d</b>`}${t?` <span>/ ${esc(t)}d</span>`:''}</span>
+    </div>`;}).join('')+`</div>
+    <div class="legend" style="margin:10px 0 0">
+      <span><i style="background:var(--viz-1)"></i>Actual</span>
+      <span><i style="background:var(--line)"></i>Target</span></div>`;
+}
 /* the one figure a report leads with, and the sentence under it */
 function leadFig(label,value,note,warn){
   return `<div class="lead-fig${warn?' warn':''}">

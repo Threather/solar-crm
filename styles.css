@@ -572,6 +572,19 @@ td.numcell b{font-weight:600}
 .daybar{margin-bottom:var(--s-5)}
 .daybar h1{font-size:var(--t-h2);font-weight:600}
 .daybar .sub{font-size:var(--t-meta);color:var(--ink-soft);margin-top:2px}
+/* actual over target, two bars to a row, sharing one scale */
+.gpair .row{display:grid;grid-template-columns:150px 1fr 96px;gap:10px;align-items:center;
+  padding:5px 0}
+.gpair .k{font-size:var(--t-meta);color:var(--ink-2)}
+.gpair .bars{display:flex;flex-direction:column;gap:3px}
+.gpair .b{display:block;height:9px;border-radius:0 3px 3px 0;min-width:2px}
+.gpair .b.act{background:var(--viz-1)}
+.gpair .b.act.over{background:var(--bad)}
+.gpair .b.tgt{background:var(--line);height:7px}
+.gpair .v{font-size:var(--t-meta);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.gpair .v span{color:var(--ink-mute)}
+.gpair .v i{color:var(--ink-mute);font-style:normal}
+@media(max-width:560px){.gpair .row{grid-template-columns:110px 1fr 74px}}
 .homegrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3);align-items:start}
 @media(max-width:900px){.homegrid{grid-template-columns:1fr}}
 /* Three to a row, which is how his sheet lays the first row out. At the full

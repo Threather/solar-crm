@@ -48,10 +48,29 @@ async function renderOpsReport(){
   const doneInPeriod=f.filter(l=>instDoneOn(l)&&inPeriod(instDoneOn(l)));
   const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&inPeriod(l.boq_date));
 
+  /* the four turnaround targets the manager sets each month, in days. Read for
+     the month being shown, like every other target in the app. */
+  const tg=await loadTargets(monthStart());
+  const sla={boq:Number(tg.company.sla_boq||0),install:Number(tg.company.sla_install||0),
+             inform:Number(tg.company.sla_edcinform||0),inspect:Number(tg.company.sla_edcinspect||0)};
+
   const tatBoq   =avgDays(f.map(l=>daysBetween(l.boq_date,l.installation_start)));
   const tatInst  =avgDays(f.map(l=>daysBetween(l.installation_start,instDoneOn(l))));
   const tatInform=avgDays(f.map(l=>daysBetween(instDoneOn(l),edcSentOn(l))));
   const tatSeen  =avgDays(f.map(l=>daysBetween(edcSentOn(l),edcSeenOn(l))));
+
+  /* BOQ released to the day EDC signed it off, which is the whole job. Falls
+     back to the finish when EDC has not been round yet, so a project still in
+     the paperwork counts as far as it has actually got. */
+  const endToEnd=avgDays(f.map(l=>daysBetween(l.boq_date,edcSeenOn(l)||instDoneOn(l))));
+  /* which step is furthest past its target. Steps with no target set, or no
+     data yet, cannot be behind. */
+  const steps=[['BOQ to installation',tatBoq,sla.boq],['Installation duration',tatInst,sla.install],
+               ['Installation to EDC submission',tatInform,sla.inform],
+               ['EDC submission to inspection',tatSeen,sla.inspect]];
+  const behind=steps.filter(([,a,s])=>s&&a.avg!=='\u2014'&&Number(a.avg)>s)
+    .map(([k,a,s])=>({step:k,over:+(Number(a.avg)-s).toFixed(1)}))
+    .sort((x,y)=>y.over-x.over)[0];
 
   /* the top row mixes two clocks: active and pending are now, the other three
      happened inside the chosen window. Saying which stops the same words
@@ -75,31 +94,36 @@ async function renderOpsReport(){
   const doneIn=m=>f.filter(l=>instDoneOn(l)&&localDay(instDoneOn(l)).slice(0,7)===m).length;
   const prevWord=monthName(prevM);
 
+  const teamRows=teams.map(t=>[t,rows.filter(l=>l.installation_team===t).length])
+    .concat(rows.some(l=>!l.installation_team)
+      ?[['No team yet',rows.filter(l=>!l.installation_team).length]]:[])
+    .filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
+  const teamTotal=teamRows.reduce((a,r)=>a+r[1],0);
+  const TEAM_HUE=['var(--viz-1)','var(--viz-2)','var(--viz-good)','var(--viz-s2)','var(--viz-s5)','var(--viz-s3)'];
+
   $('main').innerHTML=repBar('Operations report',teamFilter)+`
-    <div class="kpis">
-      ${kpi({label:'Active projects',value:active.length,lead:true,alert:!!noDate.length,
-        note:noDate.length?noDate.length+' of them have no installation date':'every active project has a date',
-        sub:'won deals whose installation is not finished, so there is nothing to compare it against'})}
-      ${kpi({label:'Installations finished '+per,value:doneInPeriod.length,
+    <!-- his five boxes, in his order and his wording -->
+    <div class="kpis six">
+      ${kpi({label:'Active Projects',value:active.length,lead:true,
+        note:noDate.length?noDate.length+' with no date':'total in pipeline'})}
+      ${kpi({label:'BOQ Released',value:boqInPeriod.length,
+        note:'ready for scheduling'})}
+      ${kpi({label:'Installation Start',value:startedInPeriod.length,
+        note:'new starts '+per})}
+      ${kpi({label:'Installation Done',value:doneInPeriod.length,
         delta:momPct(doneIn(thisM),doneIn(prevM)),deltaOf:prevWord,
-        note:done.length+' finished in total',
-        sub:doneIn(thisM)+' in '+monthName(thisM)+' against '+doneIn(prevM)+' in '+prevWord})}
-      ${kpi({label:'BOQ released '+per,value:boqInPeriod.length,
-        note:boqDone.length+' released across all projects',
-        sub:'the sale engineer marks this on the lead'})}
-      ${kpi({label:'Installations started '+per,value:startedInPeriod.length,
-        note:scheduled.length+' scheduled ahead',sub:running.length+' in progress now'})}
-      ${kpi({label:'EDC pending',value:edcPending.length,
-        note:edcSeen.length+' inspected',sub:'grid paperwork still with EDC'})}
+        note:'completed '+per})}
+      ${kpi({label:'EDC Pending',value:edcPending.length,
+        note:'awaiting inspection'})}
     </div>
     ${noDate.length?`<div class="hint" style="border-left-color:var(--bad);color:var(--bad)">
       <b>${noDate.length} active project${noDate.length>1?'s have':' has'} no installation date.</b>
-      ${noDate.slice(0,4).map(l=>`<span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${l.id}')">${esc(l.customer_name)}</span>`).join(' · ')}
+      ${noDate.slice(0,4).map(l=>`<span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${l.id}')">${esc(l.customer_name)}</span>`).join(' \u00b7 ')}
       ${noDate.length>4?` and ${noDate.length-4} more`:''}
     </div>`:''}
 
     <div class="homegrid">
-      ${repPanel('Where projects stand now',`<div class="pipe">
+      ${repPanel('I. Project status pipeline',`<div class="pipe">
         ${bar('BOQ released',boqDone.length,f.length)}
         ${bar('Installation scheduled',scheduled.length,f.length)}
         ${bar('Installation in progress',running.length,f.length)}
@@ -108,18 +132,29 @@ async function renderOpsReport(){
         ${bar('EDC inspected',edcSeen.length,f.length)}
       </div>`)}
 
-      ${repPanel('Installation team',gRank(
-        teams.map(t=>[t,rows.filter(l=>l.installation_team===t).length])
-          .concat(rows.some(l=>!l.installation_team)
-            ?[['No team yet',rows.filter(l=>!l.installation_team).length]]:[]),
-        {color:'var(--own-site)',emptyWhy:'A team is picked on a won deal by the site engineer.'}))}
+      ${repPanel('Active installation teams',
+        teamRows.length
+          ?gSplit(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
+              teamTotal+' project'+(teamTotal===1?'':'s'),teamRows.length+' teams')
+           +ledger(teamRows.map(r=>[r[0],r[1],Math.round(r[1]/teamTotal*100)+'%']))
+          :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
+    </div>
 
-      ${repPanel('How long each step takes',gDuration([
-        ['BOQ to installation',tatBoq.avg,tatBoq.n+' project'+(tatBoq.n===1?'':'s')],
-        ['Installation duration',tatInst.avg,tatInst.n+' project'+(tatInst.n===1?'':'s')],
-        ['Installation to EDC inform',tatInform.avg,tatInform.n+' project'+(tatInform.n===1?'':'s')],
-        ['EDC inform to inspection',tatSeen.avg,tatSeen.n+' project'+(tatSeen.n===1?'':'s')]
-      ],{emptyWhy:'Turnaround needs a date at both ends of a step.'}),true)}
+    <div class="homegrid">
+      ${repPanel('II. Turnaround vs target',gPair([
+        ['BOQ to installation',tatBoq.avg,sla.boq||null],
+        ['Installation duration',tatInst.avg,sla.install||null],
+        ['Installation to EDC submission',tatInform.avg,sla.inform||null],
+        ['EDC submission to inspection',tatSeen.avg,sla.inspect||null]
+      ],{emptyWhy:'Turnaround needs a date at both ends of a step.'})
+      +(Object.values(sla).some(Boolean)?'':`<div class="cap" style="margin-top:10px">No turnaround targets set for ${esc(monthName(monthStart().slice(0,7)))}.</div>`))}
+
+      ${repPanel('Execution health',ledger([
+        ['Total in flight',active.length,'project'+(active.length===1?'':'s')],
+        ['Avg end-to-end',endToEnd.avg==='\u2014'?'\u2014':endToEnd.avg+' days',
+          endToEnd.n+' measured'],
+        ['Slowest against target',behind?'+'+behind.over+' days':'\u2014',
+          behind?behind.step:'nothing is behind']]))}
     </div>
 
     ${(()=>{

@@ -3,9 +3,15 @@
    month's is set — every report that compares against a target has to be able
    to look backwards and find the number that applied at the time.
 
-   Two kinds of row: a company-wide lead count and marketing spend, and one
-   sales target per salesperson. Both live in the same table, told apart by
-   whether profile_id is filled in. */
+   Two kinds of row: company-wide ones - the lead count, marketing spend and
+   the four operations turnaround targets - and one sales target per
+   salesperson. Both live in the same table, told apart by whether profile_id
+   is filled in.
+
+   EVERY TARGET IN THIS APP BELONGS HERE. The sales and marketing manager sets
+   them each month, and she has had write access since 10 Sep 2026. A new
+   measure that needs something to be judged against gets a row on this screen,
+   never a constant in code. */
 let TGMONTH='';
 
 async function renderTargets(){
@@ -46,6 +52,22 @@ async function renderTargets(){
       <div class="modal-actions"><button class="btn-sun" onclick="saveTargets()">Save targets</button></div>`,true)}
     </div>
 
+    <h3 style="font-size:15px;margin:22px 0 8px">Operations turnaround, in days</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">The operations dashboard measures each step against these.</p>
+    <div class="homegrid">
+      ${repPanel('Target turnaround',`<div class="grid2">
+        <div><label>BOQ to installation</label>
+          <input id="tg-sla-boq" type="number" step="0.5" value="${num(tg.company.sla_boq)}" placeholder="3"></div>
+        <div><label>Installation duration</label>
+          <input id="tg-sla-install" type="number" step="0.5" value="${num(tg.company.sla_install)}" placeholder="4"></div>
+        <div><label>Installation to EDC submission</label>
+          <input id="tg-sla-edcinform" type="number" step="0.5" value="${num(tg.company.sla_edcinform)}" placeholder="2"></div>
+        <div><label>EDC submission to inspection</label>
+          <input id="tg-sla-edcinspect" type="number" step="0.5" value="${num(tg.company.sla_edcinspect)}" placeholder="5"></div>
+      </div>
+      <div class="modal-actions"><button class="btn-sun" onclick="saveTargets()">Save targets</button></div>`,true)}
+    </div>
+
     <h3 style="font-size:15px;margin:22px 0 8px">Sales targets</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Sale engineer</th><th>Role</th><th style="width:200px">Monthly collection target (USD)</th>
@@ -72,12 +94,39 @@ async function saveTargets(){
   };
   push('leads',null,'tg-leads');
   push('spend',null,'tg-spend');
+  /* the operations turnaround targets, in days. Company rows like the two
+     above - a step is the company's, not a person's. */
+  push('sla_boq',null,'tg-sla-boq');
+  push('sla_install',null,'tg-sla-install');
+  push('sla_edcinform',null,'tg-sla-edcinform');
+  push('sla_edcinspect',null,'tg-sla-edcinspect');
   STAFF.filter(s=>['sales','manager'].includes(s.role)&&s.is_active)
     .forEach(p=>push('collection',p.id,'tg-p-'+p.id));
   if(!rows.length){toast('Nothing to save');return;}
-  /* one row per month, person and metric, so saving again corrects rather
-     than stacking a second target on the same month */
-  const {error}=await sb.from('targets').upsert(rows,{onConflict:'month,profile_id,metric'});
+  /* One row per month, person and metric, so saving again corrects rather than
+     stacking a second target on the same month.
+
+     THE COMPANY ROWS CANNOT USE THE UPSERT. Their profile_id is null, and a
+     unique index never matches null against null, so onConflict found nothing
+     to replace and inserted a second row on every save - the lead target had
+     quietly doubled up by the time this was noticed, and whichever row came
+     back last was the one the reports read. They are cleared for the month and
+     written fresh instead. The per-person rows carry a real profile_id, so the
+     upsert works for them.
+     A partial unique index on (month, metric) where profile_id is null would
+     let both use it, but that is SQL and this does not need any. */
+  const company=rows.filter(r=>r.profile_id==null);
+  const person=rows.filter(r=>r.profile_id!=null);
+  if(company.length){
+    const {error}=await sb.from('targets').delete()
+      .eq('month',TGMONTH).is('profile_id',null).in('metric',company.map(r=>r.metric));
+    if(error){toast('Could not save. '+why(error));console.error(error);return;}
+    const ins=await sb.from('targets').insert(company);
+    if(ins.error){toast('Could not save. '+why(ins.error));console.error(ins.error);return;}
+  }
+  const {error}=person.length
+    ?await sb.from('targets').upsert(person,{onConflict:'month,profile_id,metric'})
+    :{error:null};
   if(error){toast('Could not save. '+why(error));console.error(error);return;}
   toast('Targets saved for '+monthName(TGMONTH.slice(0,7)));
   renderTargets();
