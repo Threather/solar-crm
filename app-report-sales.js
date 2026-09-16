@@ -1,12 +1,37 @@
 /* ---------------- SALES REPORT ----------------
-   The client sent three documents — daily, weekly, monthly — with largely the
-   same metrics over different windows. That is one report with a window
-   switch, not three screens: the monthly extras (last month's comparison) show
-   only when the window is a month.
+   Rebuilt 16 Sep 2026 against the client's own workbook, "Reporting Template
+   for Sales Team.xlsx" — its blocks, in its order, under its headings. Do not
+   tidy the wording: they recognise their own report by it.
 
-   Every section below is theirs, in their order and their wording. Where a
-   figure cannot be worked out from what the database holds it prints a dash
-   and says why, rather than a zero that reads like an answer. */
+   Definitions Kevin settled before it was written:
+     - "#Lead Contact" counts LEADS CONTACTED, one lead once however many times
+       it was rung. Avg #Times Contacted beside it is the other half.
+     - the closed-lost block counts the app's own seven reasons, not the five
+       written on their sheet.
+     - Avg. Sales Cycle Length runs from the day the lead came in to the day it
+       was won, and Expected Revenue is computed here rather than typed.
+
+   Their stage names match our pipeline one for one, Quotation Sign Off being
+   `agreement_signoff`.
+
+   THE STAGE LOG IS THIN, AND THESE BLOCKS DEPEND ON IT. A stage column counts
+   leads that ENTERED that stage inside the window, which `lead_activities`
+   only knows for moves somebody made in the app — and sales quote without
+   moving the stage, so on 16 Sep the whole log held one row. Every count below
+   therefore falls back to the lead's own `stage_entered_at` where the log has
+   nothing, which catches the move that put it where it now sits. It cannot
+   catch a stage passed through and left. */
+
+const SALE_STAGES=[
+  ['info_gathering','Information Gathering'],
+  ['telling_price','Telling Price'],
+  ['pending_quotation','Pending Quotation'],
+  ['quotation_sent','Quotation Sent'],
+  ['follow_up','Follow Up'],
+  ['agreement_signoff','Quotation Sign Off'],
+  ['closed_won','Closed-Won'],
+  ['closed_lost','Closed-Lost']
+];
 
 /* the value of an open lead is the last thing quoted for it. A lead with no
    quotation contributes nothing, so the pipeline understates rather than
@@ -17,334 +42,277 @@ function pipelineValue(rows,quotBy){
   return {value,covered};
 }
 
+/* Their week IV runs the 21st to month end, so these are not seven-day weeks
+   and must not be worked out by dividing. From and To are printed on their
+   sheet, so they are printed here. */
+function saleWeeks(monthISO){
+  const [y,m]=monthISO.split('-').map(Number);
+  const last=new Date(y,m,0).getDate();
+  const d=n=>monthISO+'-'+String(n).padStart(2,'0');
+  return [['I',d(1),d(7)],['II',d(8),d(14)],['III',d(15),d(20)],['IV',d(21),d(last)]];
+}
+
 async function renderSalesReport(){
   const rows=await fetchLeads(q=>q);
   const ids=rows.map(l=>l.id);
   const range=repRange(REPPERIOD);
   const per=repPeriodWord();
   const mStart=monthStart(), today=localDay(new Date());
+  const thisM=mStart.slice(0,7);
 
-  /* everything this report needs, fetched together. Any of these can come back
-     empty because the role is not allowed to read it; each panel says so
-     rather than showing zero. */
-  const [reached,tg,acts,quots,fins,pays,finrows]=await Promise.all([
-    loadStageHistory(ids),
+  const [tg,acts,quots,fins,pays,finrows]=await Promise.all([
     loadTargets(mStart),
-    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at,to_stage').in('lead_id',ids).then(r=>r.data||[]):[],
+    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date,to_stage').in('lead_id',ids).then(r=>r.data||[]):[],
     ids.length?sb.from('quotations').select('lead_id,price_usd,created_at').in('lead_id',ids).order('created_at').then(r=>r.data||[]):[],
     ids.length?sb.from('lead_financials').select('lead_id,final_sale_usd').in('lead_id',ids).then(r=>r.data||[]):[],
     ids.length?sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').in('lead_id',ids).then(r=>r.data||[]):[],
     ids.length?sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').in('lead_id',ids).then(r=>r.data||[]):[]
   ]);
 
-  const actsBy={}, quotBy={}, quotFirst={}, saleBy={}, finBy={};
-  acts.forEach(a=>(actsBy[a.lead_id]=actsBy[a.lead_id]||[]).push(a));
-  quots.forEach(q=>{quotBy[q.lead_id]=q;if(!quotFirst[q.lead_id])quotFirst[q.lead_id]=q;});
+  const byId={}; rows.forEach(l=>byId[l.id]=l);
+  const quotBy={},saleBy={},finBy={},paidBy={},feeBy={};
+  quots.forEach(q=>quotBy[q.lead_id]=q);
   fins.forEach(f=>saleBy[f.lead_id]=Number(f.final_sale_usd||0));
   finrows.forEach(f=>finBy[f.lead_id]=f);
-  const paidBy={}, feeBy={};
   pays.forEach(p=>{paidBy[p.lead_id]=(paidBy[p.lead_id]||0)+Number(p.amount_usd||0);
                    feeBy[p.lead_id]=(feeBy[p.lead_id]||0)+Number(p.other_fee_usd||0);});
 
+  /* the contact log, per lead. note_date is the day the contact happened and
+     is the writer's own; created_at is the audit trail. */
+  const contacts=acts.filter(a=>['call','note'].includes(a.activity_type))
+    .map(a=>({lead:a.lead_id,day:localDay(a.note_date||a.created_at)}));
+  /* every logged stage move, with the day it happened */
+  const moves=acts.filter(a=>a.activity_type==='stage_change'&&a.to_stage)
+    .map(a=>({lead:a.lead_id,to:a.to_stage,day:localDay(a.created_at)}));
+  const loggedFor={}; moves.forEach(m=>{(loggedFor[m.lead]=loggedFor[m.lead]||new Set()).add(m.to);});
+
+  /* whoever holds the rows, not whoever holds the role. A lead sitting on an
+     admin account once vanished from this report for exactly that reason. */
+  const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
+  /* Active sales and managers, plus anyone who still holds a lead even if they
+     have been deactivated - the same rule as assignable(). Without the active
+     test the four dead test accounts each got their own weekly and monthly
+     table, four sheets of zeros. */
+  const people=STAFF.filter(s=>(s.is_active&&['sales','manager'].includes(s.role))||holders.has(s.id));
+  const shown=ME.role==='sales'?people.filter(p=>p.id===ME.id)
+            :REPFILTER.person?people.filter(p=>p.id===REPFILTER.person):people;
+
   const inWin=v=>REPPERIOD==='all'||inRange(v,range);
-  const got=rows.filter(l=>inWin(l.created_at));
-  const open=rows.filter(l=>!TERMINAL.includes(l.stage_code));
-  const won=rows.filter(l=>l.stage_code===WON);
-  const lost=rows.filter(l=>l.stage_code===LOST);
-  const wonInWin=won.filter(l=>inWin(l.stage_entered_at));
-  const lostInWin=lost.filter(l=>inWin(l.stage_entered_at));
+  const within=(v,a,b)=>{const d=localDay(v);return !!d&&d>=a&&d<=b;};
+  const mine=id=>rows.filter(l=>l.assigned_to===id);
 
-  /* I. Lead and sales activity */
-  const phoneSeen={};
-  [...rows].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)).forEach(l=>{
-    if(!l.phone)return; l._existing=!!phoneSeen[l.phone]; phoneSeen[l.phone]=true;});
-  const existing=got.filter(l=>l._existing).length;
-  const qualified=got.filter(l=>qualText(l)==='Qualified');
-  /* how far the window's own leads actually travelled, for the funnel */
-  const toQuotN=got.filter(l=>everReached(reached,l,'quotation_sent')).length;
-  const contactOf=l=>(actsBy[l.id]||[]).filter(a=>['call','note'].includes(a.activity_type))
-    .sort((x,y)=>new Date(x.created_at)-new Date(y.created_at))[0];
-  const pendingContact=open.filter(l=>!contactOf(l));
-  const pendingFollow=open.filter(l=>l.next_follow_up&&localDay(l.next_follow_up)<=today);
-  const firstTat=avgDays(got.map(l=>{const c=contactOf(l);return c?daysBetween(l.created_at,c.created_at):null;}));
-  const contactCounts=got.map(l=>(actsBy[l.id]||[]).filter(a=>['call','note'].includes(a.activity_type)).length);
-  const avgContacts=contactCounts.length
-    ?(contactCounts.reduce((a,b)=>a+b,0)/contactCounts.length).toFixed(1):'—';
-
-  /* II. Funnel and pipeline */
-  const live=STAGES.filter(s=>!TERMINAL.includes(s.stage_code));
-  const aging=avgDays(open.map(l=>daysBetween(l.stage_entered_at,today)));
-  const cycle=avgDays(won.map(l=>daysBetween(l.created_at,l.stage_entered_at)));
-  const overdue=open.filter(l=>l.next_follow_up&&localDay(l.next_follow_up)<today);
-  const quotTat=avgDays(rows.map(l=>{
-    const q=quotFirst[l.id]; if(!q)return null;
-    const enter=(actsBy[l.id]||[]).filter(a=>a.activity_type==='stage_change'&&a.to_stage==='pending_quotation')
-      .sort((x,y)=>new Date(x.created_at)-new Date(y.created_at))[0];
-    return enter?daysBetween(enter.created_at,q.created_at):null;}));
-  const pipe=pipelineValue(open,quotBy);
-
-  /* III. Performance, against the target for the month being shown */
-  const myTargets=Object.entries(tg.person).filter(([,v])=>v.collection!=null);
-  const teamTarget=myTargets.reduce((a,[,v])=>a+Number(v.collection||0),0);
-  const target=ME.role==='sales'?Number(tg.person[ME.id]?.collection||0):teamTarget;
-  const wonValue=wonInWin.reduce((a,l)=>a+(saleBy[l.id]||0),0);
-  const avgDeal=wonInWin.length?wonValue/wonInWin.length:null;
-  const expected=open.filter(l=>l.expected_close_date&&inWin(l.expected_close_date));
-  const expectedValue=pipelineValue(expected,quotBy).value;
-  const dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
-  const dayNow=new Date().getDate();
-
-  /* IV. Collection — actual is money received inside the window */
-  const collected=pays.filter(p=>inWin(p.paid_on)).reduce((a,p)=>a+Number(p.amount_usd||0),0);
-  const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
-  const outstanding=won.reduce((a,l)=>a+Math.max(0,dueOf(l)-(paidBy[l.id]||0)),0);
-  const overdueCust=won.filter(l=>{const f=finBy[l.id];
-    return f&&f.follow_up_date&&localDay(f.follow_up_date)<today&&dueOf(l)-(paidBy[l.id]||0)>0.005;});
-  const overdueValue=overdueCust.reduce((a,l)=>a+Math.max(0,dueOf(l)-(paidBy[l.id]||0)),0);
-  /* A follow-up date is a promise about the future, so "all time" must not
-     shut it out the way a backward-looking window does — over all time,
-     everything still scheduled is expected. */
-  const expectedColl=won.filter(l=>{const f=finBy[l.id];
-    return f&&f.follow_up_date&&(REPPERIOD==='all'||inRange(f.follow_up_date,range))
-      &&dueOf(l)-(paidBy[l.id]||0)>0.005;})
-    .reduce((a,l)=>a+Math.max(0,dueOf(l)-(paidBy[l.id]||0)),0);
-  const collPct=expectedColl?Math.round(collected/expectedColl*100):null;
-  /* Nothing expected while money is still owed is not an error, it means
-     nobody has set a date to chase it. Saying so turns a zero that looks
-     broken into the thing finance should act on. */
-  const owingNoDate=won.filter(l=>dueOf(l)-(paidBy[l.id]||0)>0.005
-    &&!(finBy[l.id]&&finBy[l.id].follow_up_date)).length;
-  /* Run rate is a statement about this month and nothing else. Projecting a
-     year of collection across thirty-one days is not a forecast, so this reads
-     month-to-date money whatever window the rest of the page is showing. */
-  const mtdCollected=pays.filter(p=>localDay(p.paid_on)>=mStart&&localDay(p.paid_on)<=today)
-    .reduce((a,p)=>a+Number(p.amount_usd||0),0);
-  const runRate=dayNow?mtdCollected/dayNow*dim:null;
-
-  /* V. Closed-lost */
-  const lostAfterQuot=lostInWin.filter(l=>quotFirst[l.id]).length;
-  const reasons={};
-  lostInWin.forEach(l=>{const r=l.lost_reason||'Not recorded';reasons[r]=(reasons[r]||0)+1;});
+  /* A lead entered a stage inside a window if the log says so, or - where the
+     log has nothing for that stage - if the lead sits there now and got there
+     inside it. See the note at the top: the log is thin. */
+  const enteredIn=(l,code,a,b)=>{
+    const logged=moves.some(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b);
+    if(logged)return true;
+    if((loggedFor[l.id]||new Set()).has(code))return false;
+    return l.stage_code===code&&within(l.stage_entered_at||l.created_at,a,b);
+  };
+  const stageRow=(set,a,b)=>SALE_STAGES.map(([code])=>set.filter(l=>enteredIn(l,code,a,b)).length);
+  const contactedIn=(id,a,b)=>new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
+    &&c.day>=a&&c.day<=b).map(c=>c.lead)).size;
 
   const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
   const cash=v=>v==null?'—':fmtMoney(Math.round(v));
-  const bar=(label,n,total,cls)=>`<div class="row${cls||''}">
-      <span class="nm">${esc(label)}</span>
-      <span class="track"><span class="fill" style="width:${total?Math.round(n/total*100):0}%"></span></span>
-      <span class="ct">${n}</span></div>`;
+  const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
+  const owedOf=l=>Math.max(0,dueOf(l)-(paidBy[l.id]||0));
 
-  /* whoever the leads are actually on, not whoever holds the right role. An
-     admin can be assigned a lead — Kevin holds nine, three of them won — and
-     those rows used to drop out of the table below without saying so, leaving
-     the per-person lines short of the totals above them. */
-  const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
-  const people=STAFF.filter(s=>['sales','manager'].includes(s.role)||holders.has(s.id));
+  /* ---- the windows the sheet works in ---- */
+  const mtd=[mStart,today];
+  const win=REPPERIOD==='all'?['1970-01-01',today]:range;
+  const dayOf=l=>l.lead_date||l.created_at;
+
+  const open=rows.filter(l=>!TERMINAL.includes(l.stage_code));
+  const wonAll=rows.filter(l=>l.stage_code===WON);
+  const gotMtd=rows.filter(l=>within(dayOf(l),mtd[0],mtd[1]));
+  const wonMtd=wonAll.filter(l=>within(l.stage_entered_at,mtd[0],mtd[1]));
+  const lostMtd=rows.filter(l=>l.stage_code===LOST&&within(l.stage_entered_at,mtd[0],mtd[1]));
+  const qualMtd=gotMtd.filter(l=>qualText(l)==='Qualified');
+
+  /* ---- block 5 and 7 figures, per person and for the company ---- */
+  const targetOf=id=>Number(tg.person[id]?.collection||0);
+  const collectedOf=(id,a,b)=>pays.filter(p=>byId[p.lead_id]&&byId[p.lead_id].assigned_to===id
+    &&within(p.paid_on,a,b)).reduce((x,p)=>x+Number(p.amount_usd||0),0);
+  const outstandingOf=id=>mine(id).filter(l=>l.stage_code===WON).reduce((x,l)=>x+owedOf(l),0);
+  const pipeOf=id=>pipelineValue(mine(id).filter(l=>!TERMINAL.includes(l.stage_code)),quotBy).value;
+  const contractOf=(id,a,b)=>mine(id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b))
+    .reduce((x,l)=>x+dueOf(l),0);
+
+  const dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+  const dayNow=new Date().getDate();
+
+  const perf=shown.map(p=>{
+    const t=targetOf(p.id), c=collectedOf(p.id,mStart,today);
+    const run=dayNow?c/dayNow*dim:0;
+    return {p,t,c,out:outstandingOf(p.id),short:Math.max(0,t-c),
+      ach:t?Math.round(c/t*100):null, pipe:pipeOf(p.id),
+      runAch:t?Math.round(run/t*100):null};
+  });
+  const tot=perf.reduce((a,r)=>({t:a.t+r.t,c:a.c+r.c,out:a.out+r.out,
+    short:a.short+r.short,pipe:a.pipe+r.pipe}),{t:0,c:0,out:0,short:0,pipe:0});
+  const totAch=tot.t?Math.round(tot.c/tot.t*100):null;
+  const totRun=tot.t&&dayNow?Math.round((tot.c/dayNow*dim)/tot.t*100):null;
+
+  /* Expected Revenue is computed, not typed: the open pipeline weighted by how
+     often this team actually wins, plus what is already owed on won deals. */
+  const decided=rows.filter(l=>TERMINAL.includes(l.stage_code)).length;
+  const winRate=decided?wonAll.length/decided:null;
+  const pipeAll=pipelineValue(open,quotBy);
+  const forecast=winRate==null?null:pipeAll.value*winRate+tot.out;
+
   const personFilter=ME.role==='sales'?'':`<select onchange="setRepFilter('person',this.value)">
       <option value="">Everyone</option>
       ${people.map(p=>`<option value="${p.id}" ${REPFILTER.person===p.id?'selected':''}>${esc(p.full_name)}</option>`).join('')}
     </select>`;
-  const mine=set=>REPFILTER.person?set.filter(l=>l.assigned_to===REPFILTER.person):set;
 
-  /* this calendar month against the one before, off dates already on the rows.
-     Four of the five headline figures can be compared honestly this way; the
-     open-pipeline count is a snapshot and gets no chip. */
-  const thisM=mStart.slice(0,7);
-  const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
-    const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
-  const wonIn=m=>rows.filter(l=>l.stage_code===WON&&l.stage_entered_at&&localDay(l.stage_entered_at).slice(0,7)===m);
-  const paidIn=m=>pays.filter(p=>p.paid_on&&localDay(p.paid_on).slice(0,7)===m)
-    .reduce((a,p)=>a+Number(p.amount_usd||0),0);
-  const valIn=m=>wonIn(m).reduce((a,l)=>a+(saleBy[l.id]||0),0);
-  const madeIn=m=>rows.filter(l=>localDay(l.created_at).slice(0,7)===m).length;
-  const prevWord=monthName(prevM);
+  const head=`<tr><th>Sale engineer</th><th>#Lead Contact</th>${SALE_STAGES.map(([,n])=>`<th>${esc(n)}</th>`).join('')}</tr>`;
+  const stageTable=(a,b)=>{
+    const body=shown.map(p=>{
+      const r=stageRow(mine(p.id),a,b);
+      return `<tr><td><b>${esc(p.full_name)}</b></td><td>${contactedIn(p.id,a,b)}</td>`
+        +r.map(v=>`<td>${v}</td>`).join('')+`</tr>`;}).join('');
+    const totals=SALE_STAGES.map(([code])=>
+      shown.reduce((x,p)=>x+mine(p.id).filter(l=>enteredIn(l,code,a,b)).length,0));
+    const totContact=shown.reduce((x,p)=>x+contactedIn(p.id,a,b),0);
+    return `<div class="tablewrap"><table class="table-compact"><thead>${head}</thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr><td><b>Total</b></td><td><b>${totContact}</b></td>
+        ${totals.map(v=>`<td><b>${v}</b></td>`).join('')}</tr></tfoot></table></div>`;
+  };
+
+  /* ---- MoM: the same stage table by month, per person ---- */
+  const months=[...new Set(rows.map(l=>localDay(dayOf(l)).slice(0,7)))].filter(Boolean).sort().slice(-9);
+  const monthWin=m=>{const [y,mm]=m.split('-').map(Number);
+    return [m+'-01',m+'-'+String(new Date(y,mm,0).getDate()).padStart(2,'0')];};
 
   $('main').innerHTML=repBar('Sales report',personFilter)+`
-    <div class="kpis">
-      ${kpi({label:'Closed-Won value '+per,value:cash(wonValue),lead:true,
-        alert:!!(target&&wonValue<target),
-        delta:momPct(valIn(thisM),valIn(prevM)),deltaOf:prevWord,
-        note:target?pct(wonValue,target)+' of the '+cash(target)+' target':'No target set for this month',
-        sub:cash(valIn(thisM))+' won in '+monthName(thisM)+' against '+cash(valIn(prevM))+' in '+prevWord})}
-      ${kpi({label:'Deals won',value:wonInWin.length,
-        delta:momPct(wonIn(thisM).length,wonIn(prevM).length),deltaOf:prevWord,
-        note:cash(avgDeal)+' average',
-        sub:wonIn(thisM).length+' in '+monthName(thisM)+' against '+wonIn(prevM).length+' in '+prevWord})}
-      ${kpi({label:'Collected '+per,value:cash(collected),
-        delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,
-        note:cash(outstanding)+' still outstanding',
-        sub:cash(paidIn(thisM))+' in '+monthName(thisM)+' against '+cash(paidIn(prevM))+' in '+prevWord})}
-      ${kpi({label:'Leads received',value:got.length,
-        delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord,
-        note:qualified.length+' qualified, '+pct(qualified.length,got.length)+' of what came in',
-        sub:madeIn(thisM)+' in '+monthName(thisM)+' against '+madeIn(prevM)+' in '+prevWord})}
-      ${kpi({label:'Active pipeline',value:open.length,
-        note:cash(pipe.value)+' quoted',
-        sub:'a count of what is open now, so there is nothing to compare it against'})}
-    </div>
-    ${!target?`<div class="hint"><b>No collection target set for ${esc(monthName(mStart.slice(0,7)))}.</b>
-      Target achievement, forecast and pipeline coverage stay blank until an admin sets one under Targets.</div>`:''}
+    <h3 style="font-size:15px;margin:4px 0 8px">1. Daily Sales Performance</h3>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${esc(repWindowSentence())}</p>
+    ${stageTable(win[0],win[1])}
 
-    ${leadFig('Outstanding',cash(outstanding),
-      (owingNoDate?owingNoDate+' of them have no collection date set · ':'')
-      +cash(collected)+' collected '+per,outstanding>0)}
+    <h3 style="font-size:15px;margin:22px 0 8px">2. Weekly Sale Stage — ${esc(monthName(thisM))}</h3>
+    ${shown.map(p=>`
+      <div style="margin-bottom:14px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${esc(p.full_name)}</div>
+        <div class="tablewrap"><table class="table-compact"><thead>
+          <tr><th>Week</th><th>From</th><th>To</th><th>#Lead Contact</th>
+            ${SALE_STAGES.map(([,n])=>`<th>${esc(n)}</th>`).join('')}</tr></thead>
+          <tbody>${saleWeeks(thisM).map(([n,a,b])=>`<tr>
+            <td><b>${n}</b></td><td>${esc(fmtDate(a))}</td><td>${esc(fmtDate(b))}</td>
+            <td>${contactedIn(p.id,a,b)}</td>
+            ${stageRow(mine(p.id),a,b).map(v=>`<td>${v}</td>`).join('')}
+          </tr>`).join('')}</tbody></table></div>
+      </div>`).join('')}
 
-    ${repPanel('Conversion',gFunnel([
-      ['Leads received',got.length,'#c2b8a4'],
-      ['Qualified',qualified.length,'#a89c86'],
-      ['Quotation sent',toQuotN,'var(--sun)'],
-      ['Closed-Won',wonInWin.length,'var(--ok)']
-    ],{cap:'Each bar is a share of all leads received, so the drop-off is the gap.'}),true)}
+    <h3 style="font-size:15px;margin:22px 0 8px">3. MTD Sales Stage</h3>
+    ${stageTable(mStart,today)}
+
+    <h3 style="font-size:15px;margin:22px 0 8px">4. MTD Sales and Lead Summary</h3>
+    <div class="tablewrap"><table class="table-compact"><thead><tr>
+      <th>Sale engineer</th><th>Joined Date</th><th>#Lead Contact</th>
+      <th>Avg. Customer Contacted (A Day)</th><th>Avg. Sales Cycle Length (Days)</th>
+      <th>Avg. #Times Contacted</th><th>Closed-Won</th><th>Closed-Lost</th>
+      <th>Total Contract Value</th><th>Total Payment Collection</th>
+    </tr></thead><tbody>${shown.map(p=>{
+      const mineIds=new Set(mine(p.id).map(l=>l.id));
+      const cs=contacts.filter(c=>mineIds.has(c.lead)&&c.day>=mStart&&c.day<=today);
+      const leadsTouched=new Set(cs.map(c=>c.lead)).size;
+      const daysWorked=new Set(cs.map(c=>c.day)).size;
+      const cycle=avgDays(mine(p.id).filter(l=>l.stage_code===WON)
+        .map(l=>daysBetween(dayOf(l),l.stage_entered_at)));
+      const w=mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,mStart,today)).length;
+      const lo=mine(p.id).filter(l=>l.stage_code===LOST&&within(l.stage_entered_at,mStart,today)).length;
+      return `<tr><td><b>${esc(p.full_name)}</b></td>
+        <td>${p.joined_date?esc(fmtDate(p.joined_date)):'<span class="quiet">—</span>'}</td>
+        <td>${leadsTouched}</td>
+        <td>${daysWorked?(leadsTouched/daysWorked).toFixed(1):'—'}</td>
+        <td>${esc(cycle.avg)}</td>
+        <td>${leadsTouched?(cs.length/leadsTouched).toFixed(1):'—'}</td>
+        <td>${w}</td><td>${lo}</td>
+        <td>${esc(cash(contractOf(p.id,mStart,today)))}</td>
+        <td>${esc(cash(collectedOf(p.id,mStart,today)))}</td></tr>`;}).join('')}
+    </tbody></table></div>
+
+    <h3 style="font-size:15px;margin:22px 0 8px">5. MTD Sales Performance</h3>
+    <div class="tablewrap"><table class="table-compact"><thead><tr>
+      <th>Sale engineer</th><th>Target</th><th>Payment Collection</th><th>Outstanding Payment</th>
+      <th>Shortfall</th><th>Achievement %</th><th>Current Active Pipeline</th>
+      <th>Shortfall vs Current Active Pipeline</th><th>Run Rate Achievement</th>
+    </tr></thead><tbody>${perf.map(r=>`<tr>
+      <td><b>${esc(r.p.full_name)}</b></td>
+      <td>${esc(r.t?cash(r.t):'—')}</td><td>${esc(cash(r.c))}</td><td>${esc(cash(r.out))}</td>
+      <td>${esc(r.t?cash(r.short):'—')}</td><td>${r.ach==null?'—':r.ach+'%'}</td>
+      <td>${esc(cash(r.pipe))}</td>
+      <td>${r.t?esc(pct(r.pipe,r.short||1)):'—'}</td>
+      <td>${r.runAch==null?'—':r.runAch+'%'}</td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td><b>Total</b></td><td><b>${esc(tot.t?cash(tot.t):'—')}</b></td>
+      <td><b>${esc(cash(tot.c))}</b></td><td><b>${esc(cash(tot.out))}</b></td>
+      <td><b>${esc(tot.t?cash(tot.short):'—')}</b></td><td><b>${totAch==null?'—':totAch+'%'}</b></td>
+      <td><b>${esc(cash(tot.pipe))}</b></td>
+      <td><b>${tot.t?esc(pct(tot.pipe,tot.short||1)):'—'}</b></td>
+      <td><b>${totRun==null?'—':totRun+'%'}</b></td></tr></tfoot></table></div>
+    ${!tot.t?`<div class="hint">No collection target set for ${esc(monthName(thisM))}. Target, shortfall, achievement and run rate stay blank until one is set under Targets.</div>`:''}
 
     <div class="homegrid">
-      ${repPanel('Collection',gSplit([
-          ['Collected',collected,'var(--ok)'],
-          ['Outstanding',outstanding,'var(--bad)']
-        ],(collected+outstanding)>0?Math.round(collected/(collected+outstanding)*100)+'% collected':'nothing due',
-          cash(collected+outstanding)+' total due')
-        +`<div style="margin-top:16px">`
-        +gBullet('Collected this month',mtdCollected,target,{fmt:cash,emptyWhy:'no collection target set for this month'})
-        +`</div>`
-        +ledger([
-          ['Overdue',cash(overdueValue),overdueCust.length+' customer'+(overdueCust.length===1?'':'s')],
-          ['Run rate, this month',cash(runRate),cash(mtdCollected)+' in '+dayNow+' d']
-        ]))}
+      ${repPanel('6. MTD Sales Conversion Rate %',
+        gFunnel([['Total Raw Lead',gotMtd.length,'var(--viz-s2)'],
+                 ['Qualified Lead',qualMtd.length,'var(--viz-s4)'],
+                 ['Closed-Won',wonMtd.length,'var(--viz-good)'],
+                 ['Closed-Lost',lostMtd.length,'var(--bad)']])
+        +ledger([['Raw lead to qualified',pct(qualMtd.length,gotMtd.length)],
+                 ['Qualified to won',pct(wonMtd.length,qualMtd.length)],
+                 ['Raw lead to won',pct(wonMtd.length,gotMtd.length)]]))}
 
-      ${repPanel('Against target',
-        gBullet('Contract value won',wonValue,target,{fmt:cash,emptyWhy:'no target set for this month'})
-        +gBullet('Pipeline coverage',pipe.value,target,{fmt:cash,color:'var(--sun)',emptyWhy:'coverage needs a target'})
-        +ledger([
-          ['Average deal size',cash(avgDeal)],
-          ['Expected to close',expected.length,cash(expectedValue)]
-        ]))}
-
-      ${repPanel('Where the pipeline sits',`<div class="pipe">
-        ${live.map(s=>bar(s.stage_name,mine(open).filter(l=>l.stage_code===s.stage_code).length,open.length)).join('')}
-      </div>`)}
-
-      ${repPanel('What happened to the leads',gSplit([
-          ['Won',wonInWin.length,'var(--ok)'],
-          ['Lost',lostInWin.length,'var(--bad)'],
-          ['Still open',Math.max(0,got.length-wonInWin.length-lostInWin.length),'#c2b8a4']
-        ],wonInWin.length+' won · '+lostInWin.length+' lost',
-          Math.max(0,got.length-wonInWin.length-lostInWin.length)+' still open')
-        +`<div style="margin-top:16px">`
-        +gSplit([['New',got.length-existing,'var(--sun)'],['Existing',existing,'var(--own-eng)']],
-          (got.length-existing)+' new customers',existing+' came back')
-        +`</div>`)}
-
-      ${repPanel('How long it takes',gDuration([
-        ['First contact',firstTat.avg,firstTat.n+' lead'+(firstTat.n===1?'':'s')],
-        ['Quotation turnaround',quotTat.avg,quotTat.n+' quoted'],
-        ['Stage aging',aging.avg,aging.n+' lead'+(aging.n===1?'':'s')],
-        ['Whole sales cycle',cycle.avg,cycle.n+' won']
-      ],{emptyWhy:'Turnaround needs a dated stage change at both ends.'}))}
-
-      ${repPanel('Needs attention',gRank([
-          ['Pending first contact',pendingContact.length],
-          ['Pending follow-up',pendingFollow.length],
-          ['Overdue by follow-up',overdue.length],
-          ['Owing, no date set',owingNoDate]
-        ],{color:'var(--bad)',emptyWhy:'Nothing is waiting on anyone.'}))}
-
-      ${repPanel('Why deals were lost',Object.keys(reasons).length
-        ? gRank(Object.entries(reasons),{color:'var(--bad)'})
-          +ledger([['After quotation',lostAfterQuot,'of '+lostInWin.length]])
-        : blank('Nothing lost in this window','Leads marked Closed-Lost are counted here with their reason.'))}
+      ${repPanel('7. MTD Gap Analysis',ledger([
+        ['Current Active Pipeline',cash(tot.pipe),pipeAll.covered+' of '+open.length+' quoted'],
+        ['Outstanding Payment',cash(tot.out),''],
+        ['Expected Revenue (Forecast)',cash(forecast),
+          winRate==null?'no won or lost deal yet':Math.round(winRate*100)+'% win rate on pipeline, plus what is owed'],
+        ['Shortfall',tot.t?cash(tot.short):'—',tot.t?'against target':'no target set']]))}
     </div>
 
-    ${(()=>{
-      /* contract value by the month the deal was won. Run rate and the window
-         switch answer "how are we doing now"; this answers "is that normal",
-         which nothing on this screen could say before. */
-      const wonAll=rows.filter(l=>l.stage_code===WON&&l.stage_entered_at);
-      const ms=lastMonths(wonAll,l=>l.stage_entered_at,12);
-      if(!ms.length)return '';
-      const val=ms.map(m=>wonAll.filter(l=>localDay(l.stage_entered_at).slice(0,7)===m)
-        .reduce((a,l)=>a+Number(saleBy[l.id]||0),0));
-      const cnt=ms.map(m=>wonAll.filter(l=>localDay(l.stage_entered_at).slice(0,7)===m).length);
-      return `<h3 style="font-size:15px;margin:22px 0 8px">Won by month, last twelve</h3>`
-        +colChart(ms.map(monthName),val,{title:'Contract value won per month',
-          cap:'The value of deals by the month they were marked Closed-Won. '+cnt.reduce((a,b)=>a+b,0)+' deals in this period.',
-          fmt:v=>fmtMoney(v),axisFmt:v=>v>=1000?Math.round(v/1000)+'k':v,
-          color:'var(--own-sales)',xhead:'Month',yhead:'Contract value'});
-    })()}
+    <div class="homegrid">
+      ${repPanel('8. MTD Active Pipeline by Stage',
+        gRank(SALE_STAGES.filter(([c])=>!TERMINAL.includes(c))
+          .map(([code,name])=>[name,open.filter(l=>l.stage_code===code
+            &&(!REPFILTER.person||l.assigned_to===REPFILTER.person)).length]),
+          {color:'var(--viz-1)',order:true,keepZero:true,limit:6,
+           emptyWhy:'This fills in as leads move through the pipeline.'}))}
 
-    <div class="homegrid" style="margin-top:18px">
-      ${(()=>{
-        /* a dot needs a value, and a won deal may not have one — say how many
-           of the deals this actually covers rather than implying all of them */
-        const vals=wonInWin.map(l=>saleBy[l.id]||0).filter(v=>v>0);
-        return repPanel('Deal size',gDots(vals,
-          {fmt:cash,emptyWhy:'Deal sizes appear once deals are marked Closed-Won with a value.'})
-          +`<div class="cap">One dot per deal, ${vals.length} of ${wonInWin.length} won${vals.length<wonInWin.length?' — the rest have no sale value recorded':''}. The line is the median, so the spread and the outlier lead rather than an average.</div>`);
-      })()}
-
-      ${repPanel('Against target, by sale engineer',gDeviation(
-        people.map(p=>[p.full_name,
-          wonInWin.filter(l=>l.assigned_to===p.id).reduce((a,l)=>a+(saleBy[l.id]||0),0),
-          Number(tg.person[p.id]?.collection||0)]),
-        {emptyWhy:'Set a collection target per person under Targets.'})
-        +`<div class="cap">Distance from target, not the raw figure — over and under read as opposite directions.</div>`)}
+      ${repPanel('MTD Closed-Lost Status',(()=>{
+        const reasons={};lostMtd.forEach(l=>{const r=l.lost_reason||'Not recorded';reasons[r]=(reasons[r]||0)+1;});
+        return lostMtd.length
+          ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12})
+          :blank('Nothing lost this month','No lead was moved to Closed-Lost in '+monthName(thisM)+'.');
+      })())}
     </div>
 
-    <h3 style="font-size:15px;margin:22px 0 8px">By sale engineer</h3>
-    <div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Sale engineer</th><th>Leads</th><th>Qualified</th><th>Quotation sent</th>
-      <th>Closed-Won</th><th>Closed-Lost</th><th>Contract value</th><th>Collected</th>
-      <th>Target</th><th>Achieved</th>
-    </tr></thead><tbody>`+(()=>{
-      /* one scale per column, so a bar means the same thing all the way down */
-      const set=people.map(p=>{
-        const mine=got.filter(l=>l.assigned_to===p.id);
-        const w=wonInWin.filter(l=>l.assigned_to===p.id);
-        return {p,mine,w,
-          qual:mine.filter(l=>qualText(l)==='Qualified').length,
-          quot:mine.filter(l=>everReached(reached,l,'quotation_sent')).length,
-          lost:lostInWin.filter(l=>l.assigned_to===p.id).length,
-          val:w.reduce((a,l)=>a+(saleBy[l.id]||0),0),
-          coll:pays.filter(x=>inWin(x.paid_on)&&rows.find(l=>l.id===x.lead_id&&l.assigned_to===p.id))
-            .reduce((a,x)=>a+Number(x.amount_usd||0),0),
-          t:Number(tg.person[p.id]?.collection||0)};
-      }).filter(r=>r.mine.length||r.w.length||r.t)
-        .sort((a,b)=>b.val-a.val);
-      const mx={leads:colMax(set,r=>r.mine.length),qual:colMax(set,r=>r.qual),
-        quot:colMax(set,r=>r.quot),won:colMax(set,r=>r.w.length),lost:colMax(set,r=>r.lost),
-        val:colMax(set,r=>r.val),coll:colMax(set,r=>r.coll),tgt:colMax(set,r=>r.t)};
-      return set.map(r=>`<tr>
-        <td><b>${esc(r.p.full_name)}</b></td>
-        ${numCell(r.mine.length,mx.leads)}
-        ${numCell(r.qual,mx.qual)}
-        ${numCell(r.quot,mx.quot)}
-        ${numCell(r.w.length,mx.won,{good:true})}
-        ${numCell(r.lost,mx.lost)}
-        ${numCell(r.val,mx.val,{fmt:cash})}
-        ${numCell(r.coll,mx.coll,{fmt:cash,good:true})}
-        ${r.t?numCell(r.t,mx.tgt,{fmt:cash}):'<td class="numcell zero">—</td>'}
-        ${r.t?numCell(Math.round(r.val/r.t*100),100,{fmt:v=>v+'%',good:r.val>=r.t}):'<td class="numcell zero">—</td>'}
-      </tr>`).join('');
-    })()+`</tbody></table></div>
+    <h3 style="font-size:15px;margin:22px 0 8px">MoM — Sale stage by month</h3>
+    ${months.length?shown.map(p=>`
+      <div style="margin-bottom:14px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${esc(p.full_name)}</div>
+        <div class="tablewrap"><table class="table-compact"><thead>
+          <tr><th>Month</th><th>#Lead Contact</th>${SALE_STAGES.map(([,n])=>`<th>${esc(n)}</th>`).join('')}</tr>
+        </thead><tbody>${months.map(m=>{const [a,b]=monthWin(m);
+          return `<tr><td><b>${esc(monthName(m))}</b></td><td>${contactedIn(p.id,a,b)}</td>
+            ${stageRow(mine(p.id),a,b).map(v=>`<td>${v}</td>`).join('')}</tr>`;}).join('')}
+        </tbody></table></div>
+      </div>`).join('')
+      :blank('No months to show yet','This fills in as leads accumulate.')}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">By channel</h3>
-    <div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Channel</th><th>Raw leads</th><th>Qualified</th><th>Closed-Won</th>
-      <th>Conversion</th><th>Contract value</th>
-    </tr></thead><tbody>`+(()=>{
-      const set=CH_ORDER.map(c=>{
-        const rowsFor=got.filter(l=>chOf(l)===c);
-        const w=rowsFor.filter(l=>l.stage_code===WON);
-        return {c,n:rowsFor.length,qual:rowsFor.filter(l=>qualText(l)==='Qualified').length,
-          won:w.length,val:w.reduce((a,l)=>a+(saleBy[l.id]||0),0),
-          conv:rowsFor.length?Math.round(w.length/rowsFor.length*100):0};
-      }).filter(r=>r.n).sort((a,b)=>b.n-a.n);
-      const mx={n:colMax(set,r=>r.n),qual:colMax(set,r=>r.qual),won:colMax(set,r=>r.won),
-        val:colMax(set,r=>r.val),conv:colMax(set,r=>r.conv)};
-      return set.map(r=>`<tr>
-        <td><b>${esc(r.c.replace(/_/g,' '))}</b></td>
-        ${numCell(r.n,mx.n)}
-        ${numCell(r.qual,mx.qual)}
-        ${numCell(r.won,mx.won,{good:true})}
-        ${numCell(r.conv,mx.conv,{fmt:v=>v+'%'})}
-        ${numCell(r.val,mx.val,{fmt:cash,good:true})}
-      </tr>`).join('');
-    })()+`</tbody></table></div>`;
+    <h3 style="font-size:15px;margin:22px 0 8px">MoM — Monthly Sales Performance</h3>
+    ${months.length?`<div class="homegrid three">${shown.map(p=>`
+      ${repPanel(p.full_name,`<div class="tablewrap"><table class="table-compact"><thead>
+        <tr><th>Month</th><th>#Closed-Won</th><th>Contract Value</th><th>Collection</th></tr>
+      </thead><tbody>${months.map(m=>{const [a,b]=monthWin(m);
+        const w=mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b)).length;
+        return `<tr><td>${esc(monthName(m))}</td><td>${w}</td>
+          <td>${esc(cash(contractOf(p.id,a,b)))}</td>
+          <td>${esc(cash(collectedOf(p.id,a,b)))}</td></tr>`;}).join('')}
+      </tbody></table></div>`)}`).join('')}</div>`
+      :''}
+  `;
 }
