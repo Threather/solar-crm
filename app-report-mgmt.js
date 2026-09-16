@@ -197,8 +197,10 @@ async function renderMgmtReport(){
       <!-- his six boxes, in his order and his wording. They are the headings
            he reads the sheet by, so they are not tidied. -->
       ${kpi({label:'Monthly Target',value:cash(target||null)})}
+      <!-- no alert stripe: red is danger here and nothing else, and being
+           short of a monthly target part-way through the month is neither
+           danger nor news. Achievement % beside it already says where it is. -->
       ${kpi({label:'Payment Collected',value:cash(collected),lead:true,
-        alert:!!(target&&collected<target),
         delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,
         note:target?pct(collected,target)+' of target':''})}
       ${kpi({label:'Outstanding Payment',value:cash(outstanding),
