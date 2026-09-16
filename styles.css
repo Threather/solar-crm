@@ -470,8 +470,14 @@ td.numcell b{font-weight:600}
 /* Six figures on one row. The lead card gives up its double width so the row
    divides evenly, and the minimum drops to suit six columns rather than four;
    it keeps the larger figure, which is what marks it out. */
-.kpis.six{grid-template-columns:repeat(auto-fit,minmax(148px,1fr))}
+.kpis.six{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
 .kpis.six .kpi.lead{grid-column:span 1}
+/* Their own headings, on one line each. "Outstanding Payment" wrapped and set
+   that card two lines taller than its neighbours; the label drops a point and
+   loses some of its tracking rather than losing a word, because the wording is
+   theirs. The column minimum carries the longest of them. */
+.kpis.six .kpi{padding:14px 14px 12px}
+.kpis.six .kpi .l{font-size:10px;letter-spacing:.05em;white-space:nowrap}
 .kpi.lead{grid-column:span 2}
 .kpi.lead .n{font-size:38px}
 .kpi.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
