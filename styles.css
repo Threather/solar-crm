@@ -494,6 +494,13 @@ td.numcell b{font-weight:600}
    theirs. The column minimum carries the longest of them. */
 .kpis.six .kpi{padding:14px 14px 12px}
 .kpis.six .kpi .l{font-size:10px;letter-spacing:.05em;white-space:nowrap}
+/* On the six-up row the heading is held on one line, which leaves a 168px card
+   no room for a chip beside it - the chip overflowed by 106px and was cut off
+   by the card's own overflow:hidden. Nothing showed it today because there is
+   no month-on-month data yet; it would have appeared the day money started
+   arriving. The chip takes its own line instead. */
+.kpis.six .kpi .top{display:block}
+.kpis.six .kpi .chip{margin-top:6px}
 .kpi.lead{grid-column:span 2}
 .kpi.lead .n{font-size:38px}
 .kpi.alert::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bad)}
@@ -583,6 +590,10 @@ td.numcell b{font-weight:600}
 .gpair .b.tgt{background:var(--line);height:7px}
 .gpair .v{font-size:var(--t-meta);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
 .gpair .v span{color:var(--ink-mute)}
+/* the sample count sits under the figure, the way every other average in the
+   app prints the rows it was taken from */
+.gpair .v .n{display:block;font-size:var(--t-cap);color:var(--ink-mute)}
+.gpair .v .n::before{content:"n="}
 .gpair .v i{color:var(--ink-mute);font-style:normal}
 @media(max-width:560px){.gpair .row{grid-template-columns:110px 1fr 74px}}
 .homegrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3);align-items:start}

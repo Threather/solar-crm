@@ -44,7 +44,11 @@ async function renderOpsReport(){
      a BOQ marked Done with no date is still a BOQ that was released. */
   const windowed=REPPERIOD!=='all';
   const inPeriod=v=>!windowed||inRange(v,range);
-  const startedInPeriod=f.filter(l=>l.installation_start&&inPeriod(l.installation_start));
+  /* All time asks about state, so inPeriod lets everything through - which
+     counted an installation booked for next week as one that has started.
+     A start is a date that has arrived. */
+  const startedInPeriod=f.filter(l=>l.installation_start&&inPeriod(l.installation_start)
+    &&localDay(l.installation_start)<=today);
   const doneInPeriod=f.filter(l=>instDoneOn(l)&&inPeriod(instDoneOn(l)));
   const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&inPeriod(l.boq_date));
 
@@ -54,8 +58,14 @@ async function renderOpsReport(){
   const sla={boq:Number(tg.company.sla_boq||0),install:Number(tg.company.sla_install||0),
              inform:Number(tg.company.sla_edcinform||0),inspect:Number(tg.company.sla_edcinspect||0)};
 
-  const tatBoq   =avgDays(f.map(l=>daysBetween(l.boq_date,l.installation_start)));
-  const tatInst  =avgDays(f.map(l=>daysBetween(l.installation_start,instDoneOn(l))));
+  /* A turnaround is what a step ACTUALLY took, so a start date still in the
+     future is a booking and not an outcome - one job pencilled in for December
+     dragged this average from 5 days to 42 and made the slowest-step line
+     point at the wrong step entirely. Same rule as the Installation Start
+     count above. */
+  const started=l=>l.installation_start&&localDay(l.installation_start)<=today;
+  const tatBoq   =avgDays(f.map(l=>started(l)?daysBetween(l.boq_date,l.installation_start):null));
+  const tatInst  =avgDays(f.map(l=>started(l)?daysBetween(l.installation_start,instDoneOn(l)):null));
   const tatInform=avgDays(f.map(l=>daysBetween(instDoneOn(l),edcSentOn(l))));
   const tatSeen  =avgDays(f.map(l=>daysBetween(edcSentOn(l),edcSeenOn(l))));
 
@@ -94,9 +104,13 @@ async function renderOpsReport(){
   const doneIn=m=>f.filter(l=>instDoneOn(l)&&localDay(instDoneOn(l)).slice(0,7)===m).length;
   const prevWord=monthName(prevM);
 
-  const teamRows=teams.map(t=>[t,rows.filter(l=>l.installation_team===t).length])
-    .concat(rows.some(l=>!l.installation_team)
-      ?[['No team yet',rows.filter(l=>!l.installation_team).length]]:[])
+  /* "ACTIVE installation teams" - so it counts what is still in flight, not
+     every job a team has ever finished, and it reads the filtered set so the
+     team filter above it actually filters it. It read `rows` and counted the
+     lot, filter and finished jobs included. */
+  const teamRows=teams.map(t=>[t,active.filter(l=>l.installation_team===t).length])
+    .concat(active.some(l=>!l.installation_team)
+      ?[['No team yet',active.filter(l=>!l.installation_team).length]]:[])
     .filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
   const teamTotal=teamRows.reduce((a,r)=>a+r[1],0);
   const TEAM_HUE=['var(--viz-1)','var(--viz-2)','var(--viz-good)','var(--viz-s2)','var(--viz-s5)','var(--viz-s3)'];
@@ -142,10 +156,10 @@ async function renderOpsReport(){
 
     <div class="homegrid">
       ${repPanel('II. Turnaround vs target',gPair([
-        ['BOQ to installation',tatBoq.avg,sla.boq||null],
-        ['Installation duration',tatInst.avg,sla.install||null],
-        ['Installation to EDC submission',tatInform.avg,sla.inform||null],
-        ['EDC submission to inspection',tatSeen.avg,sla.inspect||null]
+        ['BOQ to installation',tatBoq.avg,sla.boq||null,tatBoq.n],
+        ['Installation duration',tatInst.avg,sla.install||null,tatInst.n],
+        ['Installation to EDC submission',tatInform.avg,sla.inform||null,tatInform.n],
+        ['EDC submission to inspection',tatSeen.avg,sla.inspect||null,tatSeen.n]
       ],{emptyWhy:'Turnaround needs a date at both ends of a step.'})
       +(Object.values(sla).some(Boolean)?'':`<div class="cap" style="margin-top:10px">No turnaround targets set for ${esc(monthName(monthStart().slice(0,7)))}.</div>`))}
 
@@ -154,7 +168,9 @@ async function renderOpsReport(){
         ['Avg end-to-end',endToEnd.avg==='\u2014'?'\u2014':endToEnd.avg+' days',
           endToEnd.n+' measured'],
         ['Slowest against target',behind?'+'+behind.over+' days':'\u2014',
-          behind?behind.step:'nothing is behind']]))}
+          behind?behind.step
+            :!Object.values(sla).some(Boolean)?'no targets set'
+            :endToEnd.n?'nothing is behind':'nothing measured yet']]))}
     </div>
 
     ${(()=>{

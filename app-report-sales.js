@@ -137,8 +137,10 @@ async function renderSalesReport(){
     &&within(p.paid_on,a,b)).reduce((x,p)=>x+Number(p.amount_usd||0),0);
   const outstandingOf=id=>mine(id).filter(l=>l.stage_code===WON).reduce((x,l)=>x+owedOf(l),0);
   const pipeOf=id=>pipelineValue(mine(id).filter(l=>!TERMINAL.includes(l.stage_code)),quotBy).value;
+  /* the contract, NOT dueOf: dueOf adds the payment fees on top because it
+     answers "how much is owed". Total Contract Value is what was signed. */
   const contractOf=(id,a,b)=>mine(id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b))
-    .reduce((x,l)=>x+dueOf(l),0);
+    .reduce((x,l)=>x+Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0),0);
 
   const dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
   const dayNow=new Date().getDate();
@@ -245,14 +247,14 @@ async function renderSalesReport(){
       <td>${esc(r.t?cash(r.t):'—')}</td><td>${esc(cash(r.c))}</td><td>${esc(cash(r.out))}</td>
       <td>${esc(r.t?cash(r.short):'—')}</td><td>${r.ach==null?'—':r.ach+'%'}</td>
       <td>${esc(cash(r.pipe))}</td>
-      <td>${r.t?esc(pct(r.pipe,r.short||1)):'—'}</td>
+      <td>${!r.t?'—':!r.short?'target met':esc(pct(r.pipe,r.short))}</td>
       <td>${r.runAch==null?'—':r.runAch+'%'}</td></tr>`).join('')}
     </tbody>
     <tfoot><tr><td><b>Total</b></td><td><b>${esc(tot.t?cash(tot.t):'—')}</b></td>
       <td><b>${esc(cash(tot.c))}</b></td><td><b>${esc(cash(tot.out))}</b></td>
       <td><b>${esc(tot.t?cash(tot.short):'—')}</b></td><td><b>${totAch==null?'—':totAch+'%'}</b></td>
       <td><b>${esc(cash(tot.pipe))}</b></td>
-      <td><b>${tot.t?esc(pct(tot.pipe,tot.short||1)):'—'}</b></td>
+      <td><b>${!tot.t?'—':!tot.short?'target met':esc(pct(tot.pipe,tot.short))}</b></td>
       <td><b>${totRun==null?'—':totRun+'%'}</b></td></tr></tfoot></table></div>
     ${!tot.t?`<div class="hint">No collection target set for ${esc(monthName(thisM))}. Target, shortfall, achievement and run rate stay blank until one is set under Targets.</div>`:''}
 

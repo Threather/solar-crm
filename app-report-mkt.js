@@ -12,7 +12,12 @@ async function renderMktReport(){
   const mStart=monthStart();
   const [tg,reached]=await Promise.all([loadTargets(mStart),loadStageHistory(rows.map(l=>l.id))]);
 
-  const inWin=l=>REPPERIOD==='all'||inRange(l.created_at,range);
+  /* lead_date is the day the lead came in and created_at only the day it was
+     typed up. The other three dashboards read it that way; this one did not,
+     so a backdated lead landed in a different month here than everywhere
+     else. */
+  const dayOf=l=>l.lead_date||l.created_at;
+  const inWin=l=>REPPERIOD==='all'||inRange(dayOf(l),range);
   const got=rows.filter(inWin);
   const byCh=c=>got.filter(l=>chOf(l)===c).length;
 
@@ -21,8 +26,8 @@ async function renderMktReport(){
   const qualRate=got.length?Math.round(qualified.length/got.length*100):null;
 
   /* month to date is the frame the target is set in, whatever window is shown */
-  const mtd=rows.filter(l=>inRange(l.created_at,[mStart,localDay(new Date())]));
-  const todayRows=rows.filter(l=>inRange(l.created_at,repRange('today')));
+  const mtd=rows.filter(l=>inRange(dayOf(l),[mStart,localDay(new Date())]));
+  const todayRows=rows.filter(l=>inRange(dayOf(l),repRange('today')));
   const leadTarget=tg.company.leads??null;
   /* budget is what may be spent, spent is what has been. Both are company rows
      on the Targets screen, set by the manager each month - the same place
@@ -89,7 +94,7 @@ async function renderMktReport(){
   const thisM=mStart.slice(0,7);
   const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
     const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
-  const madeIn=m=>rows.filter(l=>localDay(l.created_at).slice(0,7)===m).length;
+  const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m).length;
   const prevWord=monthName(prevM);
 
   $('main').innerHTML=repBar('Marketing report')+`

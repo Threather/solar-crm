@@ -90,7 +90,12 @@ function exportQuots(){
    Three dashboards, one per team, behind a scope switch that shows only what
    the role is entitled to. The client specified them as three separate
    documents, so they stay three separate screens rather than one long page. */
-let REPSCOPE='', REPPERIOD='mtd', REPFILTER={person:'',team:'',channel:''};
+/* 'all', not 'mtd'. The month-to-date preset was removed on 20 Aug with week
+   and month, but the default was left pointing at it - so every report opened
+   with NO preset lit, behaving as All time while the buttons said otherwise.
+   repRange() falls through to the all-time branch for an unknown value, which
+   is why it looked right and read wrong. */
+let REPSCOPE='', REPPERIOD='all', REPFILTER={person:'',team:'',channel:''};
 /* Which report a role may see, and which one exists yet. The reports land one
    at a time, so a scope whose renderer has not shipped is left out rather than
    offered as a button that opens a blank page. */
@@ -265,11 +270,15 @@ function axisStep(max){
 function gFunnel(steps,opts){
   const o=opts||{};
   const base=Math.max(1,steps[0]?steps[0][1]:1);
+  /* base is floored at 1 so the arithmetic is safe, which meant an empty
+     funnel printed "0%" against every rung - including its own top, which is
+     100% by definition. With nothing in it there is no share to state. */
+  const empty=!(steps[0]&&Number(steps[0][1])>0);
   return `<div class="gfunnel">`+steps.map(([k,v,color])=>{
     const pc=Math.round((v/base)*100);
     return `<div class="row"><span class="k">${esc(k)}</span>
       <span class="track"><span class="fill" style="width:${Math.max(v?4:0,pc)}%;background:${color||'var(--own-sales)'}">${v?`<b>${esc(o.fmt?o.fmt(v):v)}</b>`:''}</span></span>
-      <span class="pc">${base?pc+'%':'—'}</span></div>`;
+      <span class="pc">${empty?'—':pc+'%'}</span></div>`;
   }).join('')+`</div>`+(o.cap?`<div class="cap" style="margin-top:12px">${esc(o.cap)}</div>`:'');
 }
 /* two numbers whose proportion is the whole story */
@@ -419,7 +428,11 @@ function gPair(rows,opts){
   if(!has.length)return blank('No turnaround yet',o.emptyWhy||'This needs a date at both ends of a step.');
   const max=Math.max(1,...rows.map(r=>Math.max(Number(r[1])||0,Number(r[2])||0)));
   const w=v=>Math.max(2,Math.round((Number(v)||0)/max*100));
-  return `<div class="gpair">`+rows.map(([k,v,t])=>{
+  /* An average never counts a blank as zero, and every average in this app
+     prints how many rows it used - a 5.0 day turnaround off one project is
+     not the same claim as one off forty. Row shape is [label, actual, target,
+     sampleCount]; the count is optional. */
+  return `<div class="gpair">`+rows.map(([k,v,t,n])=>{
     const miss=v==null||v==='\u2014';
     const over=!miss&&t&&Number(v)>Number(t);
     return `<div class="row">
@@ -428,7 +441,7 @@ function gPair(rows,opts){
         <span class="b act${over?' over':''}" style="width:${miss?0:w(v)}%"></span>
         <span class="b tgt" style="width:${t?w(t):0}%"></span>
       </span>
-      <span class="v">${miss?'<i>no data</i>':`<b>${esc(v)}d</b>`}${t?` <span>/ ${esc(t)}d</span>`:''}</span>
+      <span class="v">${miss?'<i>no data</i>':`<b>${esc(v)}d</b>`}${t?` <span>/ ${esc(t)}d</span>`:''}${!miss&&n?`<span class="n">${esc(n)}</span>`:''}</span>
     </div>`;}).join('')+`</div>
     <div class="legend" style="margin:10px 0 0">
       <span><i style="background:var(--viz-1)"></i>Actual</span>

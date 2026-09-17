@@ -47,7 +47,7 @@ async function renderMgmtReport(){
 
   const [tg,acts,quots,fins,pays,finrows]=await Promise.all([
     loadTargets(mStart),
-    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at').in('lead_id',ids).then(r=>r.data||[]):[],
+    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('lead_id',ids).then(r=>r.data||[]):[],
     ids.length?sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').in('lead_id',ids).order('created_at').then(r=>r.data||[]):[],
     ids.length?sb.from('lead_financials').select('lead_id,final_sale_usd').in('lead_id',ids).then(r=>r.data||[]):[],
     ids.length?sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').in('lead_id',ids).then(r=>r.data||[]):[],
@@ -85,8 +85,6 @@ async function renderMgmtReport(){
      `targets` carries collection per person, so the team figure is derived
      rather than typed twice. */
   const target=Object.values(tg.person).reduce((a,v)=>a+Number(v.collection||0),0);
-  const achievement=target?Math.round(collected/target*100):null;
-  const remaining=target?Math.max(0,target-collected):null;
   /* Run rate is a statement about THIS MONTH and must not follow the window
      switch: projecting a year of collection across thirty-one days is not a
      forecast. */
@@ -95,6 +93,14 @@ async function renderMgmtReport(){
   const mtdCollected=pays.filter(p=>localDay(p.paid_on)>=mStart&&localDay(p.paid_on)<=today)
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const runRate=dayNow?mtdCollected/dayNow*dim:null;
+  /* THE TARGET IS MONTHLY, SO WHAT IT IS COMPARED WITH MUST BE. These used to
+     divide `collected` - which follows the window switch - by this month's
+     target, so on All time they read every dollar ever banked against one
+     month's bar and printed achievements in the hundreds of percent. They
+     follow month-to-date now, like the run rate beside them, and the cards
+     say which month. */
+  const achievement=target?Math.round(mtdCollected/target*100):null;
+  const remaining=target?Math.max(0,target-mtdCollected):null;
   const runPct=(target&&runRate!=null)?Math.round(runRate/target*100):null;
 
   /* ---- raw leads against target ----
@@ -140,8 +146,13 @@ async function renderMgmtReport(){
   const contactAvg=people.map(p=>{
     const mine=rows.filter(l=>l.assigned_to===p.id);
     const notes=[];
+    /* note_date is the day the contact happened and is the writer's own;
+       created_at is only the audit trail. A call on Monday typed up on
+       Wednesday belongs to Monday. */
     mine.forEach(l=>(actsBy[l.id]||[]).forEach(a=>{
-      if(['call','note'].includes(a.activity_type)&&inWin(a.created_at))notes.push(localDay(a.created_at));}));
+      if(!['call','note'].includes(a.activity_type))return;
+      const d=a.note_date||a.created_at;
+      if(inWin(d))notes.push(localDay(d));}));
     const days=new Set(notes).size;
     return [p.full_name,days?+(notes.length/days).toFixed(1):0,notes.length,days];
   }).filter(r=>r[2]>0);
@@ -164,6 +175,10 @@ async function renderMgmtReport(){
   /* ---- month by month ---- */
   const months=lastMonths(rows,dayOf,12);
   const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m);
+  /* headed "from marketing", so it counts marketing's own channels - the same
+     two the target above it is set against. It counted every channel, which
+     put third party and repeat business on a marketing trend line. */
+  const mktIn=m=>madeIn(m).filter(l=>MG_MARKETING.includes(l.lead_channel));
   const qualIn=m=>madeIn(m).filter(l=>qualText(l)==='Qualified');
 
   const thisM=mStart.slice(0,7);
@@ -270,8 +285,8 @@ async function renderMgmtReport(){
         :repPanel('Quotations sent',
           blank('None released '+per,'This fills in as quotations are released.'))}
       ${lineChart(months.map(m=>monthName(m)),
-        [{name:'Raw lead',color:'var(--viz-1)',values:months.map(m=>madeIn(m).length)},
-         {name:'Qualified',color:'var(--viz-2)',values:months.map(m=>qualIn(m).length)}],
+        [{name:'Raw lead',color:'var(--viz-1)',values:months.map(m=>mktIn(m).length)},
+         {name:'Qualified',color:'var(--viz-2)',values:months.map(m=>mktIn(m).filter(l=>qualText(l)==='Qualified').length)}],
         {title:'Lead trend from marketing',compact:true})}
     </div>
 

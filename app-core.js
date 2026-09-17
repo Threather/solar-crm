@@ -313,7 +313,9 @@ async function boot(){
   setInterval(loadBells,120000);
   const [stg,stf]=await Promise.all([
     sb.from('lead_stages').select('*').eq('is_active',true).order('sort_order'),
-    sb.from('profiles').select('id,full_name,staff_id,role,is_active').order('full_name')
+    /* joined_date rides along because the sales summary prints it. Without it
+       that column could only ever show a dash, whatever was set on Users. */
+    sb.from('profiles').select('id,full_name,staff_id,role,is_active,joined_date').order('full_name')
   ]);
   STAGES=stg.data||[];STAFF=stf.data||[];
   await loadVocab();
