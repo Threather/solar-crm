@@ -176,10 +176,10 @@ function repBar(title,extra){
   return `<h2 style="margin-bottom:4px">${esc(title)}</h2>
     <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${esc(repWindowSentence())}</div>
     <div class="toolbar">
-      ${scopes.length>1?`<div class="scope">${scopes.map(([k,l])=>
-        `<button class="${REPSCOPE===k?'on':''}" onclick="setRepScope('${k}')">${l}</button>`).join('')}</div>`:''}
-      <div class="scope">${REP_PERIODS.map(([k,l])=>
-        `<button class="${REPPERIOD===k?'on':''}" onclick="setRepPeriod('${k}')">${l}</button>`).join('')}</div>
+      ${scopes.length>1?`<div class="scope" role="group" aria-label="Which report">${scopes.map(([k,l])=>
+        `<button class="${REPSCOPE===k?'on':''}" aria-pressed="${REPSCOPE===k}" onclick="setRepScope('${k}')">${l}</button>`).join('')}</div>`:''}
+      <div class="scope" role="group" aria-label="Period">${REP_PERIODS.map(([k,l])=>
+        `<button class="${REPPERIOD===k?'on':''}" aria-pressed="${REPPERIOD===k}" onclick="setRepPeriod('${k}')">${l}</button>`).join('')}</div>
       <div class="daterange">
         <input type="date" value="${REPFROM}" onchange="setRepDates('from',this.value)" title="From" aria-label="From">
         <span>to</span>
@@ -243,8 +243,11 @@ function everReached(reached,l,code){
 }
 
 const CH_ORDER=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Existing_Customer','Other'];
-const CH_COLOR={Digital_Marketing:'#2a78d6',Third_Party:'#eb6834',Direct_Sales:'#1baf7a',
-                Offline_Marketing:'#eda100',Existing_Customer:'#6c4f7b',Other:'#898781'};
+/* the validated categorical set, not six hexes of their own - two of the old
+   ones sat under the 3:1 floor a mark needs against the card. "Other" is the
+   residual bucket and takes the recessive tone on purpose. */
+const CH_COLOR={Digital_Marketing:'var(--viz-1)',Third_Party:'var(--viz-2)',Direct_Sales:'var(--viz-good)',
+                Offline_Marketing:'var(--viz-3)',Existing_Customer:'var(--viz-4)',Other:'var(--viz-mute)'};
 const chOf=l=>CH_ORDER.includes(l.lead_channel)?l.lead_channel:'Other';
 
 /* An axis divided by four lands on whatever quarter of the maximum happens to
@@ -287,7 +290,7 @@ function gSplit(parts,left,right){
   return `<div class="gsplit">`+parts.map(([label,v,color])=>{
     const w=(Number(v||0)/total)*100;
     if(w<=0)return '';
-    return `<span style="width:${w}%;background:${color}" title="${esc(label)}">${w>14?esc(label):''}</span>`;
+    return `<span style="width:${w}%;background:${color}" title="${esc(label)}: ${esc(v)}">${w>14?esc(label):''}</span>`;
   }).join('')+`</div>
   <div class="gsplit-l"><span>${esc(left||'')}</span><span>${esc(right||'')}</span></div>`;
 }
@@ -457,8 +460,12 @@ function leadFig(label,value,note,warn){
 }
 /* everything that is not the headline, aligned so it reads down a column */
 function ledger(rows){
-  return `<div class="ledger">`+rows.map(([k,v,n])=>
-    `<div class="row"><span class="k">${esc(k)}</span><span class="v">${v}</span>${n?`<span class="n">${esc(n)}</span>`:''}</div>`).join('')+`</div>`;
+  /* [label, value, note, colour]. The colour draws a swatch before the label,
+     so a ledger under a stacked bar says which band is which - the bar itself
+     can only label the segments wide enough to hold a word. */
+  return `<div class="ledger">`+rows.map(([k,v,n,c])=>
+    `<div class="row"><span class="k">${c?`<i class="sw" style="background:${esc(c)}"></i>`:''}${esc(k)}</span>`
+    +`<span class="v">${v}</span>${n?`<span class="n">${esc(n)}</span>`:''}</div>`).join('')+`</div>`;
 }
 /* One series over time. Research and this data agree on the same answer: with
    a few dozen rows, columns against a zero baseline with the figure written on
@@ -644,10 +651,31 @@ function lineChart(labels,series,opts){
     </svg>
   </div>`;
 }
+/* ONE MONEY FORMAT FOR ALL FOUR DASHBOARDS. Each had copied its own `cash`
+   into itself and they had drifted: two rounded to the dollar and marketing
+   kept cents, so the same figure read $1,234 on one screen and $1,233.50 on
+   the next. */
+const repCash=v=>v==null?'\u2014':fmtMoney(Math.round(v));
+const repPct=(a,b)=>b?Math.round(a/b*100)+'%':'\u2014';
+/* An empty chart keeps its own card. Swapping to a panel changed the heading's
+   size and typeface, so a dashboard with no data yet looked like two systems
+   bolted together. */
+const emptyChart=(title,why,detail)=>`<div class="chartcard">
+  <h3>${esc(title)}</h3>${blank(esc(why),esc(detail||''))}</div>`;
 /* the last twelve months a report can talk about, oldest first */
 function lastMonths(rows,dateOf,n){
   const keys=[...new Set((rows||[]).map(r=>localDay(dateOf(r)).slice(0,7)).filter(Boolean))].sort().slice(-(n||12));
-  return keys;
+  /* A month with no rows used to be dropped from the series entirely, so a
+     quiet month closed the gap between its neighbours and the axis said time
+     had not passed. The range is filled in. */
+  if(keys.length<2)return keys;
+  const out=[],[y0,m0]=keys[0].split('-').map(Number),[y1,m1]=keys[keys.length-1].split('-').map(Number);
+  for(let y=y0,m=m0;y<y1||(y===y1&&m<=m1);m++){
+    if(m>12){m=1;y++;}
+    out.push(y+'-'+String(m).padStart(2,'0'));
+    if(out.length>240)break;
+  }
+  return out.slice(-(n||12));
 }
 function barChart(months,counts,used){
   const W=760,PL=42,PR=12,PT=12,PH=210,AX=34,H=PT+PH+AX;

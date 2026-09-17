@@ -61,17 +61,20 @@ async function renderMktReport(){
 
   /* cumulative leads by day of this month against a straight line to target */
   const days=Array.from({length:dayNow},(_,i)=>i+1);
+  /* counted per day by re-scanning every lead, which is a full scan for each
+     of up to 31 days - and it read created_at, not the lead's own date, so it
+     disagreed with the KPI above it. Bucketed once. */
+  const perDay={};
+  rows.forEach(l=>{const d=localDay(dayOf(l));perDay[d]=(perDay[d]||0)+1;});
   const cumActual=[];let run=0;
-  days.forEach(d=>{const iso=mStart.slice(0,8)+String(d).padStart(2,'0');
-    run+=rows.filter(l=>localDay(l.created_at)===iso).length;cumActual.push(run);});
+  days.forEach(d=>{run+=perDay[mStart.slice(0,8)+String(d).padStart(2,'0')]||0;cumActual.push(run);});
   const cumTarget=leadTarget?days.map(d=>Math.round(leadTarget*(d/dim))):null;
 
   /* conversion is measured on the window's own leads, so it answers "of what
      came in, how much moved" rather than mixing cohorts */
   const toQuot=got.filter(l=>everReached(reached,l,'quotation_sent'));
   const toWon=got.filter(l=>everReached(reached,l,WON));
-  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
-  const cash=v=>v==null?'—':fmtMoney(Math.round(v*100)/100);
+  const pct=repPct, cash=repCash;
 
   const months=[...new Set(rows.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean).sort().slice(-12);
   const counts={};
@@ -125,7 +128,7 @@ async function renderMktReport(){
           :blank('No sub-channel recorded','Marketing pick one on the New lead form.'))
         :groupChart(subs,
           [{name:'Qualified',color:'var(--viz-good)',values:subs.map(subQ)},
-           {name:'Not qualified',color:'var(--viz-s2)',values:subs.map(subD)}],
+           {name:'Not qualified',color:'var(--viz-s5)',values:subs.map(subD)}],
           {title:'Leads by sub-channel and quality',compact:true,stacked:true})}
 
       ${repPanel('Customer contact captured',
@@ -143,7 +146,7 @@ async function renderMktReport(){
       ${leadTarget&&days.length>1
         ?lineChart(days.map(String),
           [{name:'Actual',color:'var(--viz-1)',values:cumActual},
-           {name:'Target',color:'var(--viz-s2)',values:cumTarget}],
+           {name:'Target',color:'var(--viz-2)',values:cumTarget}],
           {title:'MTD trend, target vs actual',compact:true,
            cap:'Cumulative, by day of '+monthName(thisM)})
         : repPanel('MTD trend, target vs actual',
@@ -152,9 +155,12 @@ async function renderMktReport(){
 
     <div class="homegrid">
       ${noStage?'':repPanel('Conversion funnel',gFunnel([
-        ['Total',got.length,'var(--viz-s2)'],
-        ['Qualified',qualified.length,'var(--viz-s4)'],
-        ['Quotation',toQuot.length,'var(--viz-1)'],
+        /* one hue darkening down the funnel. It used to run s2, s4, viz-1,
+           and s4 against viz-1 is a colourblind delta of 1.1 - the same
+           colour to any eye. These steps are three apart. */
+        ['Total',got.length,'var(--viz-s1)'],
+        ['Qualified',qualified.length,'var(--viz-s3)'],
+        ['Quotation',toQuot.length,'var(--viz-s5)'],
         ['Won',toWon.length,'var(--viz-good)']
       ])+ledger([
         ['Lead to qualified',pct(qualified.length,got.length)],

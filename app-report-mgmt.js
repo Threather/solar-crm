@@ -47,7 +47,7 @@ async function renderMgmtReport(){
 
   const [tg,acts,quots,fins,pays,finrows]=await Promise.all([
     loadTargets(mStart),
-    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('lead_id',ids).then(r=>r.data||[]):[],
+    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('lead_id',ids).in('activity_type',['call','note']).then(r=>r.data||[]):[],
     ids.length?sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').in('lead_id',ids).order('created_at').then(r=>r.data||[]):[],
     ids.length?sb.from('lead_financials').select('lead_id,final_sale_usd').in('lead_id',ids).then(r=>r.data||[]):[],
     ids.length?sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').in('lead_id',ids).then(r=>r.data||[]):[],
@@ -114,21 +114,29 @@ async function renderMgmtReport(){
 
   /* ---- per person, on whoever holds the rows ---- */
   const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
-  const people=STAFF.filter(s=>['sales','manager'].includes(s.role)||holders.has(s.id));
+  /* active sales and managers, plus anyone still holding a lead - the rule
+     assignable() uses, and the one the sales report was given. Without the
+     active test the four dead test accounts sat on every per-person chart. */
+  const people=STAFF.filter(s=>(s.is_active&&['sales','manager'].includes(s.role))||holders.has(s.id));
   const nameOf=id=>staffName(id);
 
-  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
   /* a column chart draws nothing for a zero, so an axis of people who have
      collected nothing and quoted nothing is an empty frame. Only whoever has
      a figure goes on it, and the panel says so when nobody has. */
-  const cash=v=>v==null?'—':fmtMoney(Math.round(v));
+  const pct=repPct, cash=repCash;
 
   /* collection per salesperson: money received in the window, against the
      person the lead is assigned to rather than whoever banked it */
-  const collByPerson={};
+  /* indexed once rather than rows.find() per payment, and money on a lead
+     nobody holds keeps its own column - it used to vanish from this chart
+     while still counting in the headline above it, so the columns did not add
+     up to the figure they sit under. */
+  const leadById={}; rows.forEach(l=>leadById[l.id]=l);
+  const collByPerson={}; let collUnassigned=0;
   pays.filter(p=>inWin(p.paid_on)).forEach(p=>{
-    const l=rows.find(x=>x.id===p.lead_id); if(!l||!l.assigned_to)return;
-    collByPerson[l.assigned_to]=(collByPerson[l.assigned_to]||0)+Number(p.amount_usd||0);
+    const l=leadById[p.lead_id], amt=Number(p.amount_usd||0);
+    if(!l||!l.assigned_to){collUnassigned+=amt;return;}
+    collByPerson[l.assigned_to]=(collByPerson[l.assigned_to]||0)+amt;
   });
   const collPeople=people.filter(p=>(collByPerson[p.id]||0)>0);
 
@@ -200,8 +208,6 @@ async function renderMgmtReport(){
 
   /* Residential against C&I. The vocabulary holds exactly those two, so
      anything else is a lead nobody filled the field in on. */
-  const typeCount={};
-  got.forEach(l=>{const t=l.customer_type||'Not recorded';typeCount[t]=(typeCount[t]||0)+1;});
   /* his sheet splits this per salesperson, two columns each, rather than
      giving the two totals for the whole company */
   const typePeople=people.filter(p=>got.some(l=>l.assigned_to===p.id));
@@ -224,15 +230,20 @@ async function renderMgmtReport(){
         note:owingNoDate?owingNoDate+' with no date set':''})}
       ${kpi({label:'Achievement %',value:achievement==null?'—':achievement+'%'})}
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
-      ${kpi({label:'Run Rate %',value:runPct==null?cash(runRate):runPct+'%',
-        note:runRate==null?'':cash(runRate)+' by month end'})}
+      ${kpi({label:'Run Rate %',value:runPct==null?'—':runPct+'%',
+        note:runRate==null?'':cash(runRate)+' by month end'
+          +(runPct==null?', no target to measure it against':'')})}
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
     <div class="homegrid three">
-      ${colChart(['Target','Actual'],[leadTarget,mktLeads],
-        {title:'Raw lead target vs actual',colors:['var(--viz-s2)','var(--viz-1)'],table:false,compact:true,
-         cap:'Digital and offline marketing'})}
+      ${leadTarget?colChart(['Target','Actual'],[leadTarget,mktLeads],
+        {title:'Raw lead target vs actual',colors:['var(--viz-mute)','var(--viz-1)'],table:false,compact:true,
+         cap:'Digital and offline marketing'})
+        /* with no target the Target column drew at zero height, which reads as
+           a target of nothing rather than as no target at all */
+        :emptyChart('Raw lead target vs actual','No lead target set',
+          'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${colChart(stageDist.map(r=>r[0]),stageDist.map(r=>r[1]),
         {title:'Lead stage distribution',colors:stageDist.map(r=>r[2]),
          table:false,compact:true,cap:'All five channels'})}
@@ -241,8 +252,8 @@ async function renderMgmtReport(){
           [{name:'Residential',color:'var(--viz-1)',values:typePeople.map(p=>typeOf(p,'Residential'))},
            {name:'C & I',color:'var(--viz-2)',values:typePeople.map(p=>typeOf(p,'C & I'))}],
           {title:'Residential vs C&I',compact:true,cap:'By sale engineer'})
-        :repPanel('Residential vs C&I',
-          blank('No customer type recorded','No lead in the window has the field filled in.'))}
+        :emptyChart('Residential vs C&I','No customer type recorded',
+          'No lead in the window has the field filled in.')}
     </div>
 
     <!-- From here down the rows are his, in the order he drew them: active
@@ -257,8 +268,8 @@ async function renderMgmtReport(){
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
       ${collPeople.length
-        ?colChart(collPeople.map(p=>p.full_name.split(' ')[0]),
-          collPeople.map(p=>collByPerson[p.id]||0),
+        ?colChart(collPeople.map(p=>p.full_name.split(' ')[0]).concat(collUnassigned?['Unassigned']:[]),
+          collPeople.map(p=>collByPerson[p.id]||0).concat(collUnassigned?[collUnassigned]:[]),
           {title:'Payment collection by each sales',color:'var(--viz-good)',compact:true,table:false,
            fmt:cash,axisFmt:v=>!v?'0':v>=1000?'$'+(v/1000)+'k':'$'+v})
         :repPanel('Payment collection by each sales',
@@ -284,10 +295,12 @@ async function renderMgmtReport(){
           {title:'Quotations sent',color:'var(--viz-1)',compact:true,table:false})
         :repPanel('Quotations sent',
           blank('None released '+per,'This fills in as quotations are released.'))}
-      ${lineChart(months.map(m=>monthName(m)),
+      ${months.length>1?lineChart(months.map(m=>monthName(m)),
         [{name:'Raw lead',color:'var(--viz-1)',values:months.map(m=>mktIn(m).length)},
          {name:'Qualified',color:'var(--viz-2)',values:months.map(m=>mktIn(m).filter(l=>qualText(l)==='Qualified').length)}],
-        {title:'Lead trend from marketing',compact:true})}
+        {title:'Lead trend from marketing',compact:true})
+        :emptyChart('Lead trend from marketing','Not enough history yet',
+          'A trend needs two months. There is '+(months.length||'no')+'.')}
     </div>
 
     <div class="homegrid">

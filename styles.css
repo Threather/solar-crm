@@ -24,6 +24,14 @@
      progression: the funnel and the pipeline are magnitude, not identity.
      Re-run scripts/validate_palette.js before changing any of them. */
   --viz-1:#ae532d; --viz-2:#177ba8; --viz-good:#1d7d3e;
+  /* Two more categorical slots, fitted the same way, for the channel chart -
+     which had six hard-coded hexes of its own, two of them under the 3:1 mark
+     floor. Worst pair across the five is 14.1 (viz-2 against viz-3), just
+     under the 15 floor, which is the documented case that is legal WITH a
+     legend and direct labels - both of which those charts carry. Every one
+     clears 3:1 against the card. --viz-mute is for a residual "Other" bucket
+     and is deliberately recessive; it is not a category. */
+  --viz-3:#7652ac; --viz-4:#a49000; --viz-mute:#9b958a;
   --viz-s1:#dda189; --viz-s2:#d08669; --viz-s3:#c26b49;
   --viz-s4:#b35025; --viz-s5:#9f3600; --viz-s6:#881f00;
 
@@ -148,6 +156,10 @@ main>h3{font-size:var(--t-h3)}
    has about 800px to work with, so it needs its own rules */
 .table-compact{min-width:0}
 .table-compact th,.table-compact td{padding:8px 10px}
+/* th is nowrap everywhere else, which is right for a two-word heading. The
+   stage tables carry ten of "Information Gathering" and scrolled inside their
+   own card at full width rather than wrapping onto a second line. */
+.table-compact th{white-space:normal}
 /* a quiet secondary control. It is not destructive, so it does not go red. */
 .btn-mini{background:var(--card);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-soft);
   padding:5px 10px;font-weight:600;font-size:12px}
@@ -406,7 +418,11 @@ td.nowrap{white-space:nowrap}
 /* one ratio, one bar — for two numbers whose proportion is the whole story */
 .gsplit{height:34px;border-radius:6px;overflow:hidden;display:flex;background:var(--sunk)}
 .gsplit span{display:flex;align-items:center;padding:0 11px;font-size:var(--t-meta);font-weight:600;
-  color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0}
+  color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0;
+  /* a segment too narrow for its label used to paint half a word and let the
+     next segment cover the rest; it shows nothing now, and the ledger under
+     the bar carries every name in full */
+  overflow:hidden}
 .gsplit-l{display:flex;justify-content:space-between;margin-top:8px;font-size:var(--t-cap);
   color:var(--ink-soft)}
 
@@ -486,7 +502,12 @@ td.numcell b{font-weight:600}
 /* Six figures on one row. The lead card gives up its double width so the row
    divides evenly, and the minimum drops to suit six columns rather than four;
    it keeps the larger figure, which is what marks it out. */
-.kpis.six{grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+/* auto-fit put four or five across between 900 and 1180 and orphaned the
+   rest on a line of their own. Six divides by three and by two, so it is
+   given those explicitly rather than left to fit what it can. */
+.kpis.six{grid-template-columns:repeat(6,1fr)}
+@media(max-width:1180px){.kpis.six{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpis.six{grid-template-columns:repeat(2,1fr)}}
 .kpis.six .kpi.lead{grid-column:span 1}
 /* Their own headings, on one line each. "Outstanding Payment" wrapped and set
    that card two lines taller than its neighbours; the label drops a point and
@@ -536,6 +557,8 @@ td.numcell b{font-weight:600}
 /* the ledger: everything that is not the headline, aligned so it can be read
    down rather than shouted at 22px a figure */
 .ledger{display:flex;flex-direction:column}
+.ledger .sw{width:9px;height:9px;border-radius:2px;display:inline-block;
+  margin-right:7px;vertical-align:-1px;flex:none}
 .ledger .row{display:flex;align-items:baseline;gap:10px;padding:7px 0;
   border-bottom:1px solid var(--line-soft)}
 .ledger .row:last-child{border-bottom:0}
@@ -587,7 +610,9 @@ td.numcell b{font-weight:600}
 .gpair .b{display:block;height:9px;border-radius:0 3px 3px 0;min-width:2px}
 .gpair .b.act{background:var(--viz-1)}
 .gpair .b.act.over{background:var(--bad)}
-.gpair .b.tgt{background:var(--line);height:7px}
+/* --line is 1.33:1 against the card - a target bar drawn in it is not
+   visible, which defeats the comparison the panel exists for. */
+.gpair .b.tgt{background:var(--viz-mute);height:7px}
 .gpair .v{font-size:var(--t-meta);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
 .gpair .v span{color:var(--ink-mute)}
 /* the sample count sits under the figure, the way every other average in the
@@ -595,6 +620,9 @@ td.numcell b{font-weight:600}
 .gpair .v .n{display:block;font-size:var(--t-cap);color:var(--ink-mute)}
 .gpair .v .n::before{content:"n="}
 .gpair .v i{color:var(--ink-mute);font-style:normal}
+/* in half a row at 1000px the 150px label column left the bar under 70px -
+   a comparison you cannot see is not one */
+@media(max-width:1180px){.gpair .row{grid-template-columns:118px 1fr 86px}}
 @media(max-width:560px){.gpair .row{grid-template-columns:110px 1fr 74px}}
 .homegrid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-3);align-items:start}
 @media(max-width:900px){.homegrid{grid-template-columns:1fr}}

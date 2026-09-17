@@ -23,7 +23,10 @@ async function renderOpsReport(){
   const rows=await fetchLeads(q=>q.eq('stage_code',WON));
   const range=repRange(REPPERIOD);
   const teams=[...new Set(rows.map(l=>l.installation_team).filter(Boolean))].sort();
-  const f=REPFILTER.team?rows.filter(l=>l.installation_team===REPFILTER.team):rows;
+  /* the panel below names a "No team yet" bucket, so the filter can pick it */
+  const f=!REPFILTER.team?rows
+    :REPFILTER.team==='__none'?rows.filter(l=>!l.installation_team)
+    :rows.filter(l=>l.installation_team===REPFILTER.team);
 
   const done=f.filter(l=>instDoneOn(l));
   const active=f.filter(l=>!instDoneOn(l));
@@ -89,6 +92,7 @@ async function renderOpsReport(){
   const teamFilter=`<select onchange="setRepFilter('team',this.value)">
       <option value="">All teams</option>
       ${teams.map(t=>`<option value="${esc(t)}" ${REPFILTER.team===t?'selected':''}>${esc(t)}</option>`).join('')}
+      ${rows.some(l=>!l.installation_team)?`<option value="__none" ${REPFILTER.team==='__none'?'selected':''}>No team yet</option>`:''}
     </select>`;
 
   const bar=(label,n,total,cls)=>`<div class="row${cls||''}">
@@ -113,7 +117,11 @@ async function renderOpsReport(){
       ?[['No team yet',active.filter(l=>!l.installation_team).length]]:[])
     .filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
   const teamTotal=teamRows.reduce((a,r)=>a+r[1],0);
-  const TEAM_HUE=['var(--viz-1)','var(--viz-2)','var(--viz-good)','var(--viz-s2)','var(--viz-s5)','var(--viz-s3)'];
+  /* the categorical set, not steps of one ramp - the last three used to be
+     s2, s5 and s3, which is one hue at three lightnesses and reads as one
+     team in three moods. Six teams is one more than the set has, so the sixth
+     takes the recessive tone and the ledger below carries every name. */
+  const TEAM_HUE=['var(--viz-1)','var(--viz-2)','var(--viz-good)','var(--viz-3)','var(--viz-4)','var(--viz-mute)'];
 
   $('main').innerHTML=repBar('Operations report',teamFilter)+`
     <!-- his five boxes, in his order and his wording -->
@@ -130,7 +138,7 @@ async function renderOpsReport(){
       ${kpi({label:'EDC Pending',value:edcPending.length,
         note:'awaiting inspection'})}
     </div>
-    ${noDate.length?`<div class="hint" style="border-left-color:var(--bad);color:var(--bad)">
+    ${noDate.length?`<div class="hint" style="border-left-color:var(--warn);color:var(--warn)">
       <b>${noDate.length} active project${noDate.length>1?'s have':' has'} no installation date.</b>
       ${noDate.slice(0,4).map(l=>`<span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${l.id}')">${esc(l.customer_name)}</span>`).join(' \u00b7 ')}
       ${noDate.length>4?` and ${noDate.length-4} more`:''}
@@ -150,7 +158,8 @@ async function renderOpsReport(){
         teamRows.length
           ?gSplit(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
               teamTotal+' project'+(teamTotal===1?'':'s'),teamRows.length+' teams')
-           +ledger(teamRows.map(r=>[r[0],r[1],Math.round(r[1]/teamTotal*100)+'%']))
+           +ledger(teamRows.map((r,i)=>[r[0],r[1],
+              Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))
           :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
     </div>
 
@@ -182,7 +191,7 @@ async function renderOpsReport(){
       const cnt=ms.map(m=>done.filter(l=>localDay(instDoneOn(l)).slice(0,7)===m).length);
       return colChart(ms.map(monthName),cnt,{title:'Installations finished per month',
         cap:'By the date the installation was confirmed, or its end date once that has passed.',
-        color:'var(--own-site)',xhead:'Month',yhead:'Installations'});
+        color:'var(--viz-1)',table:false});
     })()}
 
     ${f.length?`<h3 style="font-size:15px;margin:22px 0 8px">Projects</h3>

@@ -97,9 +97,12 @@ async function renderSalesReport(){
   const shown=ME.role==='sales'?people.filter(p=>p.id===ME.id)
             :REPFILTER.person?people.filter(p=>p.id===REPFILTER.person):people;
 
-  const inWin=v=>REPPERIOD==='all'||inRange(v,range);
   const within=(v,a,b)=>{const d=localDay(v);return !!d&&d>=a&&d<=b;};
-  const mine=id=>rows.filter(l=>l.assigned_to===id);
+  /* ten call sites meant ten full scans of every lead for every person.
+     Indexed once. */
+  const byPerson={};
+  rows.forEach(l=>{if(l.assigned_to)(byPerson[l.assigned_to]=byPerson[l.assigned_to]||[]).push(l);});
+  const mine=id=>byPerson[id]||[];
 
   /* A lead entered a stage inside a window if the log says so, or - where the
      log has nothing for that stage - if the lead sits there now and got there
@@ -114,8 +117,7 @@ async function renderSalesReport(){
   const contactedIn=(id,a,b)=>new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
     &&c.day>=a&&c.day<=b).map(c=>c.lead)).size;
 
-  const pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
-  const cash=v=>v==null?'—':fmtMoney(Math.round(v));
+  const pct=repPct, cash=repCash;
   const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
   const owedOf=l=>Math.max(0,dueOf(l)-(paidBy[l.id]||0));
 
@@ -230,7 +232,7 @@ async function renderSalesReport(){
         <td>${p.joined_date?esc(fmtDate(p.joined_date)):'<span class="quiet">—</span>'}</td>
         <td>${leadsTouched}</td>
         <td>${daysWorked?(leadsTouched/daysWorked).toFixed(1):'—'}</td>
-        <td>${esc(cycle.avg)}</td>
+        <td>${esc(cycle.avg)}${cycle.n?`<span class="days">${cycle.n} won</span>`:''}</td>
         <td>${leadsTouched?(cs.length/leadsTouched).toFixed(1):'—'}</td>
         <td>${w}</td><td>${lo}</td>
         <td>${esc(cash(contractOf(p.id,mStart,today)))}</td>
