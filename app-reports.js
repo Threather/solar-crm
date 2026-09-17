@@ -81,15 +81,19 @@ function exportQuots(){
 
 
 /* ---------------- REPORTS ----------------
-   Categorical hues are the validated slots 1-4, assigned to a fixed channel
-   (never by rank), so filtering never repaints a series. Legacy leads with no
-   channel fold into a gray "Other" rather than earning a 5th hue.
-   Aqua and gold sit under 3:1 on this surface, so the relief rule applies:
-   segment values are labelled and the full table sits under the chart. */
-/* ---------------- REPORTS ----------------
-   Three dashboards, one per team, behind a scope switch that shows only what
-   the role is entitled to. The client specified them as three separate
-   documents, so they stay three separate screens rather than one long page. */
+   Channel colours are the five validated categorical slots - viz-1, viz-2,
+   viz-good, viz-3, viz-4 - assigned to a fixed channel and never by rank, so
+   filtering the list never repaints the channels that survive. A lead with no
+   channel folds into viz-mute rather than earning a sixth hue: "Other" is a
+   residual, not a category. Every one clears 3:1 against the card; the worst
+   colourblind pair is 14.1, just under the 15 floor, which is the case that is
+   legal with a legend and direct labels - and these charts carry both.
+
+   Four dashboards behind a scope switch that shows only what the role is
+   entitled to: Sales, Marketing and Operations for the three teams, and
+   Management over them. Each was built from a reference the client wrote or
+   drew, so they stay four separate screens rather than one long page, and
+   their block headings are theirs and are not tidied. */
 /* 'all', not 'mtd'. The month-to-date preset was removed on 20 Aug with week
    and month, but the default was left pointing at it - so every report opened
    with NO preset lit, behaving as All time while the buttons said otherwise.
