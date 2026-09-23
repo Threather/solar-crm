@@ -244,18 +244,24 @@ const remarkDate=a=>a?(a.note_date||localDay(a.created_at)):'';
 /* the running log is the salesperson's working view, and nobody else's */
 const showRemarks=()=>ME.role==='sales'||ME.role==='admin';
 /* three most recent in the row, the rest one click away and still in the row */
+/* The newest remark only, cut at two lines, until it is clicked. Three in
+   full made every row as tall as its longest story once the Activity sheet
+   brought eight dated lines to a lead. A click on the remarks opens them all
+   in place and a second click closes them; the row itself still opens the
+   lead, so the click stops here. */
 function remarkStack(l){
   const rs=l.remarks||[];
   if(!rs.length)return '<span class="rl none">no remark yet</span>';
-  const extra=rs.length-3;
-  return `<div class="rstack collapsed">
+  const more=rs.length-1;
+  return `<div class="rstack collapsed" data-more="${more}" onclick="event.stopPropagation();toggleRemarks(this)" title="Click to show all remarks">
     ${rs.map(a=>`<span class="rl"><i>${fmtDate(remarkDate(a))}</i>${esc(a.note)}</span>`).join('')}
-    ${extra>0?`<button class="rmore" onclick="event.stopPropagation();toggleRemarks(this)">${extra} more</button>`:''}
+    ${more>0?`<span class="rmore">+${more} more</span>`:''}
   </div>`;
 }
-function toggleRemarks(btn){
-  const box=btn.parentElement, open=box.classList.toggle('collapsed');
-  btn.textContent=open?((box.querySelectorAll('.rl').length-3)+' more'):'Show less';
+function toggleRemarks(box){
+  const closed=box.classList.toggle('collapsed');
+  const btn=box.querySelector('.rmore');
+  if(btn)btn.textContent=closed?`+${box.dataset.more} more`:'Show less';
 }
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){

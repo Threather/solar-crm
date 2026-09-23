@@ -313,17 +313,22 @@ td.phone{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink)}
 .noterow{display:flex;gap:8px;align-items:flex-start}
 .noterow input[type=date]{width:150px;flex:none}
 .noterow textarea{flex:1}
-/* the running log, in the row itself: three lines, the rest on request */
+/* the running log, in the row itself: the newest remark in two lines, all of
+   them on a click */
 td.cust{max-width:260px}
 td.rem{width:300px;max-width:300px;white-space:normal}
-.rstack{display:flex;flex-direction:column;gap:4px}
+.rstack{display:flex;flex-direction:column;gap:4px;cursor:pointer;border-radius:6px;
+  margin:-4px -6px;padding:4px 6px}
+.rstack:hover{background:var(--sunk)}
 .rl{font-size:var(--t-meta);color:var(--ink-2);line-height:1.35}
 .rl i{font-style:normal;color:var(--ink-mute);margin-right:6px;white-space:nowrap}
 .rl.none{color:var(--ink-mute)}
-.rstack.collapsed .rl:nth-of-type(n+4){display:none}
+.rstack.collapsed .rl:nth-of-type(n+2){display:none}
+.rstack.collapsed .rl:first-of-type{display:-webkit-box;-webkit-box-orient:vertical;
+  -webkit-line-clamp:2;line-clamp:2;overflow:hidden}
 .rmore{align-self:flex-start;margin-top:2px;padding:2px 7px;font-size:var(--t-cap);
   font-weight:600;color:var(--ink-soft);background:var(--sunk);border-radius:99px}
-.rmore:hover{color:var(--ink);background:var(--line)}
+.rstack:hover .rmore{color:var(--ink);background:var(--line)}
 /* the log needs room, so this table is allowed to be wider than the rest */
 table.with-rem{min-width:1120px}
 td.nowrap{white-space:nowrap}
