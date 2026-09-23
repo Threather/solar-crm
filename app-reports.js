@@ -518,13 +518,14 @@ function colChart(labels,values,opts){
         + `<title>${esc(lab)}: ${esc(fmt(v))}</title>`
         + (h>R*2?'</path>':'</rect>');
     if(v>0) bars+=`<text class="seglabel" x="${cx}" y="${yy-6}" text-anchor="middle" fill="var(--ink-2)">${esc(fmt(v))}</text>`;
-    xlab+=`<text class="tick" x="${cx}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
   });
+  const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
+  xlab=ax.svg;
   return `
   <div class="chartcard">
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
-    <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
+    <svg class="chartsvg" viewBox="0 0 ${W} ${H+ax.extra}" role="img" aria-label="${esc(o.title||'chart')}"${ax.extra?' style="overflow:visible"':''}>
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
     </svg>
@@ -596,14 +597,15 @@ function groupChart(labels,series,opts){
     /* a stacked column carries its own total above it, the way his sheet
        labels each bar - the segments inside it carry their own parts */
     if(ST&&acc>0) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-5}" text-anchor="middle" fill="var(--ink-2)">${acc}</text>`;
-    xlab+=`<text class="tick" x="${PL+band*li+band/2}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
   });
+  const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
+  xlab=ax.svg;
   return `
   <div class="chartcard">
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
     <div class="legend">${series.map(sr=>`<span><i style="background:${sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
-    <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
+    <svg class="chartsvg" viewBox="0 0 ${W} ${H+ax.extra}" role="img" aria-label="${esc(o.title||'chart')}"${ax.extra?' style="overflow:visible"':''}>
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
     </svg>
@@ -615,6 +617,55 @@ function groupChart(labels,series,opts){
    between them reads as the thing itself. Points are marked, because with a
    handful of months the segments between them are the only data there is.
    Shares colChart's geometry, compact included. */
+/* Axis labels that fit. After the import a year of months sat on axes that
+   had only ever held two or three, and "Oct 2025 Nov 2025..." ran into one
+   another. Month labels (monthName's "Oct 2025") shorten to the month, with
+   the year only where it changes; then, if they would still collide in the
+   room each has, every k-th is kept - the first always, the last when there
+   is room for it. The full label stays in each point's tooltip.
+   Only for time: a category axis that dropped labels would leave bars with
+   no name, so colChart calls this only when its labels are months. */
+const isMonthAxis=labels=>labels.length>1&&labels.every(l=>/^\S+ \d{4}$/.test(String(l)));
+function fitTicks(labels,slot){
+  const n=labels.length;
+  const m=labels.map(l=>/^(\S+) (\d{4})$/.exec(String(l)));
+  const months=isMonthAxis(labels);
+  const widest=months?Math.max(...m.map(x=>x[1].length))+4:Math.max(1,...labels.map(l=>String(l).length));
+  const k=Math.max(1,Math.ceil((widest*5.8+8)/Math.max(1,slot)));
+  /* the last label is always shown; if it is not on the step, it takes the
+     place of the one before it, or the two would sit side by side */
+  const last=n-1, lastMul=Math.floor(last/k)*k;
+  const show=i=>i===last||(i%k===0&&!(i===lastMul&&lastMul!==last));
+  let year=null;
+  return labels.map((l,i)=>{
+    if(!show(i))return '';
+    if(!months)return String(l);
+    const [,mon,yr]=m[i];
+    const out=yr!==year?`${mon} ’${yr.slice(2)}`:mon;
+    year=yr;
+    return out;
+  });
+}
+/* The x-axis of a column or grouped chart. Months shorten and thin as above.
+   Categories keep every name - a bar with no name cannot be read - so names
+   that will not fit side by side are tilted, and the chart grows underneath
+   to hold them. The imported sub-channels, eighteen of them and some twenty
+   characters long, are what made this necessary. Over 22 characters a name is
+   cut with an ellipsis; the whole of it is in the bar's tooltip. */
+function axisLabels(labels,band,cxOf,y0){
+  const mid=(t,i)=>`<text class="tick" x="${cxOf(i)}" y="${y0}" text-anchor="middle">${esc(t)}</text>`;
+  if(isMonthAxis(labels))
+    return {svg:fitTicks(labels,band).map((t,i)=>t?mid(t,i):'').join(''),extra:0};
+  const cut=s=>{s=String(s);return s.length>22?s.slice(0,21)+'…':s;};
+  const names=labels.map(cut);
+  const widest=Math.max(1,...names.map(s=>s.length))*5.8;
+  if(widest+8<=band)return {svg:names.map(mid).join(''),extra:0};
+  const A=35, s=Math.sin(A*Math.PI/180);
+  return {
+    svg:names.map((t,i)=>`<text class="tick" x="${cxOf(i)}" y="${y0-3}" text-anchor="end"
+      transform="rotate(-${A} ${cxOf(i)} ${y0-3})"><title>${esc(labels[i])}</title>${esc(t)}</text>`).join(''),
+    extra:Math.ceil(widest*s)};
+}
 function lineChart(labels,series,opts){
   const o=opts||{};
   const C=!!o.compact;
@@ -644,8 +695,9 @@ function lineChart(labels,series,opts){
            + `<title>${esc(labels[i])} · ${esc(sr.name)}: ${Number(v||0)}</title></circle>`;
     });
   });
-  labels.forEach((lab,i)=>{
-    xlab+=`<text class="tick" x="${x(i)}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
+  const ticks=fitTicks(labels,n>1?plotW/(n-1):plotW);
+  ticks.forEach((lab,i)=>{
+    if(lab)xlab+=`<text class="tick" x="${x(i)}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
   });
   return `
   <div class="chartcard">
