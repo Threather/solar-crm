@@ -288,7 +288,11 @@ async function renderPool(){
   if(!['manager','admin'].includes(ME.role)){
     $('main').innerHTML=blank('The pool is manager and admin only','Leads with no sale engineer are handed out from here.');return;}
   $('main').innerHTML=SKEL;
-  const pool=await fetchLeads(q=>q.is('assigned_to',null));
+  /* only leads still open. After the 23 Sep 2026 import this list held 1,804
+     rows, 1,787 of them Closed-Lost enquiries nobody was ever going to call -
+     a lost lead is not waiting for sales, and a pool of dead rows buries the
+     seventeen that are */
+  const pool=await fetchLeads(q=>q.is('assigned_to',null).not('stage_code','in','(closed_lost,closed_won)'));
   const canAssign=['manager','admin'].includes(ME.role);
   const salesOpts=assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))} (${esc(s.staff_id)})</option>`).join('');
   $('main').innerHTML=`
