@@ -8,6 +8,21 @@ async function renderLeads(scope){
     $('main').innerHTML=blank('Leads are not open to your role','Won deals and their payments are under Finance.');return;}
   LEADSCOPE=scope||LEADSCOPE;
   $('main').innerHTML=SKEL;
+  /* each orders on something unique, so a table past a thousand rows pages
+     without repeating any */
+  const B={
+    fins:()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),
+    rem:()=>sb.from('lead_activities').select('lead_id,note,note_date,created_at,actor_id')
+      .not('note','is',null).order('created_at',{ascending:false}).order('id'),
+    qs:()=>sb.from('quotations').select('lead_id,price_usd,created_at')
+      .order('created_at',{ascending:false}).order('id')};
+  /* admin and the manager see every lead, so byLeadIds will read these tables
+     whole and needs no ids from them - start the downloads now, beside the
+     leads, and the calls below join them rather than waiting behind */
+  if(['admin','manager'].includes(ME.role)){
+    if(canSeeMoney())fetchAll(B.fins).catch(()=>{});
+    fetchAll(B.rem).catch(()=>{});fetchAll(B.qs).catch(()=>{});
+  }
   LEADS=await fetchLeads(q=>{
     if(ME.role==='sales')return q.eq('assigned_to',ME.id);
     if(ME.role==='site_engineer')return q.eq('site_engineer_id',ME.id);
@@ -19,17 +34,12 @@ async function renderLeads(scope){
      lets read it — for anyone else they simply stay undefined */
   const ids=LEADS.map(l=>l.id);
   /* the three lookups run side by side; one after another they were most of
-     the wait. Each orders on something unique, so a table past a thousand
-     rows pages without repeating any. */
+     the wait */
   const soft=p=>p.catch(e=>{console.error(e);return[];});
   const [fins,rem,qs]=LEADS.length?await Promise.all([
-    canSeeMoney()?soft(byLeadIds(()=>sb.from('lead_financials')
-      .select('lead_id,final_sale_usd').order('lead_id'),ids)):[],
-    soft(byLeadIds(()=>sb.from('lead_activities')
-      .select('lead_id,note,note_date,created_at,actor_id')
-      .not('note','is',null).order('created_at',{ascending:false}).order('id'),ids)),
-    soft(byLeadIds(()=>sb.from('quotations')
-      .select('lead_id,price_usd,created_at').order('created_at',{ascending:false}).order('id'),ids))
+    canSeeMoney()?soft(byLeadIds(B.fins,ids)):[],
+    soft(byLeadIds(B.rem,ids)),
+    soft(byLeadIds(B.qs,ids))
   ]):[[],[],[]];
   if(canSeeMoney()&&LEADS.length){
     const byId=Object.fromEntries(fins.map(f=>[f.lead_id,f.final_sale_usd]));

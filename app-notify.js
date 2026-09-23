@@ -59,6 +59,8 @@ function watchBells(){
   sb.channel('crm-notifications')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'notifications'},payload=>{
       const b=payload.new;
+      /* a win or a handover somewhere else means the cached lists are behind */
+      DATAVER++;
       BELLS=[b,...BELLS].slice(0,40);
       paintBell();
       /* your own win should not startle you */

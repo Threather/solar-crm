@@ -168,6 +168,12 @@ main>h3{font-size:var(--t-h3)}
 .btn-danger:hover{background:var(--bad);color:#fff}
 
 .tablewrap{background:var(--card);border-radius:var(--r);overflow:auto;box-shadow:var(--lift)}
+/* the loading bar across the top of the window, driven by netFetch */
+#netbar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;pointer-events:none;
+  background:var(--sun-deep);box-shadow:0 0 8px rgba(168,88,65,.45);opacity:0;
+  transition:width .3s ease,opacity .3s ease}
+#netbar.on{opacity:1}
+@media (prefers-reduced-motion:reduce){#netbar{transition:opacity .3s ease}}
 .pager{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;
   padding:12px 14px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--ink-soft);
   font-variant-numeric:tabular-nums}

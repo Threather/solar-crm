@@ -1,7 +1,44 @@
 /* ============================================================
    SOLAR CRM — frontend v2 (Phase 1)
    ============================================================ */
-const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY);
+/* Every request the app makes goes through netFetch, handed to the Supabase
+   client, so no screen can bypass it. Two jobs:
+   - the bar across the top, which moves as requests actually complete;
+   - DATAVER, which moves on whenever anything is written, before and after
+     the write lands, so the read cache in fetchAll can never hand back data
+     that predates a save - including a read that was already in flight. */
+let DATAVER=0, NET_STARTED=0, NET_DONE=0, NET_W=0, NET_HIDE=null, NET_TRICKLE=null;
+function netBar(){
+  let bar=document.getElementById('netbar');
+  if(!bar){
+    if(!document.body)return;
+    bar=document.createElement('div');bar.id='netbar';document.body.prepend(bar);
+  }
+  clearTimeout(NET_HIDE);
+  if(NET_STARTED>NET_DONE){
+    /* never backwards and never full while anything is still out; a slow
+       single request creeps on its own so the bar does not look stuck */
+    NET_W=Math.max(NET_W,12+NET_DONE/NET_STARTED*78);
+    bar.style.width=NET_W+'%';bar.classList.add('on');
+    if(!NET_TRICKLE)NET_TRICKLE=setInterval(()=>{
+      NET_W+=(92-NET_W)*0.04;bar.style.width=NET_W+'%';},300);
+  }else{
+    clearInterval(NET_TRICKLE);NET_TRICKLE=null;
+    bar.style.width='100%';
+    NET_HIDE=setTimeout(()=>{bar.classList.remove('on');
+      setTimeout(()=>{if(NET_STARTED===NET_DONE){bar.style.width='0';NET_W=0;NET_STARTED=NET_DONE=0;}},300);},200);
+  }
+}
+async function netFetch(input,init){
+  const method=String(init&&init.method||'GET').toUpperCase();
+  const write=String(input&&input.url||input).includes('/rest/v1/')&&method!=='GET'&&method!=='HEAD';
+  if(write)DATAVER++;
+  NET_STARTED++;netBar();
+  try{return await fetch(input,init);}
+  finally{if(write)DATAVER++;NET_DONE++;netBar();}
+}
+const sb = supabase.createClient(CRM_CONFIG.SUPABASE_URL, CRM_CONFIG.SUPABASE_ANON_KEY,
+  {global:{fetch:netFetch}});
 
 let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], VIEW='leads', LEADLOCK=true, LEADSAVE=null, LEADQUOTS=[], FINSCOPE='owing', EDCSCOPE='work';
 /* the Leads tab shows only live work; won and lost have their own tabs */
@@ -500,23 +537,49 @@ async function loadVocab(){
    Management then Marketing, could leave you looking at the one you left. */
 let NAVGEN=0;
 const abandoned=()=>new Promise(()=>{});
-/* Four pages are asked for at once rather than one after another: 2,832
-   leads took 3.6s in three trips and one round covers them now. Data that
-   arrives after the person has moved on is dropped: the promise never
-   settles, so the stale render stops at its await instead of painting over
-   the screen they went to. */
-async function fetchAll(build){
-  const gen=NAVGEN, out=[];
-  for(let from=0;;from+=4000){
-    const pages=await Promise.all([0,1,2,3].map(k=>
-      build().range(from+k*1000,from+k*1000+999)));
-    if(gen!==NAVGEN)return abandoned();
-    for(const {data,error} of pages){
-      if(error)throw error;
-      out.push(...(data||[]));
-      if(!data||data.length<1000)return out;
+/* What has been read, kept for a minute. Moving between screens used to
+   download all 2,832 leads again each time. A cached read is used only while
+   DATAVER is where it was when the read began - any save, by anyone on this
+   screen, throws it away - and only for the same person and the same query.
+   Others' changes arrive within the minute, or at once on a notification. */
+const CACHE=new Map(), PENDING=new Map(), CACHE_MS=60000;
+/* the download itself, shared: two screens asking for the same query at once
+   wait on one request. It always settles, whoever has moved on. */
+function loadAll(build,key,ver){
+  const pk=key+'|'+ver;
+  if(PENDING.has(pk))return PENDING.get(pk);
+  const p=(async()=>{
+    const out=[];
+    /* four pages at once rather than one after another: 2,832 leads took
+       3.6s in three trips and one round covers them */
+    for(let from=0;;from+=4000){
+      const pages=await Promise.all([0,1,2,3].map(k=>
+        build().range(from+k*1000,from+k*1000+999)));
+      for(const {data,error} of pages){
+        if(error)throw error;
+        out.push(...(data||[]));
+        if(!data||data.length<1000){
+          CACHE.set(key,{ver,at:Date.now(),rows:out});
+          for(const [k,v] of CACHE)if(Date.now()-v.at>CACHE_MS)CACHE.delete(k);
+          return out;
+        }
+      }
     }
-  }
+  })().finally(()=>PENDING.delete(pk));
+  PENDING.set(pk,p);
+  return p;
+}
+/* Data that arrives after the person has moved on is dropped: the promise
+   never settles, so the stale render stops at its await instead of painting
+   over the screen they went to. Each caller gets its own copy of the list. */
+async function fetchAll(build){
+  const gen=NAVGEN, ver=DATAVER;
+  const key=(ME&&ME.id||'')+' '+build().url;
+  const hit=CACHE.get(key);
+  if(hit&&hit.ver===ver&&Date.now()-hit.at<CACHE_MS)return hit.rows.slice();
+  const rows=await loadAll(build,key,ver);
+  if(gen!==NAVGEN)return abandoned();
+  return rows.slice();
 }
 /* An id list travels in the URL, and 2,800 ids is a 100KB address nothing
    will carry. A short list goes 200 at a time, all batches at once. A long
