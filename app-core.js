@@ -347,8 +347,13 @@ async function followUpToday(){
   const item=(l,meta)=>`<div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
       <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>
       <div class="t-meta">${meta}</div></div>`;
+  /* Got it sits beside the heading: since the import the list runs to 26 won
+     deals, and a button at the foot meant scrolling the whole card to close it */
   $('lead-modal').innerHTML=`
-    <h2>${nBoq?'Waiting on you':'Follow up today'}</h2>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+      <h2>${nBoq?'Waiting on you':'Follow up today'}</h2>
+      <button class="btn-sun" onclick="closeLead()" style="flex-shrink:0">Got it</button>
+    </div>
     <div class="sub">${[nDue?`${nDue} follow-up${nDue>1?'s':''} due today`:'',
        nBoq?`${nBoq} won deal${nBoq>1?'s':''} with no BOQ released`:''].filter(Boolean).join(' · ')}.</div>
     ${nBoq?`<div class="section sec-eng"><h4>BOQ not released</h4>
@@ -358,14 +363,17 @@ async function followUpToday(){
     ${nDue?`<div class="section sec-sales"><h4>Follow up today</h4>
       <div class="timeline">${due.map(l=>item(l,
         `${esc(l.phone||'no phone')} · ${stagePill(l.stage_code)}`)).join('')}</div>
-    </div>`:''}
-    <div class="modal-actions"><button class="btn-sun" onclick="closeLead()">Got it</button></div>`;
+    </div>`:''}`;
   $('lead-overlay').classList.add('open');
   /* the second reminder: the card is read once and dismissed, so an
      outstanding BOQ comes back as a pop a moment later */
-  if(nBoq)setTimeout(()=>popNotice({kind:'boq',lead_id:boq[0].id,
+  /* it waits for the card to be closed: on a bare four-second timer it landed
+     in the top-right corner over the card's own Got it button */
+  const pop=()=>popNotice({kind:'boq',lead_id:boq[0].id,
     message:nBoq===1?`${boq[0].customer_name} is won with no BOQ released.`
-      :`${nBoq} won deals have no BOQ released. ${boq[0].customer_name} is the oldest.`}),4000);
+      :`${nBoq} won deals have no BOQ released. ${boq[0].customer_name} is the oldest.`});
+  const whenClosed=()=>$('lead-overlay').classList.contains('open')?setTimeout(whenClosed,1000):setTimeout(pop,1500);
+  if(nBoq)setTimeout(whenClosed,4000);
 }
 
 /* 16px stroke glyphs, inline so the app keeps its one-request, no-dependency
