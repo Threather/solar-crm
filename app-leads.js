@@ -283,8 +283,11 @@ function drawWonTable(rows){
       <td>${fmtDate(l.stage_entered_at)}</td></tr>`).join('')+`</tbody></table>`;
 }
 function drawLostTable(rows){
+  /* lost before or after a quotation went out - see quoteStage */
+  const qcell=l=>{const s=quoteStage(l,!!l.last_quot);
+    return s==='unknown'?`<span style="color:var(--ink-mute)">${QUOTE_STAGE_TEXT[s]}</span>`:QUOTE_STAGE_TEXT[s];};
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Qualified</th><th>Sale engineer</th><th>Lost</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Qualified</th><th>Quotation</th><th>Sale engineer</th><th>Lost</th><th>Created</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -292,6 +295,7 @@ function drawLostTable(rows){
       <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
       <td>${qualPill(l)}</td>
+      <td class="nowrap">${qcell(l)}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'—'}</td>
       <td>${fmtDate(l.stage_entered_at)}</td>
       <td>${fmtDate(l.created_at)}</td></tr>`).join('')+`</tbody></table>`;

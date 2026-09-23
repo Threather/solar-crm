@@ -601,6 +601,21 @@ async function byLeadIds(build,ids){
    destructures {data:x} changes nothing but the one line. The build must be
    ordered on something unique, or rows past the first thousand can repeat. */
 const rowsOf=build=>fetchAll(build).then(data=>({data}),error=>({data:null,error}));
+/* Whether a lost lead had a quotation out: 'after', 'before' or 'unknown'.
+   Read off the quotations, never the stage - sales quote without moving it.
+   Quotations are always made in the CRM (Kevin, 23 Sep 2026), so for any lead
+   created here the answer is certain. The Excel import carried no quotation
+   records, so an imported lead that qualified and was then lost cannot be
+   told apart and says so; one that never qualified was never priced.
+   The import is marked by date rather than by a missing lost reason: the app
+   lets a reason be skipped, so a blank reason is not a sign of the import. */
+const IMPORTED_BEFORE='2026-09-22';
+function quoteStage(l,hasQuote){
+  if(hasQuote)return 'after';
+  if(localDay(l.created_at)<IMPORTED_BEFORE&&l.qualification==='qualified')return 'unknown';
+  return 'before';
+}
+const QUOTE_STAGE_TEXT={after:'After quotation',before:'Before quotation',unknown:'Unknown'};
 /* the dashboards' form: no leads is an empty list, and a failed read is logged
    and treated as empty, as the .then(r=>r.data||[]) it replaced did */
 function repByIds(build,ids){

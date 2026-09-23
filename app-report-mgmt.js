@@ -176,8 +176,12 @@ async function renderMgmtReport(){
   /* ---- closed-lost ---- */
   const reasons={};
   lostInWin.forEach(l=>{const r=l.lost_reason||'Not recorded';reasons[r]=(reasons[r]||0)+1;});
-  const lostAfter=lostInWin.filter(wasQuoted);
-  const lostBefore=lostInWin.filter(l=>!wasQuoted(l));
+  /* three groups, not two: the imported leads that qualified and were lost
+     carried no quotation records, and counting them "before" said nearly
+     nobody was ever lost after a price - see quoteStage */
+  const lostAfter=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='after');
+  const lostBefore=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='before');
+  const lostUnknown=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='unknown');
   const lostAfterValue=lostAfter.reduce((a,l)=>a+Number(quotBy[l.id]?.price_usd||0),0);
 
   /* ---- month by month ---- */
@@ -326,10 +330,12 @@ async function renderMgmtReport(){
     ${repPanel('Closed-lost, before or after a quotation',
       lostInWin.length
         ?gSplit([['After a quotation',lostAfter.length,'var(--bad)'],
-                 ['Before any quotation',lostBefore.length,'var(--viz-s2)']],
-            'after '+pct(lostAfter.length,lostInWin.length),'before')
+                 ['Before any quotation',lostBefore.length,'var(--viz-s2)'],
+                 ['Unknown',lostUnknown.length,'var(--viz-mute)']],
+            'after '+pct(lostAfter.length,lostAfter.length+lostBefore.length)+' of known','before')
          +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
-                  ['Before any quotation',lostBefore.length,'']])
+                  ['Before any quotation',lostBefore.length,''],
+                  ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
         :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'),true)}
   `;
 }
