@@ -171,6 +171,9 @@ async function renderReports(){
   if(!scopes.length){$('main').innerHTML=blank('No report for your team',
     'Reports are built per team and yours does not have one yet.');return;}
   if(!scopes.find(([k])=>k===REPSCOPE))REPSCOPE=scopes[0][0];
+  /* a new scope, period or date range is a new screen: whatever the last one
+     was still loading must not land on top of it */
+  NAVGEN++;
   $('main').innerHTML=SKEL;
   return window[REP_RENDER[REPSCOPE]]();
 }
@@ -224,12 +227,12 @@ const monthStart=d=>{const x=d?new Date(d):new Date();return localDay(new Date(x
 async function loadStageHistory(ids){
   const reached={};
   ids.forEach(id=>reached[id]=new Set());
-  for(let i=0;i<ids.length;i+=200){
-    const {data}=await sb.from('lead_activities')
-      .select('lead_id,to_stage,created_at')
-      .in('lead_id',ids.slice(i,i+200)).eq('activity_type','stage_change');
-    (data||[]).forEach(a=>{if(a.to_stage&&reached[a.lead_id])reached[a.lead_id].add(a.to_stage);});
-  }
+  /* through byLeadIds like every other lookup: this loop went 200 ids at a
+     time one after another, fifteen trips, and was most of the seven seconds
+     the Marketing report took after the import */
+  const data=await repByIds(()=>sb.from('lead_activities')
+    .select('lead_id,to_stage,created_at').eq('activity_type','stage_change').order('id'),ids);
+  data.forEach(a=>{if(a.to_stage&&reached[a.lead_id])reached[a.lead_id].add(a.to_stage);});
   return reached;
 }
 /* stage order, so "reached quotation sent or beyond" is one comparison.

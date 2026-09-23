@@ -18,18 +18,25 @@ async function renderLeads(scope){
   /* sale values come from their own table, and only for roles the database
      lets read it — for anyone else they simply stay undefined */
   const ids=LEADS.map(l=>l.id);
+  /* the three lookups run side by side; one after another they were most of
+     the wait. Each orders on something unique, so a table past a thousand
+     rows pages without repeating any. */
+  const soft=p=>p.catch(e=>{console.error(e);return[];});
+  const [fins,rem,qs]=LEADS.length?await Promise.all([
+    canSeeMoney()?soft(byLeadIds(()=>sb.from('lead_financials')
+      .select('lead_id,final_sale_usd').order('lead_id'),ids)):[],
+    soft(byLeadIds(()=>sb.from('lead_activities')
+      .select('lead_id,note,note_date,created_at,actor_id')
+      .not('note','is',null).order('created_at',{ascending:false}).order('id'),ids)),
+    soft(byLeadIds(()=>sb.from('quotations')
+      .select('lead_id,price_usd,created_at').order('created_at',{ascending:false}).order('id'),ids))
+  ]):[[],[],[]];
   if(canSeeMoney()&&LEADS.length){
-    const fins=await byLeadIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd'),ids)
-      .catch(e=>{console.error(e);return[];});
     const byId=Object.fromEntries(fins.map(f=>[f.lead_id,f.final_sale_usd]));
     LEADS.forEach(l=>{l.final_sale_usd=byId[l.id]??null;});
   }
   /* the newest remark per lead, so sales can read the list without opening rows */
   if(LEADS.length){
-    const rem=await byLeadIds(()=>sb.from('lead_activities')
-      .select('lead_id,note,note_date,created_at,actor_id')
-      .not('note','is',null).order('created_at',{ascending:false}),ids)
-      .catch(e=>{console.error(e);return[];});
     const by={};
     rem.forEach(a=>{(by[a.lead_id]=by[a.lead_id]||[]).push(a);});
     LEADS.forEach(l=>{
@@ -38,9 +45,6 @@ async function renderLeads(scope){
     });
     /* the last price quoted, for the column that replaces the salesperson's
        own name when they are looking at their own list */
-    const qs=await byLeadIds(()=>sb.from('quotations')
-      .select('lead_id,price_usd,created_at').order('created_at',{ascending:false}),ids)
-      .catch(e=>{console.error(e);return[];});
     const qby={};
     qs.forEach(q=>{if(!qby[q.lead_id])qby[q.lead_id]=q;});
     LEADS.forEach(l=>{l.last_quot=qby[l.id]||null;});

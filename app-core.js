@@ -434,6 +434,7 @@ function go(v){
   /* nothing renders once the session has gone - the login screen is up and a
      render would only read a profile that no longer has a token behind it */
   if(AUTH_LOST)return;
+  NAVGEN++;
   VIEW=v;
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
@@ -485,25 +486,45 @@ async function loadVocab(){
    2026 - every list and report short, no error anywhere. Anything that can
    grow past that goes through here a page at a time. `build` returns a fresh
    query each call, because a Supabase query cannot be awaited twice. */
+/* Which screen asked. go() and renderReports move it on. A screen takes
+   seconds to load since the import, and two loads in flight both write to
+   #main when they land - so leaving a report half-loaded, or clicking
+   Management then Marketing, could leave you looking at the one you left. */
+let NAVGEN=0;
+const abandoned=()=>new Promise(()=>{});
+/* Four pages are asked for at once rather than one after another: 2,832
+   leads took 3.6s in three trips and one round covers them now. Data that
+   arrives after the person has moved on is dropped: the promise never
+   settles, so the stale render stops at its await instead of painting over
+   the screen they went to. */
 async function fetchAll(build){
-  const out=[];
-  for(let from=0;;from+=1000){
-    const {data,error}=await build().range(from,from+999);
-    if(error)throw error;
-    out.push(...(data||[]));
-    if(!data||data.length<1000)return out;
+  const gen=NAVGEN, out=[];
+  for(let from=0;;from+=4000){
+    const pages=await Promise.all([0,1,2,3].map(k=>
+      build().range(from+k*1000,from+k*1000+999)));
+    if(gen!==NAVGEN)return abandoned();
+    for(const {data,error} of pages){
+      if(error)throw error;
+      out.push(...(data||[]));
+      if(!data||data.length<1000)return out;
+    }
   }
 }
 /* An id list travels in the URL, and 2,800 ids is a 100KB address nothing
-   will carry. Sent 200 at a time, as app-reports.js already did, each batch
-   paged as above. */
+   will carry. A short list goes 200 at a time, all batches at once. A long
+   one - admin and the manager see every lead - reads the table whole and
+   keeps the rows asked for: fifteen trips per table had made opening Leads
+   take 17 seconds. Row Level Security still decides what comes back.
+   The build must order on something unique, or paging can repeat rows. */
 async function byLeadIds(build,ids){
-  const out=[];
-  for(let i=0;i<ids.length;i+=200){
-    const chunk=ids.slice(i,i+200);
-    out.push(...await fetchAll(()=>build().in('lead_id',chunk)));
+  if(ids.length>400){
+    const want=new Set(ids);
+    return (await fetchAll(build)).filter(r=>want.has(r.lead_id));
   }
-  return out;
+  const chunks=[];
+  for(let i=0;i<ids.length;i+=200)chunks.push(ids.slice(i,i+200));
+  const parts=await Promise.all(chunks.map(c=>fetchAll(()=>build().in('lead_id',c))));
+  return parts.flat();
 }
 /* fetchAll in the {data,error} shape a plain await returns, so a caller that
    destructures {data:x} changes nothing but the one line. The build must be

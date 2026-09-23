@@ -62,11 +62,11 @@ async function renderSalesReport(){
 
   const [tg,acts,quots,fins,pays,finrows]=await Promise.all([
     loadTargets(mStart),
-    repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date,to_stage'),ids),
-    repByIds(()=>sb.from('quotations').select('lead_id,price_usd,created_at').order('created_at'),ids),
-    repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd'),ids),
-    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on'),ids),
-    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date'),ids)
+    repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date,to_stage').order('id'),ids),
+    repByIds(()=>sb.from('quotations').select('lead_id,price_usd,created_at').order('created_at').order('id'),ids),
+    repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
+    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').order('id'),ids),
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids)
   ]);
 
   const byId={}; rows.forEach(l=>byId[l.id]=l);
