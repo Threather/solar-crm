@@ -84,8 +84,8 @@ async function renderIncentive(){
 
   const rows=await fetchLeads(q=>q);
   const byLead={}; rows.forEach(l=>byLead[l.id]=l);
-  const {data:pays}=await sb.from('lead_payments').select('lead_id,amount_usd,paid_on')
-    .gte('paid_on',from).lte('paid_on',to);
+  const {data:pays}=await rowsOf(()=>sb.from('lead_payments').select('lead_id,amount_usd,paid_on')
+    .gte('paid_on',from).lte('paid_on',to).order('id'));
   const collected={};
   (pays||[]).forEach(p=>{const l=byLead[p.lead_id];if(!l||!l.assigned_to)return;
     collected[l.assigned_to]=(collected[l.assigned_to]||0)+Number(p.amount_usd||0);});
@@ -107,7 +107,7 @@ async function renderIncentive(){
   const r=incentiveFor(people);
   /* third-party referral runs on a rolling twelve months, not the month the
      rest of this screen is worked on, so it says so on its own heading */
-  const {data:fins}=await sb.from('lead_financials').select('lead_id,final_sale_usd');
+  const {data:fins}=await rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'));
   const saleBy={};(fins||[]).forEach(f=>saleBy[f.lead_id]=Number(f.final_sale_usd||0));
   const tp=thirdPartyRows(rows,saleBy,INCMONTH);
   TPROWS=tp.rows;TPWINDOW=tp;

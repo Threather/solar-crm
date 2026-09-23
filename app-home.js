@@ -153,9 +153,9 @@ function homeSite(rows){
 async function homeFinance(){
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const [{data:fins},{data:pays},{data:sale}]=await Promise.all([
-    sb.from('lead_finance').select('*'),
-    sb.from('lead_payments').select('lead_id,amount_usd'),
-    sb.from('lead_financials').select('lead_id,final_sale_usd')
+    rowsOf(()=>sb.from('lead_finance').select('*').order('lead_id')),
+    rowsOf(()=>sb.from('lead_payments').select('lead_id,amount_usd').order('id')),
+    rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'))
   ]);
   const finBy=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f]));
   const saleBy=Object.fromEntries((sale||[]).map(f=>[f.lead_id,f.final_sale_usd]));

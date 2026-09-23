@@ -44,9 +44,9 @@ async function renderFinance(){
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const ids=leads.map(l=>l.id);
   const [{data:fins},{data:pays},{data:sale}]=await Promise.all([
-    sb.from('lead_finance').select('*'),
-    sb.from('lead_payments').select('*').order('paid_on'),
-    sb.from('lead_financials').select('lead_id,final_sale_usd')
+    rowsOf(()=>sb.from('lead_finance').select('*').order('lead_id')),
+    rowsOf(()=>sb.from('lead_payments').select('*').order('paid_on').order('id')),
+    rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'))
   ]);
   const finBy=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f]));
   const saleBy=Object.fromEntries((sale||[]).map(f=>[f.lead_id,f.final_sale_usd]));

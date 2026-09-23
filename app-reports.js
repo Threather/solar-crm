@@ -759,8 +759,8 @@ async function renderQuots(){
   /* name the foreign key: since leads.chosen_quotation_id was added there are
      two relationships between these tables, and an unqualified embed is
      ambiguous (PGRST201). This one is the quotation's own lead. */
-  const {data:quots,error}=await sb.from('quotations')
-    .select('*, leads!quotations_lead_id_fkey(ref_id, customer_name)').order('created_at',{ascending:false});
+  const {data:quots,error}=await rowsOf(()=>sb.from('quotations')
+    .select('*, leads!quotations_lead_id_fkey(ref_id, customer_name)').order('created_at',{ascending:false}).order('id'));
   if(error){$('main').innerHTML=blank('Could not load quotations','Check your connection and refresh. If it keeps happening, tell your admin.');return;}
   QUOTS=quots||[];
   /* only offer months that actually have quotations, newest first */

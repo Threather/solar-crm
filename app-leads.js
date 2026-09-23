@@ -17,31 +17,32 @@ async function renderLeads(scope){
   });
   /* sale values come from their own table, and only for roles the database
      lets read it — for anyone else they simply stay undefined */
+  const ids=LEADS.map(l=>l.id);
   if(canSeeMoney()&&LEADS.length){
-    const {data:fins}=await sb.from('lead_financials')
-      .select('lead_id,final_sale_usd').in('lead_id',LEADS.map(l=>l.id));
-    const byId=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f.final_sale_usd]));
+    const fins=await byLeadIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd'),ids)
+      .catch(e=>{console.error(e);return[];});
+    const byId=Object.fromEntries(fins.map(f=>[f.lead_id,f.final_sale_usd]));
     LEADS.forEach(l=>{l.final_sale_usd=byId[l.id]??null;});
   }
   /* the newest remark per lead, so sales can read the list without opening rows */
   if(LEADS.length){
-    const {data:rem}=await sb.from('lead_activities')
+    const rem=await byLeadIds(()=>sb.from('lead_activities')
       .select('lead_id,note,note_date,created_at,actor_id')
-      .in('lead_id',LEADS.map(l=>l.id)).not('note','is',null)
-      .order('created_at',{ascending:false});
+      .not('note','is',null).order('created_at',{ascending:false}),ids)
+      .catch(e=>{console.error(e);return[];});
     const by={};
-    (rem||[]).forEach(a=>{(by[a.lead_id]=by[a.lead_id]||[]).push(a);});
+    rem.forEach(a=>{(by[a.lead_id]=by[a.lead_id]||[]).push(a);});
     LEADS.forEach(l=>{
       l.remarks=humanNotes(by[l.id]).sort((x,y)=>remarkDate(y).localeCompare(remarkDate(x)));
       l.last_remark=l.remarks[0]||null;
     });
     /* the last price quoted, for the column that replaces the salesperson's
        own name when they are looking at their own list */
-    const {data:qs}=await sb.from('quotations')
-      .select('lead_id,price_usd,created_at').in('lead_id',LEADS.map(l=>l.id))
-      .order('created_at',{ascending:false});
+    const qs=await byLeadIds(()=>sb.from('quotations')
+      .select('lead_id,price_usd,created_at').order('created_at',{ascending:false}),ids)
+      .catch(e=>{console.error(e);return[];});
     const qby={};
-    (qs||[]).forEach(q=>{if(!qby[q.lead_id])qby[q.lead_id]=q;});
+    qs.forEach(q=>{if(!qby[q.lead_id])qby[q.lead_id]=q;});
     LEADS.forEach(l=>{l.last_quot=qby[l.id]||null;});
   }
   paintLeads();
@@ -59,15 +60,15 @@ function paintLeads(){
         ${[['active','Active'],['won','Won'],['lost','Lost']].map(([k,label])=>
           `<button class="${LEADSCOPE===k?'on':''}" onclick="setScope('${k}')">${label}</button>`).join('')}
       </div>`}
-      <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;drawTable()">
+      <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;LEADPAGE=0;drawTable()">
       ${(LEADSCOPE==='active'&&!mktOnly())?`
-      <select onchange="FILTER.stage=this.value;drawTable()"><option value="">All stages</option>${stg}</select>
-      <select onchange="FILTER.qual=this.value;drawTable()">
+      <select onchange="FILTER.stage=this.value;LEADPAGE=0;drawTable()"><option value="">All stages</option>${stg}</select>
+      <select onchange="FILTER.qual=this.value;LEADPAGE=0;drawTable()">
         <option value="">All leads</option>
         <option value="qualified" ${FILTER.qual==='qualified'?'selected':''}>Qualified only</option>
         <option value="none" ${FILTER.qual==='none'?'selected':''}>Not qualified yet</option>
       </select>`:''}
-      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};paintLeads()">Clear</button>
+      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};LEADPAGE=0;paintLeads()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
@@ -80,6 +81,7 @@ function setScope(s){
   if(LEADSCOPE===s)return;
   LEADSCOPE=s;
   FILTER={stage:'',q:'',qual:''};
+  LEADPAGE=0;
   paintLeads();
 }
 function mktStats(rows){
@@ -142,16 +144,50 @@ function filteredLeads(){
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
   return rows;
 }
+/* marketing's list reads by the date the lead came in, which the person can
+   backdate - so it is sorted on that, created_at breaking ties. Done before
+   the page is cut, or page one would be fifty arbitrary rows sorted among
+   themselves rather than the newest fifty. */
+function mktSort(rows){
+  return rows.slice().sort((a,b)=>
+    ((b.lead_date||localDay(b.created_at))+b.created_at)
+      .localeCompare((a.lead_date||localDay(a.created_at))+a.created_at));
+}
 function drawTable(){
-  const rows=filteredLeads();
-  if(!rows.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual
+  let all=filteredLeads();
+  if(!all.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual
     ?blank('No matches','Nothing in this list fits the current search or filters. Clear them to see everything.')
     :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a sale engineer marks them Closed-Won.')
     :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
     :blank('No active leads','New leads land here as soon as they are created.');return;}
-  if(mktOnly())return drawMktTable(rows);
-  if(LEADSCOPE==='won')return drawWonTable(rows);
-  if(LEADSCOPE==='lost')return drawLostTable(rows);
+  if(mktOnly())all=mktSort(all);
+  const pages=Math.ceil(all.length/PAGE_SIZE);
+  if(LEADPAGE>pages-1)LEADPAGE=pages-1;
+  const rows=all.slice(LEADPAGE*PAGE_SIZE,(LEADPAGE+1)*PAGE_SIZE);
+  if(mktOnly())drawMktTable(rows);
+  else if(LEADSCOPE==='won')drawWonTable(rows);
+  else if(LEADSCOPE==='lost')drawLostTable(rows);
+  else drawActiveTable(rows);
+  $('tablewrap').insertAdjacentHTML('beforeend',pager(all.length,pages));
+}
+function pager(total,pages){
+  if(pages<2)return '';
+  const from=LEADPAGE*PAGE_SIZE+1, to=Math.min(total,(LEADPAGE+1)*PAGE_SIZE);
+  return `<div class="pager">
+      <span>${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}</span>
+      <button class="btn-line" onclick="goPage(0)" ${LEADPAGE?'':'disabled'}>First</button>
+      <button class="btn-line" onclick="goPage(${LEADPAGE-1})" ${LEADPAGE?'':'disabled'}>Previous</button>
+      <span class="pg">Page ${LEADPAGE+1} of ${pages}</span>
+      <button class="btn-line" onclick="goPage(${LEADPAGE+1})" ${LEADPAGE<pages-1?'':'disabled'}>Next</button>
+      <button class="btn-line" onclick="goPage(${pages-1})" ${LEADPAGE<pages-1?'':'disabled'}>Last</button>
+    </div>`;
+}
+function goPage(n){
+  LEADPAGE=Math.max(0,n);
+  drawTable();
+  $('tablewrap').scrollIntoView({block:'start',behavior:'smooth'});
+}
+function drawActiveTable(rows){
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
     <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
   </tr></thead><tbody>`+rows.map(l=>{
@@ -174,13 +210,7 @@ function drawTable(){
    reach them, whose it is, where it came from and where it is. The date leads
    because that is how they work the list - today's calls first. */
 function drawMktTable(rows){
-  /* the list is fetched newest-created first, but the column on screen is the
-     date the lead came in, which the person can backdate. Sorting by anything
-     other than the date being shown reads as a jumbled list, so it is sorted
-     on that, with created_at breaking ties. */
-  rows=rows.slice().sort((a,b)=>
-    ((b.lead_date||localDay(b.created_at))+b.created_at)
-      .localeCompare((a.lead_date||localDay(a.created_at))+a.created_at));
+  /* already sorted by mktSort in drawTable, before the page was cut */
   $('tablewrap').innerHTML=`<table><thead><tr>
     <th>Date</th><th>Customer</th><th>Phone</th><th>Sale engineer</th><th>Channel</th><th>Address</th><th>Follow-up</th>
   </tr></thead><tbody>`+rows.map(l=>{

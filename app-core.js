@@ -8,6 +8,10 @@ let ME=null, STAGES=[], STAFF=[], LEADS=[], QUOTS=[], VIEW='leads', LEADLOCK=tru
 let LEADSCOPE='active';
 let FINROWS=[];
 let FILTER={stage:'',q:'',qual:''};
+/* the leads table shows one page of the filtered rows; search and filters
+   still run over all of them */
+let LEADPAGE=0;
+const PAGE_SIZE=50;
 /* finance has its own working filters, kept apart from the leads ones */
 let FINFILTER={status:'',acct:'',eng:'',due:'',from:'',to:''};
 let QFILTER={q:'',month:'',date:''};
@@ -476,10 +480,50 @@ async function loadVocab(){
 }
 
 /* ---------------- data ---------------- */
+/* PostgREST returns at most 1,000 rows and says nothing about the rest, so an
+   unlimited select handed back a third of the 2,832 leads imported on 23 Sep
+   2026 - every list and report short, no error anywhere. Anything that can
+   grow past that goes through here a page at a time. `build` returns a fresh
+   query each call, because a Supabase query cannot be awaited twice. */
+async function fetchAll(build){
+  const out=[];
+  for(let from=0;;from+=1000){
+    const {data,error}=await build().range(from,from+999);
+    if(error)throw error;
+    out.push(...(data||[]));
+    if(!data||data.length<1000)return out;
+  }
+}
+/* An id list travels in the URL, and 2,800 ids is a 100KB address nothing
+   will carry. Sent 200 at a time, as app-reports.js already did, each batch
+   paged as above. */
+async function byLeadIds(build,ids){
+  const out=[];
+  for(let i=0;i<ids.length;i+=200){
+    const chunk=ids.slice(i,i+200);
+    out.push(...await fetchAll(()=>build().in('lead_id',chunk)));
+  }
+  return out;
+}
+/* fetchAll in the {data,error} shape a plain await returns, so a caller that
+   destructures {data:x} changes nothing but the one line. The build must be
+   ordered on something unique, or rows past the first thousand can repeat. */
+const rowsOf=build=>fetchAll(build).then(data=>({data}),error=>({data:null,error}));
+/* the dashboards' form: no leads is an empty list, and a failed read is logged
+   and treated as empty, as the .then(r=>r.data||[]) it replaced did */
+function repByIds(build,ids){
+  if(!ids.length)return Promise.resolve([]);
+  return byLeadIds(build,ids).catch(e=>{console.error(e);return[];});
+}
 async function fetchLeads(extra){
-  let q=sb.from('leads').select('*').eq('is_deleted',false).order('created_at',{ascending:false});
-  if(extra)q=extra(q);
-  const {data,error}=await q;
-  if(error){toast('Could not load leads');console.error(error);return[];}
-  return data||[];
+  /* id breaks ties: imported leads carry created_at at 03:00 on their lead
+     date, so hundreds share one timestamp, and paging on it alone would shuffle
+     them between pages - dropping some and repeating others */
+  try{
+    return await fetchAll(()=>{
+      const q=sb.from('leads').select('*').eq('is_deleted',false)
+        .order('created_at',{ascending:false}).order('id');
+      return extra?extra(q):q;
+    });
+  }catch(error){toast('Could not load leads');console.error(error);return[];}
 }

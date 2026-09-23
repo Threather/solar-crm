@@ -62,11 +62,11 @@ async function renderSalesReport(){
 
   const [tg,acts,quots,fins,pays,finrows]=await Promise.all([
     loadTargets(mStart),
-    ids.length?sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date,to_stage').in('lead_id',ids).then(r=>r.data||[]):[],
-    ids.length?sb.from('quotations').select('lead_id,price_usd,created_at').in('lead_id',ids).order('created_at').then(r=>r.data||[]):[],
-    ids.length?sb.from('lead_financials').select('lead_id,final_sale_usd').in('lead_id',ids).then(r=>r.data||[]):[],
-    ids.length?sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').in('lead_id',ids).then(r=>r.data||[]):[],
-    ids.length?sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').in('lead_id',ids).then(r=>r.data||[]):[]
+    repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date,to_stage'),ids),
+    repByIds(()=>sb.from('quotations').select('lead_id,price_usd,created_at').order('created_at'),ids),
+    repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd'),ids),
+    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on'),ids),
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date'),ids)
   ]);
 
   const byId={}; rows.forEach(l=>byId[l.id]=l);

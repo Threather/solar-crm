@@ -18,9 +18,9 @@ async function renderAfterSale(){
   $('main').innerHTML=SKEL;
   /* leads and after_sales have one foreign key between them, but naming it
      keeps this safe if a second one is ever added */
-  const {data,error}=await sb.from('after_sales')
+  const {data,error}=await rowsOf(()=>sb.from('after_sales')
     .select('*, leads!after_sales_lead_id_fkey(ref_id,customer_name,phone,site_address,commune,district,province,city_province,assigned_to,site_engineer_id,system_type,panel_kwp,inverter_kw,inverter_pcs,stage_entered_at)')
-    .order('issue_date',{ascending:false});
+    .order('issue_date',{ascending:false}).order('id'));
   if(error){$('main').innerHTML=blank('Could not load after-sale cases',why(error));console.error(error);return;}
   ASROWS=data||[];
   paintAfterSale();
