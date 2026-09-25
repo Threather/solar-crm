@@ -224,40 +224,63 @@ async function repExportPdf(){
     toast('Preparing PDF…');
     if(!window.html2canvas) await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     if(!window.jspdf) await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    const bg=getComputedStyle(document.body).backgroundColor||'#ffffff';
+    /* PRINTED ON WHITE PAPER, NOT THE SCREEN'S. Each row used to carry the app's
+       warm background into the picture, so a page read as beige strips pasted
+       on white. .exporting whitens the page, outlines the cards so they still
+       read as cards, and drops the on-screen title - the PDF prints its own
+       heading and page numbers instead. */
+    const bg='#ffffff';
+    const title=$('main').querySelector('h2')?.textContent||'Report';
+    const when=repWindowSentence();
+    main.classList.add('exporting');
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-    const PW=297,PH=210,M=8,w=PW-2*M,room=PH-2*M,GAP=3;
-    const mmPerPx=w/main.getBoundingClientRect().width;
-    /* a heading stays on the page with whatever follows it */
-    const units=repExportUnits(main);
+    const PW=297,PH=210,M=10,TOP=17,BOT=12,w=PW-2*M,room=PH-TOP-BOT,GAP=4;
     const shots=[];
-    for(const el of units){
-      const c=await window.html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,logging:false});
-      const r=el.getBoundingClientRect();
-      shots.push({c,wmm:r.width*mmPerPx,hmm:r.height*mmPerPx,
-        glue:el.matches('h2,h3,.sub,.mg-head,.mg-band,.person,.sechead,p')});
-    }
-    let y=M,started=false;
+    try{
+      const units=repExportUnits(main);
+      /* scaled to the widest block, not to the screen with its padding, so the
+         content spans the page and sits centred rather than hugging the left */
+      const mmPerPx=w/Math.max(1,...units.map(el=>el.getBoundingClientRect().width));
+      for(const el of units){
+        const c=await window.html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,logging:false});
+        const r=el.getBoundingClientRect();
+        /* a heading stays on the page with whatever follows it */
+        shots.push({c,wmm:r.width*mmPerPx,hmm:r.height*mmPerPx,
+          glue:el.matches('h3,.mg-head,.mg-band,.person,.sechead,p')});
+      }
+    }finally{main.classList.remove('exporting');}
+    let y=TOP,started=false;
     const place=(img,x,wmm,hmm)=>{pdf.addImage(img,'JPEG',x,y,wmm,hmm);y+=hmm+GAP;started=true;};
-    const newPage=()=>{pdf.addPage();y=M;};
+    const newPage=()=>{pdf.addPage();y=TOP;};
     for(let i=0;i<shots.length;i++){
       const s=shots[i];
       /* the height this unit needs on the page, with any heading glued to what follows */
       let need=s.hmm;
       for(let j=i;shots[j]&&shots[j].glue&&shots[j+1];j++)need+=GAP+shots[j+1].hmm;
-      if(started&&y+Math.min(need,room)>PH-M)newPage();
-      if(s.hmm<=room){place(s.c.toDataURL('image/jpeg',0.92),M,s.wmm,s.hmm);continue;}
+      if(started&&y+Math.min(need,room)>PH-BOT)newPage();
+      if(s.hmm<=room){place(s.c.toDataURL('image/jpeg',0.92),M+(w-s.wmm)/2,s.wmm,s.hmm);continue;}
       /* taller than a page: slice it, one page at a time */
       const pxPerMm=s.c.height/s.hmm;
       let sy=0;
       while(sy<s.c.height-2){
-        const avail=(PH-M-y), hpx=Math.min(s.c.height-sy,Math.floor(avail*pxPerMm));
+        const avail=(PH-BOT-y), hpx=Math.min(s.c.height-sy,Math.floor(avail*pxPerMm));
         const part=document.createElement('canvas');part.width=s.c.width;part.height=hpx;
         part.getContext('2d').drawImage(s.c,0,sy,s.c.width,hpx,0,0,s.c.width,hpx);
         place(part.toDataURL('image/jpeg',0.92),M,s.wmm,hpx/pxPerMm);
         sy+=hpx;
         if(sy<s.c.height-2)newPage();
       }
+    }
+    /* a running head and a page count on every page, drawn by the PDF itself */
+    const n=pdf.getNumberOfPages(), printed=fmtDate(localDay(new Date()));
+    for(let i=1;i<=n;i++){
+      pdf.setPage(i);
+      pdf.setFont('helvetica','bold');pdf.setFontSize(10);pdf.setTextColor(26,23,20);
+      pdf.text('Solarworks CRM  ·  '+title,M,10.5);
+      pdf.setFont('helvetica','normal');pdf.setFontSize(8);pdf.setTextColor(107,104,98);
+      pdf.text(when+'  ·  printed '+printed,PW-M,10.5,{align:'right'});
+      pdf.setDrawColor(174,83,45);pdf.setLineWidth(0.5);pdf.line(M,13,PW-M,13);
+      pdf.setFontSize(8);pdf.text('Page '+i+' of '+n,PW/2,PH-5,{align:'center'});
     }
     const scope=(repScopes().find(([k])=>k===REPSCOPE)||[,'Report'])[1];
     pdf.save(`${scope} dashboard ${localDay(new Date())}.pdf`);

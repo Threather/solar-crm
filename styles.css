@@ -572,6 +572,13 @@ td.numcell b{font-weight:600}
 .kpis.seven .kpi .top{display:block}
 .kpis.seven .kpi .chip{margin-top:6px}
 .kpis.seven .kpi .n{font-size:24px}
+/* While a report is photographed for Export PDF: white paper, cards outlined
+   instead of lifted, and the on-screen title left off - the PDF prints its own */
+#main.exporting,#main.exporting *{box-shadow:none!important}
+#main.exporting{background:#fff}
+#main.exporting>h2,#main.exporting>.sub{display:none}
+#main.exporting .chartcard,#main.exporting .panel,#main.exporting .kpi{background:#fff;border:1px solid #e4dfd6}
+#main.exporting .mg-head{background:#fff}
 .kpis.seven.eight{grid-template-columns:repeat(8,minmax(0,1fr))}
 .kpis.seven.eight .kpi{padding:12px 10px 10px}
 .kpis.seven.eight .kpi .n{font-size:20px}
