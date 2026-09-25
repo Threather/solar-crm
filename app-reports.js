@@ -246,8 +246,12 @@ function repFigs(pairs){
 
 /* Targets for a month, read once and shared by whichever report needs them.
    Company-wide rows carry a null profile_id; per-person rows carry theirs. */
+/* A TARGET CARRIES FORWARD until somebody sets a new one (25 Sep 2026, the
+   client's rule): October with nothing typed uses September's. So every row up
+   to the month is read, oldest first, and a later month overwrites an earlier
+   one metric by metric. The Targets screen opens pre-filled the same way. */
 async function loadTargets(monthISO){
-  const {data,error}=await sb.from('targets').select('*').eq('month',monthISO);
+  const {data,error}=await sb.from('targets').select('*').lte('month',monthISO).order('month');
   if(error){console.error(error);return {company:{},person:{}};}
   const company={},person={};
   (data||[]).forEach(t=>{
