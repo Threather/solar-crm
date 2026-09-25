@@ -23,7 +23,9 @@
      18 and contrast of 5.1 and 4.7. The ramp is one hue light to dark for a
      progression: the funnel and the pipeline are magnitude, not identity.
      Re-run scripts/validate_palette.js before changing any of them. */
-  --viz-1:#ae532d; --viz-2:#177ba8; --viz-good:#1d7d3e;
+  /* --viz-1 was burnt orange #ae532d; the client asked for orange (25 Sep 2026).
+     #e07000 is the brightest orange still over 3:1 against the card (3.21). */
+  --viz-1:#e07000; --viz-2:#177ba8; --viz-good:#1d7d3e;
   /* Two more categorical slots, fitted the same way, for the channel chart -
      which had six hard-coded hexes of its own, two of them under the 3:1 mark
      floor. Worst pair across the five is 14.1 (viz-2 against viz-3), just
