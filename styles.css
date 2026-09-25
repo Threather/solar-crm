@@ -102,6 +102,8 @@ label{display:block;font-size:var(--t-cap);font-weight:600;color:var(--ink-soft)
   position:sticky;top:0;height:100vh;overflow-y:auto}
 .brand{font-weight:700;font-size:15px;display:flex;align-items:center;gap:9px;
   padding:0 var(--s-2) var(--s-5);color:var(--ink)}
+.login-logo{display:block;width:190px;height:auto;margin:0 0 14px}
+.brand img{display:block;width:100%;max-width:170px;height:auto}
 .brand .dot{width:13px;height:13px;border-radius:50%;flex:none;
   background:radial-gradient(circle at 35% 35%,#e9a98d,var(--sun))}
 nav{display:flex;flex-direction:column;gap:1px}
