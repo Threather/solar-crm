@@ -48,7 +48,7 @@ function popNotice(b){
   if(b.kind==='boq'){clearTimeout(POPTIMER);POPTIMER=setTimeout(hidePop,12000);return;}
   bellSound();
   if(window.Notification&&Notification.permission==='granted')
-    try{new Notification('Solar CRM',{body:b.message});}catch(e){}
+    try{new Notification('Solarworks CRM',{body:b.message});}catch(e){}
   clearTimeout(POPTIMER);
   POPTIMER=setTimeout(hidePop,9000);
 }
