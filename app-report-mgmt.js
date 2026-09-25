@@ -293,7 +293,7 @@ async function renderMgmtReport(){
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
-    <div class="homegrid three">
+    <div class="homegrid three mgrid">
       ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
         {title:'Raw lead target vs actual',colors:['var(--ink)','var(--viz-1)'],table:false,compact:true,
          cap:'Digital and offline marketing, '+monthName(thisM)})
@@ -308,7 +308,7 @@ async function renderMgmtReport(){
         {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
     </div>
 
-    <div class="homegrid three">
+    <div class="homegrid three mgrid">
       ${convMonths.length
         ?lineChart(convMonths.map(m=>monthName(m)),
           [{name:'Conversion',color:'var(--viz-2)',
@@ -328,7 +328,7 @@ async function renderMgmtReport(){
         :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
     </div>
 
-    <div class="homegrid three">
+    <div class="homegrid three mgrid">
       ${summary.length
         ?groupChart(summary.map(r=>first(r.p)),
           [{name:'# of Active Lead',color:'var(--ink)',values:summary.map(r=>r.active)},
@@ -350,7 +350,7 @@ async function renderMgmtReport(){
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
 
-    <div class="homegrid three">
+    <div class="homegrid three mgrid">
       ${contactAvg.length
         ?colChart(contactAvg.map(r=>r[0].split(' ')[0]),contactAvg.map(r=>r[1]),
           {title:'Avg. daily contact to customer',colors:contactAvg.map(r=>colOf[r[4]]),compact:true,table:false,
@@ -370,7 +370,7 @@ async function renderMgmtReport(){
         :emptyChart('Residential and C & I','No customer type recorded','No lead in the window has the field filled in.')}
     </div>
 
-    <div class="homegrid three">
+    <div class="homegrid three mgrid">
       ${quotRows.length
         ?colChart(quotRows.map(([id])=>id==='none'?'Not recorded':nameOf(id).split(' ')[0]),quotRows.map(r=>r[1]),
           {title:'# of quotation sent',colors:quotRows.map(([id])=>colOf[id]||'var(--viz-mute)'),compact:true,table:false})

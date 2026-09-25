@@ -99,7 +99,9 @@ function exportQuots(){
    with NO preset lit, behaving as All time while the buttons said otherwise.
    repRange() falls through to the all-time branch for an unknown value, which
    is why it looked right and read wrong. */
-let REPSCOPE='', REPPERIOD='all', REPFILTER={person:'',team:'',channel:''};
+/* THE REPORTS OPEN ON THIS MONTH (25 Sep 2026, the client's wish) and roll to
+   the next month on the 1st by themselves; All time is still one press away */
+let REPSCOPE='', REPPERIOD='month', REPFILTER={person:'',team:'',channel:''};
 /* Which report a role may see, and which one exists yet. The reports land one
    at a time, so a scope whose renderer has not shipped is left out rather than
    offered as a button that opens a blank page. */
@@ -118,12 +120,13 @@ function repScopes(){
 /* Two presets and a pair of dates. A week and a month were guesses at which
    window somebody wants; picking the dates answers it exactly, and the two
    that are worth a single click stay as buttons. */
-const REP_PERIODS=[['today','Today'],['all','All time']];
+const REP_PERIODS=[['today','Today'],['month','This month'],['all','All time']];
 let REPFROM='', REPTO='';
 /* every report reads the same window, so the switch means one thing everywhere */
 function repRange(p){
   const now=new Date(), d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   if(p==='today')return [localDay(d),localDay(d)];
+  if(p==='month')return [localDay(new Date(d.getFullYear(),d.getMonth(),1)),localDay(d)];
   if(p==='custom')return [REPFROM||'1970-01-01', REPTO||localDay(d)];
   return ['1970-01-01',localDay(d)];
 }
@@ -133,11 +136,14 @@ function repRange(p){
 function repPeriodWord(){
   if(REPPERIOD==='today')return 'today';
   if(REPPERIOD==='all')return 'ever';
+  if(REPPERIOD==='month')return 'this month';
   return 'in range';
 }
 function repWindowSentence(){
   if(REPPERIOD==='all')return 'Everything on record.';
   if(REPPERIOD==='today')return 'For today.';
+  if(REPPERIOD==='month'){const d=new Date();
+    return 'This month, '+fmtDate(localDay(new Date(d.getFullYear(),d.getMonth(),1)))+' to '+fmtDate(localDay(d))+'.';}
   if(REPFROM&&REPTO)return 'From '+fmtDate(REPFROM)+' to '+fmtDate(REPTO)+'.';
   if(REPFROM)return 'Since '+fmtDate(REPFROM)+'.';
   if(REPTO)return 'Up to '+fmtDate(REPTO)+'.';
@@ -161,7 +167,7 @@ function setRepScope(v){REPSCOPE=v;REPFILTER={person:'',team:'',channel:''};rend
 function setRepPeriod(v){REPPERIOD=v;REPFROM='';REPTO='';renderReports();}
 function setRepDates(which,v){
   if(which==='from')REPFROM=v; else REPTO=v;
-  REPPERIOD=(REPFROM||REPTO)?'custom':'all';
+  REPPERIOD=(REPFROM||REPTO)?'custom':'month';
   renderReports();
 }
 function setRepFilter(k,v){REPFILTER[k]=v;renderReports();}

@@ -582,6 +582,22 @@ td.numcell b{font-weight:600}
 #main.exporting .chartcard,#main.exporting .panel,#main.exporting .kpi{background:#fff;border:1px solid #e4dfd6}
 #main.exporting .mg-head{background:#fff}
 .kpis.seven.eight{grid-template-columns:repeat(8,minmax(0,1fr))}
+/* Management: every card in a row the same height, the title block the same
+   height, and each chart standing on the card's bottom edge - so a card with a
+   two-line title or no caption no longer sits shorter than its neighbours */
+.homegrid.mgrid{align-items:stretch}
+.homegrid.mgrid>.chartcard,.homegrid.mgrid>.panel{display:flex;flex-direction:column;margin:0}
+.homegrid.mgrid>.chartcard>h3{min-height:2.5em}
+.homegrid.mgrid>.chartcard>.chartsvg,.homegrid.mgrid>.panel>:last-child{margin-top:auto}
+/* Every figure on one line, centred. The label gets the same three-line box in
+   every card whatever its length, so the numbers cannot drift; the month badge
+   and the note go under the number instead of pushing it down. */
+.kpis.seven .kpi{display:flex;flex-direction:column;align-items:center;text-align:center}
+.kpis.seven .kpi .top{display:contents}
+.kpis.seven .kpi .l{order:1;min-height:5.2em;display:flex;align-items:flex-start;justify-content:center}
+.kpis.seven .kpi .n{order:2;margin:2px 0 6px}
+.kpis.seven .kpi .chip{order:3;margin:0 0 4px}
+.kpis.seven .kpi .note{order:4}
 .kpis.seven.eight .kpi{padding:12px 10px 10px}
 .kpis.seven.eight .kpi .n{font-size:20px}
 @media(max-width:1100px){.kpis.seven.eight{grid-template-columns:repeat(4,minmax(0,1fr))}}
