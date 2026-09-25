@@ -388,7 +388,7 @@ function gFunnel(steps,opts){
   return `<div class="gfunnel">`+steps.map(([k,v,color])=>{
     const pc=Math.round((v/base)*100);
     return `<div class="row"><span class="k">${esc(k)}</span>
-      <span class="track"><span class="fill" style="width:${Math.max(v?4:0,pc)}%;background:${color||'var(--own-sales)'}">${v?`<b>${esc(o.fmt?o.fmt(v):v)}</b>`:''}</span></span>
+      <span class="track"><span class="fill" style="width:${Math.max(v?4:0,pc)}%;background:${color||'var(--viz-1)'}">${v?`<b>${esc(o.fmt?o.fmt(v):v)}</b>`:''}</span></span>
       <span class="pc">${empty?'—':pc+'%'}</span></div>`;
   }).join('')+`</div>`+(o.cap?`<div class="cap" style="margin-top:12px">${esc(o.cap)}</div>`:'');
 }
@@ -416,7 +416,7 @@ function gRank(items,opts){
   const max=Math.max(1,...rows.map(r=>Number(r[1])));
   return `<div class="grank">`+rows.map(([k,v])=>
     `<div class="row"><span class="k" title="${esc(k)}">${esc(k)}</span>
-      <span class="track"><span class="fill" style="width:${Math.round((v/max)*100)}%;background:${o.color||'var(--own-sales)'}"></span></span>
+      <span class="track"><span class="fill" style="width:${Math.round((v/max)*100)}%;background:${o.color||'var(--viz-1)'}"></span></span>
       <span class="v">${esc(o.fmt?o.fmt(v):v)}</span></div>`).join('')+`</div>`;
 }
 /* how long each step takes. Laid on one timeline against the longest, so a
@@ -515,7 +515,7 @@ function gBullet(label,value,target,opts){
   const fmt=o.fmt||(x=>x);
   if(!t) return `<div class="gbullet">
       <div class="top"><span class="k">${esc(label)}</span><span class="v">${esc(fmt(v))}</span></div>
-      <div class="track"><span class="fill" style="width:100%;background:${o.color||'var(--own-sales)'};opacity:.25"></span></div>
+      <div class="track"><span class="fill" style="width:100%;background:${o.color||'var(--viz-1)'};opacity:.25"></span></div>
       <div class="foot"><span>${esc(o.emptyWhy||'no target set')}</span><span></span></div>
     </div>`;
   const scale=Math.max(v,t)*1.08;
@@ -523,7 +523,7 @@ function gBullet(label,value,target,opts){
   return `<div class="gbullet">
     <div class="top"><span class="k">${esc(label)}</span><span class="v">${esc(fmt(v))}</span></div>
     <div class="track">
-      <span class="fill" style="width:${Math.min(100,(v/scale)*100)}%;background:${pc>=100?'var(--ok)':(o.color||'var(--own-sales)')}"></span>
+      <span class="fill" style="width:${Math.min(100,(v/scale)*100)}%;background:${pc>=100?'var(--ok)':(o.color||'var(--viz-1)')}"></span>
       <span class="mark" style="left:${(t/scale)*100}%"></span>
     </div>
     <div class="foot"><span>${pc}% of target</span><span>target ${esc(fmt(t))}</span></div>
@@ -612,7 +612,7 @@ function colChart(labels,values,opts){
     const yy=y(v), h=PT+PH-yy;
     /* a colour per column where the columns mean different things - the four
        stages of the funnel - and one colour for the rest */
-    const fill=(o.colors&&o.colors[i])||o.color||'var(--own-sales)';
+    const fill=(o.colors&&o.colors[i])||o.color||'var(--viz-1)';
     if(v>0) bars+=(h>R*2?`<path d="${topPath(x,yy,bw,h,R)}" fill="${fill}">`
                         :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${fill}">`)
         + `<title>${esc(lab)}: ${esc(fmt(v))}</title>`

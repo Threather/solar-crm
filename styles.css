@@ -34,8 +34,9 @@
      clears 3:1 against the card. --viz-mute is for a residual "Other" bucket
      and is deliberately recessive; it is not a category. */
   --viz-3:#7652ac; --viz-4:#a49000; --viz-mute:#9b958a;
-  --viz-s1:#dda189; --viz-s2:#d08669; --viz-s3:#c26b49;
-  --viz-s4:#b35025; --viz-s5:#9f3600; --viz-s6:#881f00;
+  /* the ramp was brown; moved onto the orange hue with --viz-1 (25 Sep 2026) */
+  --viz-s1:#f9c98f; --viz-s2:#f4a94f; --viz-s3:#ec8c1e;
+  --viz-s4:#e07000; --viz-s5:#d06800; --viz-s6:#b85c00;
 
   /* the handoff is the product: every block carries its owner's hue */
   --own-sales:#a85841; --own-site:#7c7563; --own-eng:#4a7c8c;
@@ -507,7 +508,7 @@ td.numcell{position:relative;text-align:right;padding-right:12px !important;
   font-variant-numeric:tabular-nums;white-space:nowrap}
 td.numcell .cb{position:absolute;left:6px;right:6px;bottom:5px;height:3px;
   border-radius:99px;background:var(--sunk);overflow:hidden}
-td.numcell .cb i{display:block;height:100%;border-radius:99px;background:var(--own-sales);
+td.numcell .cb i{display:block;height:100%;border-radius:99px;background:var(--viz-1);
   opacity:.55;transition:width .3s cubic-bezier(.23,1,.32,1)}
 td.numcell.good .cb i{background:var(--ok);opacity:.6}
 td.numcell.zero{color:var(--ink-mute)}
@@ -770,7 +771,7 @@ td.numcell b{font-weight:600}
 /* display:block matters — a span is inline, and width and height do nothing on
    an inline box, so this drew a 0x0 fill inside a visible track. The bars have
    been empty since they were written. */
-.pipe .fill{display:block;height:100%;border-radius:99px;background:var(--sun);min-width:2px;
+.pipe .fill{display:block;height:100%;border-radius:99px;background:var(--viz-1);min-width:2px;
   transition:width .3s var(--ease)}
 .pipe .ct{width:22px;text-align:right;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .pipe .row.won .nm,.pipe .row.won .ct{color:var(--ink);font-weight:600}
