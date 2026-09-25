@@ -503,8 +503,7 @@ function colChart(labels,values,opts){
   let grid='',bars='',xlab='';
   for(let i=0;i<=4;i++){
     const v=step*i, yy=y(v);
-    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
-        + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${esc(o.axisFmt?o.axisFmt(v):v)}</text>`;
+    grid+=`<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${esc(o.axisFmt?o.axisFmt(v):v)}</text>`;
   }
   labels.forEach((lab,i)=>{
     const v=values[i]||0;
@@ -569,8 +568,7 @@ function groupChart(labels,series,opts){
   let grid='',bars='',xlab='';
   for(let i=0;i<=4;i++){
     const v=step*i, yy=y(v);
-    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
-        + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
+    grid+=`<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
   }
   labels.forEach((lab,li)=>{
     const groupW=ST?bwS:bw*n+inner*(n-1);
@@ -682,8 +680,7 @@ function lineChart(labels,series,opts){
   let grid='',lines='',xlab='';
   for(let i=0;i<=4;i++){
     const v=step*i, yy=y(v);
-    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
-        + `<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
+    grid+=`<text class="tick" x="${PL-(C?5:8)}" y="${yy+3}" text-anchor="end">${v}</text>`;
   }
   series.forEach(sr=>{
     const pts=sr.values.map((v,i)=>x(i)+','+y(Number(v||0))).join(' ');
@@ -751,8 +748,7 @@ function barChart(months,counts,used){
   let grid='',bars='',xlab='';
   for(let i=0;i<=4;i++){
     const v=step*i, yy=y(v);
-    grid+=`<line x1="${PL}" y1="${yy}" x2="${W-PR}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`
-        + `<text class="tick" x="${PL-8}" y="${yy+3}" text-anchor="end">${v}</text>`;
+    grid+=`<text class="tick" x="${PL-8}" y="${yy+3}" text-anchor="end">${v}</text>`;
   }
   months.forEach((m,mi)=>{
     const cx=PL+band*mi+band/2, x=cx-bw/2;
