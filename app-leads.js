@@ -68,10 +68,10 @@ const mktOnly=()=>ME.role==='marketing';
 function paintLeads(){
   const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
   const rows=scopeLeads();
-  $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
+  $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='all'?allStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
     <div class="toolbar">
       ${(ME.role==='site_engineer'||mktOnly())?'':`<div class="scope">
-        ${[['active','Active'],['won','Won'],['lost','Lost']].map(([k,label])=>
+        ${[['active','Active'],['won','Won'],['lost','Lost'],['all','All']].map(([k,label])=>
           `<button class="${LEADSCOPE===k?'on':''}" onclick="setScope('${k}')">${label}</button>`).join('')}
       </div>`}
       <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;LEADPAGE=0;drawTable()">
@@ -82,7 +82,18 @@ function paintLeads(){
         <option value="qualified" ${FILTER.qual==='qualified'?'selected':''}>Qualified only</option>
         <option value="none" ${FILTER.qual==='none'?'selected':''}>Not qualified yet</option>
       </select>`:''}
-      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:''};LEADPAGE=0;paintLeads()">Clear</button>
+      <select onchange="FILTER.channel=this.value;LEADPAGE=0;paintLeads()" title="Channel">
+        <option value="">All channels</option>
+        <option value="__mkt" ${FILTER.channel==='__mkt'?'selected':''}>Marketing (digital + offline)</option>
+        ${Object.keys(CHANNELS).map(c=>`<option value="${c}" ${FILTER.channel===c?'selected':''}>${esc(c.replace(/_/g,' '))}</option>`).join('')}
+        <option value="__none" ${FILTER.channel==='__none'?'selected':''}>No channel set</option>
+      </select>
+      <span class="daterange" title="The lead's own date">
+        <input type="date" value="${FILTER.from||''}" onchange="FILTER.from=this.value;LEADPAGE=0;paintLeads()" aria-label="From">
+        <span>to</span>
+        <input type="date" value="${FILTER.to||''}" onchange="FILTER.to=this.value;LEADPAGE=0;paintLeads()" aria-label="To">
+      </span>
+      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:'',from:'',to:'',channel:''};LEADPAGE=0;paintLeads()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
@@ -94,7 +105,9 @@ function paintLeads(){
 function setScope(s){
   if(LEADSCOPE===s)return;
   LEADSCOPE=s;
-  FILTER={stage:'',q:'',qual:''};
+  /* the dates and the channel carry across tabs: they say which leads, not
+     where a lead has got to */
+  FILTER={stage:'',q:'',qual:'',from:FILTER.from||'',to:FILTER.to||'',channel:FILTER.channel||''};
   LEADPAGE=0;
   paintLeads();
 }
@@ -135,6 +148,17 @@ function wonStats(rows){
       <div class="stat"><div class="n">${booked.length}</div><div class="l">Installation booked</div></div>
     </div>`;
 }
+/* every lead whatever its stage, which is what an export of "everything
+   between two dates" needs */
+function allStats(rows){
+  const f=filteredLeads();
+  return `<div class="stats">
+      <div class="stat hero"><div class="n">${f.length.toLocaleString()}</div><div class="l">Leads${f.length!==rows.length?' matching':''}</div></div>
+      <div class="stat"><div class="n">${f.filter(l=>!TERMINAL.includes(l.stage_code)).length.toLocaleString()}</div><div class="l">Active</div></div>
+      <div class="stat"><div class="n">${f.filter(l=>l.stage_code===WON).length.toLocaleString()}</div><div class="l">Won</div></div>
+      <div class="stat"><div class="n">${f.filter(l=>l.stage_code===LOST).length.toLocaleString()}</div><div class="l">Lost</div></div>
+    </div>`;
+}
 function lostStats(rows){
   return `<div class="stats">
       <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Lost leads</div></div>
@@ -145,6 +169,7 @@ function scopeLeads(){
   if(mktOnly())return LEADS;
   if(LEADSCOPE==='won')return LEADS.filter(l=>l.stage_code===WON);
   if(LEADSCOPE==='lost')return LEADS.filter(l=>l.stage_code===LOST);
+  if(LEADSCOPE==='all')return LEADS;
   return LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
 }
 function filteredLeads(){
@@ -154,6 +179,14 @@ function filteredLeads(){
     if(FILTER.qual==='none')rows=rows.filter(l=>qualText(l)!=='Qualified');
     else if(FILTER.qual==='qualified')rows=rows.filter(l=>qualText(l)==='Qualified');
   }
+  /* the lead's own date - the day it came in, as the reports count it - and
+     the channel, the two things "which leads" is usually asked by */
+  const dayOf=l=>l.lead_date||localDay(l.created_at);
+  if(FILTER.from)rows=rows.filter(l=>dayOf(l)>=FILTER.from);
+  if(FILTER.to)rows=rows.filter(l=>dayOf(l)<=FILTER.to);
+  if(FILTER.channel==='__mkt')rows=rows.filter(l=>['Digital_Marketing','Offline_Marketing'].includes(l.lead_channel));
+  else if(FILTER.channel==='__none')rows=rows.filter(l=>!l.lead_channel);
+  else if(FILTER.channel)rows=rows.filter(l=>l.lead_channel===FILTER.channel);
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
   return rows;
@@ -169,7 +202,7 @@ function mktSort(rows){
 }
 function drawTable(){
   let all=filteredLeads();
-  if(!all.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual
+  if(!all.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual||FILTER.from||FILTER.to||FILTER.channel
     ?blank('No matches','Nothing in this list fits the current search or filters. Clear them to see everything.')
     :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a sale engineer marks them Closed-Won.')
     :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
