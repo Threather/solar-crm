@@ -316,7 +316,7 @@ td.phone{white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--ink)}
 /* the running log, in the row itself: the newest remark in two lines, all of
    them on a click */
 td.cust{max-width:260px}
-td.rem{width:300px;max-width:300px;white-space:normal}
+td.rem{width:26%;min-width:170px;white-space:normal}
 .rstack{display:flex;flex-direction:column;gap:4px;cursor:pointer;border-radius:6px;
   margin:-4px -6px;padding:4px 6px}
 .rstack:hover{background:var(--sunk)}
@@ -329,8 +329,19 @@ td.rem{width:300px;max-width:300px;white-space:normal}
 .rmore{align-self:flex-start;margin-top:2px;padding:2px 7px;font-size:var(--t-cap);
   font-weight:600;color:var(--ink-soft);background:var(--sunk);border-radius:99px}
 .rstack:hover .rmore{color:var(--ink);background:var(--line)}
-/* the log needs room, so this table is allowed to be wider than the rest */
-table.with-rem{min-width:1120px}
+/* The table fits its card; the remarks take whatever room is left. It used to
+   be forced to 1120px, and on a laptop at 125% scaling the card is ~1025px, so
+   the remarks - the last column - ran off the right edge and read as cut text.
+   The other columns give up padding and wrapping to make that room. */
+#tablewrap th,#tablewrap td{padding-left:8px;padding-right:8px}
+table.with-rem td.refid{white-space:nowrap}
+/* 32 imported leads carry two or three numbers in one field, and a phone that
+   may not wrap made the whole column 192px wide - on the Active, Won and Lost
+   tables alike, pushing each one's last column off the card */
+#tablewrap td.phone{white-space:normal;max-width:140px;overflow-wrap:anywhere}
+#tablewrap td.phone .pooltag,#tablewrap td.phone .ph{white-space:nowrap}
+table.with-rem td.cust{max-width:200px}
+table.with-rem .stagepill{padding:2px 8px}
 td.nowrap{white-space:nowrap}
 .recent{margin-top:12px;padding-left:12px;border-left:2px solid var(--line)}
 .recent h4{font-size:var(--t-cap);text-transform:uppercase;letter-spacing:.08em;

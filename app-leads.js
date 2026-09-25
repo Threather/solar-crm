@@ -209,7 +209,7 @@ function drawActiveTable(rows){
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
-      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${stagePill(l.stage_code)}</td>
       <td>${qualPill(l)}</td>
       <td>${ME.role==='sales'
@@ -232,7 +232,7 @@ function drawMktTable(rows){
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
-      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}</td>
       <td>${esc(l.site_address||'—')}</td>
@@ -243,7 +243,19 @@ function drawMktTable(rows){
 const remarkDate=a=>a?(a.note_date||localDay(a.created_at)):'';
 /* the running log is the salesperson's working view, and nobody else's */
 const showRemarks=()=>ME.role==='sales'||ME.role==='admin';
-/* three most recent in the row, the rest one click away and still in the row */
+/* A phone field can hold two or three numbers - "0969999989 / 0769999989",
+   "077 59 87 89, 070 989 000" - since the Excel import. Each number is kept
+   whole and the entry wraps only between them, so a narrow column never
+   splits one across two lines. A slash counts as a separator only between
+   numbers, so "N/A Telegram" stays together. A long token with no break in
+   it (a t.me link) is left free to wrap anywhere. */
+function phoneCell(p){
+  const parts=String(p).split(/(\s*[,;]\s*|\s+\/\s+|(?<=\d)\s*\/\s*(?=[\d@+]))/);
+  return parts.map((s,i)=>{
+    if(i%2){const sep=s.trim();return sep===','||sep===';'?esc(sep)+' ':' '+esc(sep)+' ';}
+    return s.length<=16?`<span class="ph">${esc(s)}</span>`:esc(s);
+  }).join('');
+}
 /* The newest remark only, cut at two lines, until it is clicked. Three in
    full made every row as tall as its longest story once the Activity sheet
    brought eight dated lines to a lead. A click on the remarks opens them all
@@ -271,7 +283,7 @@ function drawWonTable(rows){
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
-      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${esc(staffName(l.assigned_to))}</td>
       <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
@@ -298,7 +310,7 @@ function drawLostTable(rows){
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
-      <td class="phone">${l.phone?esc(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
       <td>${qualPill(l)}</td>
       <td class="nowrap">${qcell(l)}</td>
