@@ -193,7 +193,45 @@ function repBar(title,extra){
         <input type="date" value="${REPTO}" onchange="setRepDates('to',this.value)" title="To" aria-label="To">
       </div>
       ${extra||''}
+      <button class="btn-line" onclick="repExportPdf()" style="margin-left:auto">Export PDF</button>
     </div>`;
+}
+/* Every dashboard exports the same way: the screen as it stands, photographed
+   onto landscape A4 the way the quotation's Download PDF is, toolbar left out.
+   A tall report runs onto further pages, cut between blocks where it can be. */
+async function repExportPdf(){
+  const main=$('main');
+  const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');
+    s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s);});
+  try{
+    toast('Preparing PDF…');
+    if(!window.html2canvas) await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    if(!window.jspdf) await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const bg=getComputedStyle(document.body).backgroundColor||'#ffffff';
+    const canvas=await window.html2canvas(main,{scale:2,backgroundColor:bg,useCORS:true,logging:false,
+      ignoreElements:el=>el.classList&&el.classList.contains('toolbar')});
+    const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+    const PW=297,PH=210,M=8,w=PW-2*M;
+    const pxPerMm=canvas.width/w, pagePx=Math.floor((PH-2*M)*pxPerMm);
+    /* cut at the gap between blocks: the last top edge of a card or grid row
+       that falls inside the page, so a chart is not sliced through */
+    const top=main.getBoundingClientRect().top, k=canvas.width/main.getBoundingClientRect().width;
+    const cuts=[...main.querySelectorAll('.kpis,.homegrid,.homegrid>*,.panel,.chartcard,.mg-head')]
+      .map(e=>Math.round((e.getBoundingClientRect().top-top-4)*k)).filter(v=>v>0).sort((a,b)=>a-b);
+    let y=0,first=true;
+    while(y<canvas.height-4){
+      let end=Math.min(canvas.height,y+pagePx);
+      if(end<canvas.height){const c=cuts.filter(v=>v>y+pagePx*0.4&&v<=end).pop();if(c)end=c;}
+      const part=document.createElement('canvas');part.width=canvas.width;part.height=end-y;
+      const g=part.getContext('2d');g.fillStyle=bg;g.fillRect(0,0,part.width,part.height);
+      g.drawImage(canvas,0,y,canvas.width,end-y,0,0,canvas.width,end-y);
+      if(!first)pdf.addPage();
+      pdf.addImage(part.toDataURL('image/jpeg',0.92),'JPEG',M,M,w,(end-y)/pxPerMm);
+      first=false;y=end;
+    }
+    const scope=(repScopes().find(([k])=>k===REPSCOPE)||[,'Report'])[1];
+    pdf.save(`${scope} dashboard ${localDay(new Date())}.pdf`);
+  }catch(e){console.error(e);toast('Export failed');}
 }
 /* a labelled block of figures, the shape every section of the client's
    document takes */
@@ -516,7 +554,7 @@ function colChart(labels,values,opts){
                         :`<rect x="${x}" y="${yy}" width="${bw}" height="${Math.max(1,h)}" fill="${fill}">`)
         + `<title>${esc(lab)}: ${esc(fmt(v))}</title>`
         + (h>R*2?'</path>':'</rect>');
-    if(v>0) bars+=`<text class="seglabel" x="${cx}" y="${yy-6}" text-anchor="middle" fill="var(--ink-2)">${esc(fmt(v))}</text>`;
+    if(v>0) bars+=`<text class="seglabel" x="${cx}" y="${yy-6}" text-anchor="middle" style="fill:var(--ink-2)">${esc(fmt(v))}</text>`;
   });
   const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
   xlab=ax.svg;
@@ -589,12 +627,12 @@ function groupChart(labels,series,opts){
           + `<title>${esc(lab)} \u00b7 ${esc(sr.name)}: ${v}</title>`
           + (capped&&h>R*2?'</path>':'</rect>');
       if(v>0&&ST&&h>=12) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
-      if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" fill="var(--ink-2)">${v}</text>`;
+      if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" style="fill:var(--ink-2)">${v}</text>`;
       acc+=v;
     });
     /* a stacked column carries its own total above it, the way his sheet
        labels each bar - the segments inside it carry their own parts */
-    if(ST&&acc>0) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-5}" text-anchor="middle" fill="var(--ink-2)">${acc}</text>`;
+    if(ST&&acc>0) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-5}" text-anchor="middle" style="fill:var(--ink-2)">${acc}</text>`;
   });
   const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
   xlab=ax.svg;
@@ -690,6 +728,9 @@ function lineChart(labels,series,opts){
     sr.values.forEach((v,i)=>{
       lines+=`<circle cx="${x(i)}" cy="${y(Number(v||0))}" r="${C?2.6:3.2}" fill="${sr.color}">`
            + `<title>${esc(labels[i])} · ${esc(sr.name)}: ${Number(v||0)}</title></circle>`;
+      /* the client's sheet writes every point's figure beside it */
+      if(o.values) lines+=`<text class="seglabel" x="${x(i)}" y="${y(Number(v||0))-6}" text-anchor="middle"
+        style="fill:${sr.color};font-size:${C?8.5:10}px">${esc(o.fmt?o.fmt(Number(v||0)):Number(v||0))}</text>`;
     });
   });
   const ticks=fitTicks(labels,n>1?plotW/(n-1):plotW);

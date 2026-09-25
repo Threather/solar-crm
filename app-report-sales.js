@@ -52,6 +52,11 @@ function saleWeeks(monthISO){
   return [['I',d(1),d(7)],['II',d(8),d(14)],['III',d(15),d(20)],['IV',d(21),d(last)]];
 }
 
+/* Daily, Weekly, MTD and MoM each on their own tab, so a salesperson opens
+   straight onto the view they want instead of scrolling past the others */
+let SALEVIEW='daily';
+function setSaleView(v){SALEVIEW=v;renderReports();}
+
 async function renderSalesReport(){
   const rows=await fetchLeads(q=>q);
   const ids=rows.map(l=>l.id);
@@ -171,12 +176,12 @@ async function renderSalesReport(){
       ${people.map(p=>`<option value="${p.id}" ${REPFILTER.person===p.id?'selected':''}>${esc(p.full_name)}</option>`).join('')}
     </select>`;
 
-  const head=`<tr><th>Sale engineer</th><th>#Lead Contact</th>${SALE_STAGES.map(([,n])=>`<th>${esc(n)}</th>`).join('')}</tr>`;
+  const head=`<tr><th>Sale engineer</th><th>#Lead Contact</th>${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>`;
   const stageTable=(a,b)=>{
     const body=shown.map(p=>{
       const r=stageRow(mine(p.id),a,b);
       return `<tr><td><b>${esc(p.full_name)}</b></td><td>${contactedIn(p.id,a,b)}</td>`
-        +r.map(v=>`<td>${v}</td>`).join('')+`</tr>`;}).join('');
+        +r.map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')+`</tr>`;}).join('');
     const totals=SALE_STAGES.map(([code])=>
       shown.reduce((x,p)=>x+mine(p.id).filter(l=>enteredIn(l,code,a,b)).length,0));
     const totContact=shown.reduce((x,p)=>x+contactedIn(p.id,a,b),0);
@@ -191,29 +196,61 @@ async function renderSalesReport(){
   const monthWin=m=>{const [y,mm]=m.split('-').map(Number);
     return [m+'-01',m+'-'+String(new Date(y,mm,0).getDate()).padStart(2,'0')];};
 
-  $('main').innerHTML=repBar('Sales report',personFilter)+`
-    <h3 style="font-size:15px;margin:4px 0 8px">1. Daily Sales Performance</h3>
+  /* day by day through this month, newest first, one table per person */
+  const dayRows=Array.from({length:dayNow},(_,i)=>thisM+'-'+String(i+1).padStart(2,'0')).reverse();
+  const VIEWS=[['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']];
+  const tabs=`<div class="scope saleview" role="group" aria-label="View">${VIEWS.map(([k,l])=>
+    `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;
+  const show=v=>SALEVIEW===v;
+  /* one stage table body shared by the daily, weekly and monthly breakdowns */
+  const brkHead=first=>`<tr><th>${first}</th><th>#Lead Contact</th>${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>`;
+  const brkRow=(p,label,a,b)=>{const r=stageRow(mine(p.id),a,b), c=contactedIn(p.id,a,b);
+    const empty=!c&&!r.some(Boolean);
+    return `<tr class="${empty?'quietrow':''}"><td><b>${label}</b></td><td>${c}</td>${r.map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`;};
+
+  /* the Total row under a breakdown adds up the rows above it, so the total and
+     the rows can never disagree. extra is the blank cells a weekly table has
+     for From and To. */
+  const brkTotal=(p,wins,extra)=>{
+    const c=wins.reduce((x,[a,b])=>x+contactedIn(p.id,a,b),0);
+    const r=SALE_STAGES.map((_,i)=>wins.reduce((x,[a,b])=>x+stageRow(mine(p.id),a,b)[i],0));
+    return `<tfoot><tr><td><b>Total</b></td>${'<td></td>'.repeat(extra||0)}<td><b>${c}</b></td>${r.map(v=>`<td><b>${v}</b></td>`).join('')}</tr></tfoot>`;};
+
+  $('main').innerHTML=repBar('Sales report',personFilter)+tabs+`
+   <div class="salerep">
+   ${show('daily')?`
+    <h3 class="sechead">1. Daily Sales Performance</h3>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${esc(repWindowSentence())}</p>
     ${stageTable(win[0],win[1])}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">2. Weekly Sale Stage — ${esc(monthName(thisM))}</h3>
+    <h3 class="sechead">Day by day — ${esc(monthName(thisM))}</h3>
     ${shown.map(p=>`
       <div style="margin-bottom:14px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${esc(p.full_name)}</div>
+        <div class="person">${esc(p.full_name)}</div>
+        <div class="tablewrap"><table class="table-compact"><thead>${brkHead('Day')}</thead>
+          <tbody>${dayRows.map(d=>brkRow(p,esc(fmtDate(d)),d,d)).join('')}</tbody>${brkTotal(p,dayRows.map(d=>[d,d]))}</table></div>
+      </div>`).join('')}`:''}
+
+   ${show('weekly')?`
+    <h3 class="sechead">2. Weekly Sale Stage — ${esc(monthName(thisM))}</h3>
+    ${shown.map(p=>`
+      <div style="margin-bottom:14px">
+        <div class="person">${esc(p.full_name)}</div>
         <div class="tablewrap"><table class="table-compact"><thead>
           <tr><th>Week</th><th>From</th><th>To</th><th>#Lead Contact</th>
-            ${SALE_STAGES.map(([,n])=>`<th>${esc(n)}</th>`).join('')}</tr></thead>
+            ${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr></thead>
           <tbody>${saleWeeks(thisM).map(([n,a,b])=>`<tr>
             <td><b>${n}</b></td><td>${esc(fmtDate(a))}</td><td>${esc(fmtDate(b))}</td>
             <td>${contactedIn(p.id,a,b)}</td>
-            ${stageRow(mine(p.id),a,b).map(v=>`<td>${v}</td>`).join('')}
-          </tr>`).join('')}</tbody></table></div>
-      </div>`).join('')}
+            ${stageRow(mine(p.id),a,b).map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')}
+          </tr>`).join('')}</tbody>${brkTotal(p,saleWeeks(thisM).map(([,a,b])=>[a,b]),2)}</table></div>
+      </div>`).join('')}`:''}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">3. MTD Sales Stage</h3>
+   ${show('mtd')?`
+    <h3 class="sechead">3. MTD Sales Stage</h3>
     ${stageTable(mStart,today)}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">4. MTD Sales and Lead Summary</h3>
+    <h3 class="sechead">4. MTD Sales and Lead Summary</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Sale engineer</th><th>Joined Date</th><th>#Lead Contact</th>
       <th>Avg. Customer Contacted (A Day)</th><th>Avg. Sales Cycle Length (Days)</th>
@@ -239,7 +276,7 @@ async function renderSalesReport(){
         <td>${esc(cash(collectedOf(p.id,mStart,today)))}</td></tr>`;}).join('')}
     </tbody></table></div>
 
-    <h3 style="font-size:15px;margin:22px 0 8px">5. MTD Sales Performance</h3>
+    <h3 class="sechead">5. MTD Sales Performance</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Sale engineer</th><th>Target</th><th>Payment Collection</th><th>Outstanding Payment</th>
       <th>Shortfall</th><th>Achievement %</th><th>Current Active Pipeline</th>
@@ -292,22 +329,23 @@ async function renderSalesReport(){
           ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12})
           :blank('Nothing lost this month','No lead was moved to Closed-Lost in '+monthName(thisM)+'.');
       })())}
-    </div>
+    </div>`:''}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">MoM — Sale stage by month</h3>
+   ${show('mom')?`
+    <h3 class="sechead">MoM — Sale stage by month</h3>
     ${months.length?shown.map(p=>`
       <div style="margin-bottom:14px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:5px">${esc(p.full_name)}</div>
+        <div class="person">${esc(p.full_name)}</div>
         <div class="tablewrap"><table class="table-compact"><thead>
-          <tr><th>Month</th><th>#Lead Contact</th>${SALE_STAGES.map(([,n])=>`<th>${esc(n)}</th>`).join('')}</tr>
+          <tr><th>Month</th><th>#Lead Contact</th>${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>
         </thead><tbody>${months.map(m=>{const [a,b]=monthWin(m);
           return `<tr><td><b>${esc(monthName(m))}</b></td><td>${contactedIn(p.id,a,b)}</td>
-            ${stageRow(mine(p.id),a,b).map(v=>`<td>${v}</td>`).join('')}</tr>`;}).join('')}
-        </tbody></table></div>
+            ${stageRow(mine(p.id),a,b).map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`;}).join('')}
+        </tbody>${brkTotal(p,months.map(monthWin))}</table></div>
       </div>`).join('')
       :blank('No months to show yet','This fills in as leads accumulate.')}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">MoM — Monthly Sales Performance</h3>
+    <h3 class="sechead">MoM — Monthly Sales Performance</h3>
     ${months.length?`<div class="homegrid three">${shown.map(p=>`
       ${repPanel(p.full_name,`<div class="tablewrap"><table class="table-compact"><thead>
         <tr><th>Month</th><th>#Closed-Won</th><th>Contract Value</th><th>Collection</th></tr>
@@ -316,7 +354,11 @@ async function renderSalesReport(){
         return `<tr><td>${esc(monthName(m))}</td><td>${w}</td>
           <td>${esc(cash(contractOf(p.id,a,b)))}</td>
           <td>${esc(cash(collectedOf(p.id,a,b)))}</td></tr>`;}).join('')}
-      </tbody></table></div>`)}`).join('')}</div>`
-      :''}
+      </tbody><tfoot><tr><td><b>Total</b></td>
+        <td><b>${months.reduce((x,m)=>{const [a,b]=monthWin(m);return x+mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b)).length;},0)}</b></td>
+        <td><b>${esc(cash(months.reduce((x,m)=>x+contractOf(p.id,...monthWin(m)),0)))}</b></td>
+        <td><b>${esc(cash(months.reduce((x,m)=>x+collectedOf(p.id,...monthWin(m)),0)))}</b></td></tr></tfoot></table></div>`)}`).join('')}</div>`
+      :''}`:''}
+   </div>
   `;
 }

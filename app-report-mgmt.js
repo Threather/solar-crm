@@ -162,7 +162,7 @@ async function renderMgmtReport(){
       const d=a.note_date||a.created_at;
       if(inWin(d))notes.push(localDay(d));}));
     const days=new Set(notes).size;
-    return [p.full_name,days?+(notes.length/days).toFixed(1):0,notes.length,days];
+    return [p.full_name,days?+(notes.length/days).toFixed(2):0,notes.length,days,p.id];
   }).filter(r=>r[2]>0);
 
   /* leads handled against leads still active, per person */
@@ -187,11 +187,9 @@ async function renderMgmtReport(){
   /* ---- month by month ---- */
   const months=lastMonths(rows,dayOf,12);
   const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m);
-  /* headed "from marketing", so it counts marketing's own channels - the same
-     two the target above it is set against. It counted every channel, which
-     put third party and repeat business on a marketing trend line. */
-  const mktIn=m=>madeIn(m).filter(l=>MG_MARKETING.includes(l.lead_channel));
   const qualIn=m=>madeIn(m).filter(l=>qualText(l)==='Qualified');
+  /* their sheet shows six months of conversion, April to September */
+  const convMonths=months.slice(-6);
 
   const thisM=mStart.slice(0,7);
   const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
@@ -200,142 +198,184 @@ async function renderMgmtReport(){
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const prevWord=monthName(prevM);
 
+  /* Lead trend from marketing, day by day through this month, the way their
+     sheet draws it: 1 to today along the bottom, raw and qualified. Headed
+     "from marketing", so marketing's own two channels only. */
+  const days=Array.from({length:dayNow},(_,i)=>i+1);
+  const dayKey=d=>thisM+'-'+String(d).padStart(2,'0');
+  const mktDay={},qualDay={};
+  rows.forEach(l=>{
+    if(!MG_MARKETING.includes(l.lead_channel))return;
+    const k=localDay(dayOf(l));
+    if(k.slice(0,7)!==thisM)return;
+    mktDay[k]=(mktDay[k]||0)+1;
+    if(qualText(l)==='Qualified')qualDay[k]=(qualDay[k]||0)+1;
+  });
+
   /* stage distribution, his four bars */
-  /* a progression, so one hue darkening rather than four identities - except
-     the last, which is not a further stage but the other outcome */
   const stageDist=[
-    ['Raw lead',got.length,'var(--viz-s2)'],
-    ['Qualified',qualified.length,'var(--viz-s4)'],
+    ['Raw Lead',got.length,'var(--ink)'],
+    ['Qualified Lead',qualified.length,'var(--viz-2)'],
     ['Closed-Won',wonInWin.length,'var(--viz-good)'],
-    ['Closed-Lost',lostInWin.length,'var(--bad)']
+    ['Closed-Lost',lostInWin.length,'var(--viz-1)']
   ];
 
-  /* Residential against C&I. The vocabulary holds exactly those two, so
-     anything else is a lead nobody filled the field in on. */
-  /* his sheet splits this per salesperson, two columns each, rather than
-     giving the two totals for the whole company */
+  /* Residential against C&I, per salesperson, two columns each */
   const typePeople=people.filter(p=>got.some(l=>l.assigned_to===p.id));
   const typeOf=(p,want)=>got.filter(l=>l.assigned_to===p.id&&l.customer_type===want).length;
 
-  const mktLeads=got.filter(l=>MG_MARKETING.includes(l.lead_channel)).length;
+  /* against a MONTHLY target, so this month's leads - never the window's. On
+     All time it put 2,711 leads beside a target of 50. */
+  const mktLeads=rows.filter(l=>MG_MARKETING.includes(l.lead_channel)&&localDay(dayOf(l)).slice(0,7)===thisM).length;
+
+  /* ONE COLOUR PER PERSON, THE SAME ON EVERY CHART. Their sheet gives each
+     salesperson a colour and then changes it from chart to chart; here Morn is
+     the same colour wherever Morn appears. */
+  const PCOL=['var(--viz-2)','var(--viz-mute)','var(--ink)','var(--viz-1)','var(--viz-3)','var(--viz-4)','var(--viz-good)'];
+  const colOf={}; people.forEach((p,i)=>colOf[p.id]=PCOL[i%PCOL.length]);
+  const first=p=>p.full_name.split(' ')[0];
+
+  /* Total contract value by each sales: deals won in the window, at the
+     contract figure where finance has one and the sale value where not */
+  const valueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0);
+  const tcvBy={}; wonInWin.forEach(l=>{if(l.assigned_to)tcvBy[l.assigned_to]=(tcvBy[l.assigned_to]||0)+valueOf(l);});
+  const tcvPeople=people.filter(p=>(tcvBy[p.id]||0)>0);
+
+  /* Sales and lead summary: what each person holds open against what they won */
+  const summary=people.map(p=>({p,
+    active:open.filter(l=>l.assigned_to===p.id).length,
+    won:wonInWin.filter(l=>l.assigned_to===p.id).length})).filter(r=>r.active||r.won);
+
+  /* quotations sent, per person, coloured by that person where they hold a colour */
+  const quotRows=Object.entries(quotByPerson).filter(r=>r[1]>0);
+
+  /* the facts block at the top right of their sheet */
+  const monthLong=new Date(mStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
+  const fmtDay=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const expected=mtdCollected+outstanding;
+  const pct2=v=>v==null?'—':v.toFixed(2)+'%';
+  const moneyAxis=v=>!v?'$0':v>=1000?'$'+(v/1000)+'k':'$'+v;
 
   $('main').innerHTML=repBar('Management dashboard')+`
-    <div class="kpis six">
-      <!-- his six boxes, in his order and his wording. They are the headings
-           he reads the sheet by, so they are not tidied. -->
+    <div class="mg-head">
+      <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">
+      <div class="mg-facts">
+        <span>Days in month</span><b>${dim}</b>
+        <span>Start date</span><b>${esc(fmtDay(mStart))}</b>
+        <span>Today</span><b>${esc(fmtDay(today))}</b>
+        <span>Days passed</span><b>${dayNow}</b>
+      </div>
+    </div>
+    <div class="mg-band">${esc(monthLong)} SALES &amp; PIPELINE DASHBOARD</div>
+    <div class="kpis seven">
+      <!-- their seven boxes, in their order and their wording. The row is this
+           month's, as the band above it says, whatever window is picked. -->
       ${kpi({label:'Monthly Target',value:cash(target||null)})}
-      <!-- no alert stripe: red is danger here and nothing else, and being
-           short of a monthly target part-way through the month is neither
-           danger nor news. Achievement % beside it already says where it is. -->
-      ${kpi({label:'Payment Collected',value:cash(collected),lead:true,
-        delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord,
-        note:target?pct(collected,target)+' of target':''})}
+      ${kpi({label:'Payment Collected',value:cash(mtdCollected),lead:true,
+        delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord})}
       ${kpi({label:'Outstanding Payment',value:cash(outstanding),
         note:owingNoDate?owingNoDate+' with no date set':''})}
-      ${kpi({label:'Achievement %',value:achievement==null?'—':achievement+'%'})}
+      ${kpi({label:'Total Payment Expected',value:cash(expected),note:'collected + outstanding'})}
+      ${kpi({label:'Achievement %',value:target?pct2(mtdCollected/target*100):'—'})}
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
-      ${kpi({label:'Run Rate %',value:runPct==null?'—':runPct+'%',
-        note:runRate==null?'':cash(runRate)+' by month end'
-          +(runPct==null?', no target to measure it against':'')})}
+      ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—',
+        note:runRate==null?'':cash(runRate)+' by month end'})}
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
     <div class="homegrid three">
-      ${leadTarget?colChart(['Target','Actual'],[leadTarget,mktLeads],
-        {title:'Raw lead target vs actual',colors:['var(--viz-mute)','var(--viz-1)'],table:false,compact:true,
-         cap:'Digital and offline marketing'})
-        /* with no target the Target column drew at zero height, which reads as
-           a target of nothing rather than as no target at all */
+      ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
+        {title:'Raw lead target vs actual',colors:['var(--ink)','var(--viz-1)'],table:false,compact:true,
+         cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${colChart(stageDist.map(r=>r[0]),stageDist.map(r=>r[1]),
         {title:'Lead stage distribution',colors:stageDist.map(r=>r[2]),
          table:false,compact:true,cap:'All five channels'})}
-      ${typePeople.length
-        ?groupChart(typePeople.map(p=>p.full_name.split(' ')[0]),
-          [{name:'Residential',color:'var(--viz-1)',values:typePeople.map(p=>typeOf(p,'Residential'))},
-           {name:'C & I',color:'var(--viz-2)',values:typePeople.map(p=>typeOf(p,'C & I'))}],
-          {title:'Residential vs C&I',compact:true,cap:'By sale engineer'})
-        :emptyChart('Residential vs C&I','No customer type recorded',
-          'No lead in the window has the field filled in.')}
+      ${lineChart(days.map(String),
+        [{name:'# Raw Lead',color:'var(--viz-2)',values:days.map(d=>mktDay[dayKey(d)]||0)},
+         {name:'# Qualified Lead',color:'var(--viz-1)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
+        {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
     </div>
 
-    <!-- From here down the rows are his, in the order he drew them: active
-         pipeline beside collection, contacts beside closed-lost, quotations
-         beside the lead trend, leads held beside the conversion. -->
-    <div class="homegrid">
+    <div class="homegrid three">
+      ${convMonths.length
+        ?lineChart(convMonths.map(m=>monthName(m)),
+          [{name:'Conversion',color:'var(--viz-2)',
+            values:convMonths.map(m=>{const r=madeIn(m).length;return r?+(qualIn(m).length/r*100).toFixed(2):0;})}],
+          {title:'Conversion % from raw lead to qualified lead',compact:true,values:true,fmt:v=>v.toFixed(2)+'%'})
+        :emptyChart('Conversion % from raw lead to qualified lead','No months to show yet','This fills in as leads accumulate.')}
+      ${collPeople.length
+        ?colChart(collPeople.map(first).concat(collUnassigned?['Unassigned']:[]),
+          collPeople.map(p=>collByPerson[p.id]||0).concat(collUnassigned?[collUnassigned]:[]),
+          {title:'Payment collection by each sales',colors:collPeople.map(p=>colOf[p.id]).concat(['var(--viz-mute)']),
+           compact:true,table:false,fmt:cash,axisFmt:moneyAxis})
+        :emptyChart('Payment collection by each sales','Nothing collected '+per,'This fills in as payments are recorded.')}
+      ${tcvPeople.length
+        ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]),
+          {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
+           compact:true,table:false,fmt:cash,axisFmt:moneyAxis,cap:'Deals won '+per})
+        :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
+    </div>
+
+    <div class="homegrid three">
+      ${summary.length
+        ?groupChart(summary.map(r=>first(r.p)),
+          [{name:'# of Active Lead',color:'var(--ink)',values:summary.map(r=>r.active)},
+           {name:'# Closed Won',color:'var(--viz-1)',values:summary.map(r=>r.won)}],
+          {title:'Sales and lead summary',compact:true})
+        :emptyChart('Sales and lead summary','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${repPanel('Active pipeline stage',
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
               open.filter(l=>l.stage_code===code).length]),
-             {color:'var(--viz-1)',limit:MG_ACTIVE.length,order:true,keepZero:true,
+             {color:'var(--ink)',limit:MG_ACTIVE.length,order:true,keepZero:true,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
-      ${collPeople.length
-        ?colChart(collPeople.map(p=>p.full_name.split(' ')[0]).concat(collUnassigned?['Unassigned']:[]),
-          collPeople.map(p=>collByPerson[p.id]||0).concat(collUnassigned?[collUnassigned]:[]),
-          {title:'Payment collection by each sales',color:'var(--viz-good)',compact:true,table:false,
-           fmt:cash,axisFmt:v=>!v?'0':v>=1000?'$'+(v/1000)+'k':'$'+v})
-        :repPanel('Payment collection by each sales',
-          blank('Nothing collected '+per,'This fills in as payments are recorded.'))}
-    </div>
-
-    <div class="homegrid">
-      ${contactAvg.length
-        ?colChart(contactAvg.map(r=>r[0].split(' ')[0]),contactAvg.map(r=>r[1]),
-          {title:'Avg customer contacts a day',color:'var(--viz-2)',compact:true,table:false})
-        :repPanel('Avg customer contacts a day',
-          blank('No contacts logged','Nothing in the contact log '+per+'.'))}
       ${repPanel('Closed-lost status',
         lostInWin.length
-          ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,
+          ?gRank(Object.entries(reasons),{color:'var(--viz-2)',limit:12,
              emptyWhy:'This fills in as leads are lost.'})
+            +`<div class="cap" style="margin-top:10px"><b>*Note:</b> closed-lost ${esc(per)}, including leads that came in earlier.</div>`
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
 
-    <div class="homegrid">
-      ${quotPeople.length
-        ?colChart(quotPeople.map(r=>r[0].split(' ')[0]),quotPeople.map(r=>r[1]),
-          {title:'Quotations sent',color:'var(--viz-1)',compact:true,table:false})
-        :repPanel('Quotations sent',
-          blank('None released '+per,'This fills in as quotations are released.'))}
-      ${months.length>1?lineChart(months.map(m=>monthName(m)),
-        [{name:'Raw lead',color:'var(--viz-1)',values:months.map(m=>mktIn(m).length)},
-         {name:'Qualified',color:'var(--viz-2)',values:months.map(m=>mktIn(m).filter(l=>qualText(l)==='Qualified').length)}],
-        {title:'Lead trend from marketing',compact:true})
-        :emptyChart('Lead trend from marketing','Not enough history yet',
-          'A trend needs two months. There is '+(months.length||'no')+'.')}
-    </div>
-
-    <div class="homegrid">
+    <div class="homegrid three">
+      ${contactAvg.length
+        ?colChart(contactAvg.map(r=>r[0].split(' ')[0]),contactAvg.map(r=>r[1]),
+          {title:'Avg. daily contact to customer',colors:contactAvg.map(r=>colOf[r[4]]),compact:true,table:false,
+           fmt:v=>v.toFixed(2)})
+        :emptyChart('Avg. daily contact to customer','No contacts logged','Nothing in the contact log '+per+'.')}
       ${handled.length
         ?groupChart(handled.map(r=>r.name.split(' ')[0]),
-          [{name:'Handled',color:'var(--viz-1)',values:handled.map(r=>r.handled)},
-           {name:'Active',color:'var(--viz-2)',values:handled.map(r=>r.active)}],
-          {title:'Leads held and active',compact:true})
-        :repPanel('Leads held and active',
-          blank('Nobody holds a lead yet','This fills in as leads are assigned.'))}
-      ${months.length
-        ?lineChart(months.map(m=>monthName(m)),
-          [{name:'Conversion',color:'var(--viz-good)',
-            values:months.map(m=>{const r=madeIn(m).length;return r?Math.round(qualIn(m).length/r*100):0;})}],
-          {title:'Raw lead to qualified',compact:true,cap:'Percent qualified'})
-        :repPanel('Raw lead to qualified',
-          blank('No months to show yet','This fills in as leads accumulate.'))}
+          [{name:'Handled '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
+           {name:'# of Active Lead',color:'var(--viz-1)',values:handled.map(r=>r.active)}],
+          {title:'# of leads held and # of active lead',compact:true})
+        :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
+      ${typePeople.length
+        ?groupChart(typePeople.map(first),
+          [{name:'Residential',color:'var(--viz-2)',values:typePeople.map(p=>typeOf(p,'Residential'))},
+           {name:'C & I',color:'var(--viz-1)',values:typePeople.map(p=>typeOf(p,'C & I'))}],
+          {title:'Residential and C & I',compact:true,cap:'By sale engineer'})
+        :emptyChart('Residential and C & I','No customer type recorded','No lead in the window has the field filled in.')}
     </div>
 
-    <!-- asked for on 16 Sep 2026 and not on the sheet, so it follows the rows
-         that are. Nothing else does: leads by channel and won value by month
-         were ours, were on neither, and were dropped. -->
-    ${repPanel('Closed-lost, before or after a quotation',
-      lostInWin.length
-        ?gSplit([['After a quotation',lostAfter.length,'var(--bad)'],
-                 ['Before any quotation',lostBefore.length,'var(--viz-s2)'],
-                 ['Unknown',lostUnknown.length,'var(--viz-mute)']],
-            'after '+pct(lostAfter.length,lostAfter.length+lostBefore.length)+(lostUnknown.length?' of known':''),'before')
-         +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
-                  ['Before any quotation',lostBefore.length,''],
-                  ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
-        :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'),true)}
+    <div class="homegrid three">
+      ${quotRows.length
+        ?colChart(quotRows.map(([id])=>id==='none'?'Not recorded':nameOf(id).split(' ')[0]),quotRows.map(r=>r[1]),
+          {title:'# of quotation sent',colors:quotRows.map(([id])=>colOf[id]||'var(--viz-mute)'),compact:true,table:false})
+        :emptyChart('# of quotation sent','None released '+per,'This fills in as quotations are released.')}
+      <!-- asked for on 16 Sep 2026 and not on their sheet, so it follows it -->
+      ${repPanel('Closed-lost, before or after a quotation',
+        lostInWin.length
+          ?gSplit([['After a quotation',lostAfter.length,'var(--viz-1)'],
+                   ['Before any quotation',lostBefore.length,'var(--viz-s2)'],
+                   ['Unknown',lostUnknown.length,'var(--viz-mute)']],
+              'after '+pct(lostAfter.length,lostAfter.length+lostBefore.length)+(lostUnknown.length?' of known':''),'before')
+           +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
+                    ['Before any quotation',lostBefore.length,''],
+                    ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
+          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
+    </div>
   `;
 }
