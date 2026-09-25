@@ -196,9 +196,26 @@ function repBar(title,extra){
       <button class="btn-line" onclick="repExportPdf()" style="margin-left:auto">Export PDF</button>
     </div>`;
 }
-/* Every dashboard exports the same way: the screen as it stands, photographed
-   onto landscape A4 the way the quotation's Download PDF is, toolbar left out.
-   A tall report runs onto further pages, cut between blocks where it can be. */
+/* Every dashboard exports the same way: landscape A4, photographed the way the
+   quotation's Download PDF is, toolbar left out.
+
+   EACH ROW IS PHOTOGRAPHED ON ITS OWN AND ROWS ARE STACKED WHOLE. The first
+   version photographed the page in one piece and cut it at measured positions;
+   the picture and the measurements never quite agreed, and every cut landed
+   through the top of a row of cards. A row that is its own picture cannot be
+   cut. Only a block taller than a whole page (a long table) is sliced. */
+function repExportUnits(main){
+  const skip=el=>el.matches('.toolbar,.saleview')||!el.offsetHeight;
+  const out=[];
+  const walk=el=>[...el.children].forEach(c=>{
+    if(skip(c))return;
+    if(c.matches('.salerep')){walk(c);return;}
+    /* a table section's person holder is a heading plus a table: one unit */
+    out.push(c);
+  });
+  walk(main);
+  return out;
+}
 async function repExportPdf(){
   const main=$('main');
   const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');
@@ -208,26 +225,39 @@ async function repExportPdf(){
     if(!window.html2canvas) await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     if(!window.jspdf) await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     const bg=getComputedStyle(document.body).backgroundColor||'#ffffff';
-    const canvas=await window.html2canvas(main,{scale:2,backgroundColor:bg,useCORS:true,logging:false,
-      ignoreElements:el=>el.classList&&el.classList.contains('toolbar')});
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
-    const PW=297,PH=210,M=8,w=PW-2*M;
-    const pxPerMm=canvas.width/w, pagePx=Math.floor((PH-2*M)*pxPerMm);
-    /* cut at the gap between blocks: the last top edge of a card or grid row
-       that falls inside the page, so a chart is not sliced through */
-    const top=main.getBoundingClientRect().top, k=canvas.width/main.getBoundingClientRect().width;
-    const cuts=[...main.querySelectorAll('.kpis,.homegrid,.homegrid>*,.panel,.chartcard,.mg-head')]
-      .map(e=>Math.round((e.getBoundingClientRect().top-top-4)*k)).filter(v=>v>0).sort((a,b)=>a-b);
-    let y=0,first=true;
-    while(y<canvas.height-4){
-      let end=Math.min(canvas.height,y+pagePx);
-      if(end<canvas.height){const c=cuts.filter(v=>v>y+pagePx*0.4&&v<=end).pop();if(c)end=c;}
-      const part=document.createElement('canvas');part.width=canvas.width;part.height=end-y;
-      const g=part.getContext('2d');g.fillStyle=bg;g.fillRect(0,0,part.width,part.height);
-      g.drawImage(canvas,0,y,canvas.width,end-y,0,0,canvas.width,end-y);
-      if(!first)pdf.addPage();
-      pdf.addImage(part.toDataURL('image/jpeg',0.92),'JPEG',M,M,w,(end-y)/pxPerMm);
-      first=false;y=end;
+    const PW=297,PH=210,M=8,w=PW-2*M,room=PH-2*M,GAP=3;
+    const mmPerPx=w/main.getBoundingClientRect().width;
+    /* a heading stays on the page with whatever follows it */
+    const units=repExportUnits(main);
+    const shots=[];
+    for(const el of units){
+      const c=await window.html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,logging:false});
+      const r=el.getBoundingClientRect();
+      shots.push({c,wmm:r.width*mmPerPx,hmm:r.height*mmPerPx,
+        glue:el.matches('h2,h3,.sub,.mg-head,.mg-band,.person,.sechead,p')});
+    }
+    let y=M,started=false;
+    const place=(img,x,wmm,hmm)=>{pdf.addImage(img,'JPEG',x,y,wmm,hmm);y+=hmm+GAP;started=true;};
+    const newPage=()=>{pdf.addPage();y=M;};
+    for(let i=0;i<shots.length;i++){
+      const s=shots[i];
+      /* the height this unit needs on the page, with any heading glued to what follows */
+      let need=s.hmm;
+      for(let j=i;shots[j]&&shots[j].glue&&shots[j+1];j++)need+=GAP+shots[j+1].hmm;
+      if(started&&y+Math.min(need,room)>PH-M)newPage();
+      if(s.hmm<=room){place(s.c.toDataURL('image/jpeg',0.92),M,s.wmm,s.hmm);continue;}
+      /* taller than a page: slice it, one page at a time */
+      const pxPerMm=s.c.height/s.hmm;
+      let sy=0;
+      while(sy<s.c.height-2){
+        const avail=(PH-M-y), hpx=Math.min(s.c.height-sy,Math.floor(avail*pxPerMm));
+        const part=document.createElement('canvas');part.width=s.c.width;part.height=hpx;
+        part.getContext('2d').drawImage(s.c,0,sy,s.c.width,hpx,0,0,s.c.width,hpx);
+        place(part.toDataURL('image/jpeg',0.92),M,s.wmm,hpx/pxPerMm);
+        sy+=hpx;
+        if(sy<s.c.height-2)newPage();
+      }
     }
     const scope=(repScopes().find(([k])=>k===REPSCOPE)||[,'Report'])[1];
     pdf.save(`${scope} dashboard ${localDay(new Date())}.pdf`);
