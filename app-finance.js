@@ -43,15 +43,17 @@ async function renderFinance(){
   $('main').innerHTML=SKEL;
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const ids=leads.map(l=>l.id);
-  const [{data:fins},{data:pays},{data:sale}]=await Promise.all([
+  const [{data:fins},{data:pays},{data:sale},{data:expd}]=await Promise.all([
     rowsOf(()=>sb.from('lead_finance').select('*').order('lead_id')),
     rowsOf(()=>sb.from('lead_payments').select('*').order('paid_on').order('id')),
-    rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'))
+    rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id')),
+    rowsOf(()=>sb.from('lead_expected_payments').select('*').order('expected_on').order('id'))
   ]);
   const finBy=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f]));
   const saleBy=Object.fromEntries((sale||[]).map(f=>[f.lead_id,f.final_sale_usd]));
   FINROWS=leads.map(l=>({...l,fin:finBy[l.id]||null,final_sale_usd:saleBy[l.id]??null,
-    payments:(pays||[]).filter(p=>p.lead_id===l.id)}));
+    payments:(pays||[]).filter(p=>p.lead_id===l.id),
+    expected:(expd||[]).filter(p=>p.lead_id===l.id)}));
 
   const contracted=FINROWS.filter(r=>r.fin?.contract_signed_date);
   const totalDue=FINROWS.reduce((a,r)=>a+finDue(r),0);
@@ -301,6 +303,27 @@ function openFinance(id){
         :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
     </div>
 
+    <!-- what the customer has promised to pay and when: one row, or one per
+         instalment. Admin keys it in; the Management dashboard adds up the
+         rows dated this month. -->
+    <div class="section sec-fin"><h4>Expected payments (${r.expected.length})</h4>
+      ${r.expected.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
+        <th style="width:120px">Expected on</th><th style="width:110px">Amount</th><th>Note</th>
+        ${ME.role==='admin'?'<th style="width:86px"></th>':''}</tr></thead><tbody>
+        ${r.expected.map(p=>`<tr>
+          <td class="nowrap ${p.expected_on<localDay(new Date())?'overdue':''}">${fmtDate(p.expected_on)}</td>
+          <td><b>${fmtMoney(p.amount_usd)}</b></td><td>${esc(p.note||'')}</td>
+          ${ME.role==='admin'?`<td><button class="btn-mini" onclick="deleteExpected('${p.id}')">Remove</button></td>`:''}
+        </tr>`).join('')}</tbody></table></div>`
+        :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">Nothing expected yet.</p>'}
+      ${ME.role==='admin'?`<div class="grid3" style="margin-top:10px">
+        <div><label>Expected on</label><input id="e-date" type="date"></div>
+        <div><label>Amount (USD)</label>${numBox('e-amt','')}</div>
+        <div><label>Note</label><input id="e-note" placeholder="Second instalment…"></div>
+      </div>
+      <div class="modal-actions"><button class="btn-sun" onclick="addExpected('${r.id}')">Add expected payment</button></div>`:''}
+    </div>
+
     <div class="section sec-fin"><h4>Delivery and installation</h4>
       <div class="grid2">
         <div><label>Planned by the site engineer</label><input value="${r.delivery_date?fmtDate(r.delivery_date):'not set'}" disabled></div>
@@ -407,6 +430,21 @@ async function addPayment(id){
   if(cur)await sb.from('lead_finance')
     .upsert({lead_id:id,follow_up_date:addMonths(cur,1),updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
   toast('Payment added');closeLead();renderFinance();
+}
+async function addExpected(id){
+  if(!$('e-date').value){needField('e-date','Pick the date it is expected');return;}
+  if(!Number($('e-amt').value)){needField('e-amt','Enter the amount');return;}
+  const {error}=await sb.from('lead_expected_payments').insert({lead_id:id,
+    expected_on:$('e-date').value,amount_usd:$('e-amt').value,
+    note:$('e-note').value.trim()||null,created_by:ME.id});
+  if(error){toast('Could not add it. '+why(error));console.error(error);return;}
+  toast('Expected payment added');closeLead();renderFinance();
+}
+async function deleteExpected(eid){
+  if(!confirm('Remove this expected payment?'))return;
+  const {error}=await sb.from('lead_expected_payments').delete().eq('id',eid);
+  if(error){toast('Could not remove it. '+why(error));return;}
+  toast('Expected payment removed');closeLead();renderFinance();
 }
 async function deletePayment(pid,leadId){
   if(!confirm('Remove this payment?'))return;

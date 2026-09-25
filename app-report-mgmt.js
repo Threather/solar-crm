@@ -45,13 +45,15 @@ async function renderMgmtReport(){
   const per=repPeriodWord();
   const mStart=monthStart(), today=localDay(new Date());
 
-  const [tg,acts,quots,fins,pays,finrows]=await Promise.all([
+  const [tg,acts,quots,fins,pays,finrows,expd]=await Promise.all([
     loadTargets(mStart),
     repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('activity_type',['call','note']).order('id'),ids),
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
     repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').order('id'),ids),
-    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids)
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids),
+    /* what customers have promised to pay, keyed in by admin on Finance */
+    rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd').order('expected_on').order('id')).then(r=>r.data||[])
   ]);
 
   const actsBy={},quotBy={},saleBy={},finBy={},paidBy={},feeBy={};
@@ -253,6 +255,12 @@ async function renderMgmtReport(){
   const monthLong=new Date(mStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
   const fmtDay=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   const expected=mtdCollected+outstanding;
+  /* Expected Payment Received This Month: every promised payment dated inside
+     this calendar month, whatever window is picked, like the rest of the row */
+  const mEnd=thisM+'-'+String(dim).padStart(2,'0');
+  const expThis=expd.filter(p=>p.expected_on>=mStart&&p.expected_on<=mEnd);
+  const expThisSum=expThis.reduce((a,p)=>a+Number(p.amount_usd||0),0);
+  const expCustomers=new Set(expThis.map(p=>p.lead_id)).size;
   const pct2=v=>v==null?'—':v.toFixed(2)+'%';
   const moneyAxis=v=>!v?'$0':v>=1000?'$'+(v/1000)+'k':'$'+v;
 
@@ -267,7 +275,7 @@ async function renderMgmtReport(){
       </div>
     </div>
     <div class="mg-band">${esc(monthLong)} SALES &amp; PIPELINE DASHBOARD</div>
-    <div class="kpis seven">
+    <div class="kpis seven eight">
       <!-- their seven boxes, in their order and their wording. The row is this
            month's, as the band above it says, whatever window is picked. -->
       ${kpi({label:'Monthly Target',value:cash(target||null)})}
@@ -276,6 +284,8 @@ async function renderMgmtReport(){
       ${kpi({label:'Outstanding Payment',value:cash(outstanding),
         note:owingNoDate?owingNoDate+' with no date set':''})}
       ${kpi({label:'Total Payment Expected',value:cash(expected),note:'collected + outstanding'})}
+      ${kpi({label:'Expected Payment Received This Month',value:cash(expThisSum),
+        note:expThis.length?expThis.length+' payment'+(expThis.length>1?'s':'')+' from '+expCustomers+' customer'+(expCustomers>1?'s':''):'none entered on Finance'})}
       ${kpi({label:'Achievement %',value:target?pct2(mtdCollected/target*100):'—'})}
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
       ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—',
