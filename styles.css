@@ -825,3 +825,11 @@ td.numcell b{font-weight:600}
 /* pie: centred above its ledger, sized to read at a glance, not to fill the card */
 .gpie{display:flex;flex-direction:column;align-items:center;gap:6px;margin:4px 0 14px}
 .gpie svg{width:180px;height:180px;display:block}
+.pieled{display:grid;grid-template-columns:150px 1fr;gap:20px;align-items:center}
+.pieled .gpie{margin:0}
+.pieled .gpie svg{width:150px;height:150px}
+.pieled .ledger .row{padding:5px 0}
+@media(max-width:700px){.pieled{grid-template-columns:1fr}}
+/* two cards in a row finish level, so neither leaves a hole under the other */
+.homegrid.level{align-items:stretch}
+.homegrid.level>*{margin-top:0;margin-bottom:0;box-sizing:border-box}

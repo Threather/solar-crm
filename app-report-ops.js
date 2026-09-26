@@ -148,7 +148,7 @@ async function renderOpsReport(){
       ${noDate.length>4?` and ${noDate.length-4} more`:''}
     </div>`:''}
 
-    <div class="homegrid">
+    <div class="homegrid level">
       ${repPanel('I. Project status pipeline',`<div class="pipe">
         ${bar('BOQ released',boqDone.length,f.length)}
         ${bar('Installation scheduled',scheduled.length,f.length)}
@@ -160,14 +160,16 @@ async function renderOpsReport(){
 
       ${repPanel('Active installation teams',
         teamRows.length
-          ?gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
+          /* pie beside its ledger rather than above it, so the card is no
+             taller than the pipeline next to it (Kevin, 27 Sep 2026) */
+          ?`<div class="pieled">`+gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
               teamTotal+' project'+(teamTotal===1?'':'s')+' · '+teamRows.length+' teams')
            +ledger(teamRows.map((r,i)=>[r[0],r[1],
-              Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))
+              Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))+`</div>`
           :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
     </div>
 
-    <div class="homegrid">
+    <div class="homegrid level">
       ${repPanel('II. Turnaround vs target',gPair([
         ['BOQ to delivery',tatDeliv.avg,sla.deliv||null,tatDeliv.n],
         ['BOQ to installation',tatBoq.avg,sla.boq||null,tatBoq.n],
