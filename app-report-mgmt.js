@@ -281,15 +281,12 @@ async function renderMgmtReport(){
       ${kpi({label:'Monthly Target',value:cash(target||null)})}
       ${kpi({label:'Payment Collected',value:cash(mtdCollected),lead:true,
         delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord})}
-      ${kpi({label:'Outstanding Payment',value:cash(outstanding),
-        note:owingNoDate?owingNoDate+' with no date set':''})}
-      ${kpi({label:'Total Payment Expected',value:cash(expected),note:'collected + outstanding'})}
-      ${kpi({label:'Expected Payment Received This Month',value:cash(expThisSum),
-        note:expThis.length?expThis.length+' payment'+(expThis.length>1?'s':'')+' from '+expCustomers+' customer'+(expCustomers>1?'s':''):'none entered on Finance'})}
+      ${kpi({label:'Outstanding Payment',value:cash(outstanding)})}
+      ${kpi({label:'Total Payment Expected',value:cash(expected)})}
+      ${kpi({label:'Expected Payment Received This Month',value:cash(expThisSum)})}
       ${kpi({label:'Achievement %',value:target?pct2(mtdCollected/target*100):'—'})}
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
-      ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—',
-        note:runRate==null?'':cash(runRate)+' by month end'})}
+      ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—'})}
     </div>
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 

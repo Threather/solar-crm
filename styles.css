@@ -600,7 +600,7 @@ td.numcell b{font-weight:600}
 .kpis.seven .kpi .chip{order:3;margin:0 0 4px}
 .kpis.seven .kpi .note{order:4}
 .kpis.seven.eight .kpi{padding:12px 10px 10px}
-.kpis.seven.eight .kpi .n{font-size:20px}
+.kpis.seven.eight .kpi .n{font-size:25px}
 @media(max-width:1100px){.kpis.seven.eight{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:700px){.kpis.seven.eight{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
@@ -822,3 +822,6 @@ td.numcell b{font-weight:600}
 .deals .inl{display:flex;align-items:center;gap:5px;white-space:nowrap}
 .deals .inl span{color:var(--ink-mute);font-size:12px}
 .deals td .quiet{white-space:nowrap}
+/* pie: centred above its ledger, sized to read at a glance, not to fill the card */
+.gpie{display:flex;flex-direction:column;align-items:center;gap:6px;margin:4px 0 14px}
+.gpie svg{width:180px;height:180px;display:block}

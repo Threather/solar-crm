@@ -402,6 +402,27 @@ function gSplit(parts,left,right){
   }).join('')+`</div>
   <div class="gsplit-l"><span>${esc(left||'')}</span><span>${esc(right||'')}</span></div>`;
 }
+/* Share of a whole as a pie. Asked for by Kevin on 27 Sep 2026 for the
+   installation teams; the ledger under it carries the exact figures, so the
+   slices only have to show the proportion. Slices are drawn as SVG paths with
+   a thin card-coloured gap between them. */
+function gPie(parts,caption){
+  const P=parts.filter(p=>Number(p[1])>0);
+  const total=P.reduce((a,p)=>a+Number(p[1]),0);
+  if(!total)return '';
+  const R=80,C=90;let a0=-Math.PI/2;
+  const pt=a=>`${(C+R*Math.cos(a)).toFixed(2)} ${(C+R*Math.sin(a)).toFixed(2)}`;
+  const slices=P.length===1
+    ?`<circle cx="${C}" cy="${C}" r="${R}" fill="${P[0][2]}"><title>${esc(P[0][0])}: ${P[0][1]}</title></circle>`
+    :P.map(([label,v,color])=>{
+      const a1=a0+Number(v)/total*Math.PI*2;
+      const d=`M${C} ${C} L${pt(a0)} A${R} ${R} 0 ${a1-a0>Math.PI?1:0} 1 ${pt(a1)}Z`;
+      a0=a1;
+      return `<path d="${d}" fill="${color}" stroke="var(--card)" stroke-width="2"><title>${esc(label)}: ${v}</title></path>`;
+    }).join('');
+  return `<div class="gpie"><svg viewBox="0 0 180 180" role="img" aria-label="${esc(caption||'')}">${slices}</svg>
+    ${caption?`<div class="cap">${esc(caption)}</div>`:''}</div>`;
+}
 /* who holds what, longest first.
    A pipeline is the exception on both counts: its rungs have a fixed order and
    an empty one is a fact about the pipeline, not a row to leave out. `order`

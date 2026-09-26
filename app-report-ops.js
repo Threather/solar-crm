@@ -59,7 +59,8 @@ async function renderOpsReport(){
      the month being shown, like every other target in the app. */
   const tg=await loadTargets(monthStart());
   const sla={boq:Number(tg.company.sla_boq||0),install:Number(tg.company.sla_install||0),
-             inform:Number(tg.company.sla_edcinform||0),inspect:Number(tg.company.sla_edcinspect||0)};
+             inform:Number(tg.company.sla_edcinform||0),inspect:Number(tg.company.sla_edcinspect||0),
+             deliv:Number(tg.company.sla_delivery||0)};
 
   /* A turnaround is what a step ACTUALLY took, so a start date still in the
      future is a booking and not an outcome - one job pencilled in for December
@@ -67,6 +68,9 @@ async function renderOpsReport(){
      point at the wrong step entirely. Same rule as the Installation Start
      count above. */
   const started=l=>l.installation_start&&localDay(l.installation_start)<=today;
+  /* BOQ released to the kit arriving on site (27 Sep 2026); a delivery date still
+     ahead is a booking, as with installation */
+  const tatDeliv =avgDays(f.map(l=>l.delivery_date&&localDay(l.delivery_date)<=today?daysBetween(l.boq_date,l.delivery_date):null));
   const tatBoq   =avgDays(f.map(l=>started(l)?daysBetween(l.boq_date,l.installation_start):null));
   const tatInst  =avgDays(f.map(l=>started(l)?daysBetween(l.installation_start,instDoneOn(l)):null));
   const tatInform=avgDays(f.map(l=>daysBetween(instDoneOn(l),edcSentOn(l))));
@@ -78,7 +82,7 @@ async function renderOpsReport(){
   const endToEnd=avgDays(f.map(l=>daysBetween(l.boq_date,edcSeenOn(l)||instDoneOn(l))));
   /* which step is furthest past its target. Steps with no target set, or no
      data yet, cannot be behind. */
-  const steps=[['BOQ to installation',tatBoq,sla.boq],['Installation duration',tatInst,sla.install],
+  const steps=[['BOQ to delivery',tatDeliv,sla.deliv],['BOQ to installation',tatBoq,sla.boq],['Installation duration',tatInst,sla.install],
                ['Installation to EDC submission',tatInform,sla.inform],
                ['EDC submission to inspection',tatSeen,sla.inspect]];
   const behind=steps.filter(([,a,s])=>s&&a.avg!=='\u2014'&&Number(a.avg)>s)
@@ -156,8 +160,8 @@ async function renderOpsReport(){
 
       ${repPanel('Active installation teams',
         teamRows.length
-          ?gSplit(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
-              teamTotal+' project'+(teamTotal===1?'':'s'),teamRows.length+' teams')
+          ?gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
+              teamTotal+' project'+(teamTotal===1?'':'s')+' · '+teamRows.length+' teams')
            +ledger(teamRows.map((r,i)=>[r[0],r[1],
               Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))
           :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
@@ -165,6 +169,7 @@ async function renderOpsReport(){
 
     <div class="homegrid">
       ${repPanel('II. Turnaround vs target',gPair([
+        ['BOQ to delivery',tatDeliv.avg,sla.deliv||null,tatDeliv.n],
         ['BOQ to installation',tatBoq.avg,sla.boq||null,tatBoq.n],
         ['Installation duration',tatInst.avg,sla.install||null,tatInst.n],
         ['Installation to EDC submission',tatInform.avg,sla.inform||null,tatInform.n],
@@ -172,27 +177,28 @@ async function renderOpsReport(){
       ],{emptyWhy:'Turnaround needs a date at both ends of a step.'})
       +(Object.values(sla).some(Boolean)?'':`<div class="cap" style="margin-top:10px">No turnaround targets set for ${esc(monthName(monthStart().slice(0,7)))}.</div>`))}
 
-      ${repPanel('Execution health',ledger([
-        ['Total in flight',active.length,'project'+(active.length===1?'':'s')],
-        ['Avg end-to-end',endToEnd.avg==='\u2014'?'\u2014':endToEnd.avg+' days',
-          endToEnd.n+' measured'],
-        ['Slowest against target',behind?'+'+behind.over+' days':'\u2014',
-          behind?behind.step
-            :!Object.values(sla).some(Boolean)?'no targets set'
-            :endToEnd.n?'nothing is behind':'nothing measured yet']]))}
+      ${(()=>{
+        /* how many systems actually went live each month. The figures above count
+           the window; this is the run of work behind them. Beside the turnaround
+           since 27 Sep 2026, so the page reads as four charts in two rows. */
+        const done=f.filter(l=>instDoneOn(l));
+        const ms=lastMonths(done,l=>instDoneOn(l),12);
+        if(!ms.length)return emptyChart('Installations finished per month','Nothing finished yet','A month fills in as installations are confirmed.');
+        const cnt=ms.map(m=>done.filter(l=>localDay(instDoneOn(l)).slice(0,7)===m).length);
+        return colChart(ms.map(monthName),cnt,{title:'Installations finished per month',
+          cap:'By the date the installation was confirmed, or its end date once that has passed.',
+          color:'var(--viz-1)',table:false,compact:true});
+      })()}
     </div>
 
-    ${(()=>{
-      /* how many systems actually went live each month. The figures above count
-         the window; this is the run of work behind them. */
-      const done=f.filter(l=>instDoneOn(l));
-      const ms=lastMonths(done,l=>instDoneOn(l),12);
-      if(!ms.length)return '';
-      const cnt=ms.map(m=>done.filter(l=>localDay(instDoneOn(l)).slice(0,7)===m).length);
-      return colChart(ms.map(monthName),cnt,{title:'Installations finished per month',
-        cap:'By the date the installation was confirmed, or its end date once that has passed.',
-        color:'var(--viz-1)',table:false});
-    })()}
+    ${repPanel('Execution health',ledger([
+      ['Total in flight',active.length,'project'+(active.length===1?'':'s')],
+      ['Avg end-to-end',endToEnd.avg==='\u2014'?'\u2014':endToEnd.avg+' days',
+        endToEnd.n+' measured'],
+      ['Slowest against target',behind?'+'+behind.over+' days':'\u2014',
+        behind?behind.step
+          :!Object.values(sla).some(Boolean)?'no targets set'
+          :endToEnd.n?'nothing is behind':'nothing measured yet']]))}
 
     ${f.length?`<h3 style="font-size:15px;margin:22px 0 8px">Projects</h3>
     <div class="tablewrap"><table class="table-compact"><thead><tr>

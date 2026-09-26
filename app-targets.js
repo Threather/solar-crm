@@ -4,7 +4,7 @@
    to look backwards and find the number that applied at the time.
 
    Two kinds of row: company-wide ones - the lead count, marketing spend and
-   the four operations turnaround targets - and one sales target per
+   the five operations turnaround targets - and one sales target per
    salesperson. Both live in the same table, told apart by whether profile_id
    is filled in.
 
@@ -58,6 +58,8 @@ async function renderTargets(){
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">The operations dashboard measures each step against these.</p>
     <div class="homegrid">
       ${repPanel('Target turnaround',`<div class="grid2">
+        <div><label>BOQ to delivery</label>
+          ${numBox('tg-sla-delivery',num(tg.company.sla_delivery),{attrs:'placeholder="3"'})}</div>
         <div><label>BOQ to installation</label>
           ${numBox('tg-sla-boq',num(tg.company.sla_boq),{attrs:'placeholder="3"'})}</div>
         <div><label>Installation duration</label>
@@ -101,6 +103,7 @@ async function saveTargets(){
   push('spend_actual',null,'tg-spent');
   /* the operations turnaround targets, in days. Company rows like the two
      above - a step is the company's, not a person's. */
+  push('sla_delivery',null,'tg-sla-delivery');
   push('sla_boq',null,'tg-sla-boq');
   push('sla_install',null,'tg-sla-install');
   push('sla_edcinform',null,'tg-sla-edcinform');
