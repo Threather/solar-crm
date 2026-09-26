@@ -196,8 +196,6 @@ async function renderSalesReport(){
   const monthWin=m=>{const [y,mm]=m.split('-').map(Number);
     return [m+'-01',m+'-'+String(new Date(y,mm,0).getDate()).padStart(2,'0')];};
 
-  /* day by day through this month, newest first, one table per person */
-  const dayRows=Array.from({length:dayNow},(_,i)=>thisM+'-'+String(i+1).padStart(2,'0')).reverse();
   const VIEWS=[['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']];
   const tabs=`<div class="scope saleview" role="group" aria-label="View">${VIEWS.map(([k,l])=>
     `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;
@@ -221,15 +219,7 @@ async function renderSalesReport(){
    ${show('daily')?`
     <h3 class="sechead">1. Daily Sales Performance</h3>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${esc(repWindowSentence())}</p>
-    ${stageTable(win[0],win[1])}
-
-    <h3 class="sechead">Day by day — ${esc(monthName(thisM))}</h3>
-    ${shown.map(p=>`
-      <div style="margin-bottom:14px">
-        <div class="person">${esc(p.full_name)}</div>
-        <div class="tablewrap"><table class="table-compact"><thead>${brkHead('Day')}</thead>
-          <tbody>${dayRows.map(d=>brkRow(p,esc(fmtDate(d)),d,d)).join('')}</tbody>${brkTotal(p,dayRows.map(d=>[d,d]))}</table></div>
-      </div>`).join('')}`:''}
+    ${stageTable(win[0],win[1])}`:''}
 
    ${show('weekly')?`
     <h3 class="sechead">2. Weekly Sale Stage — ${esc(monthName(thisM))}</h3>
