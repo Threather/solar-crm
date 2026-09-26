@@ -804,3 +804,13 @@ td.numcell b{font-weight:600}
 /* the field that refused a save, marked until it is filled in. Amber rather
    than red, because red is danger and a required field is not. */
 .needs{outline:2px solid var(--warn);outline-offset:1px;background:#fdf8ec}
+
+/* Won deals: the table is wider than the card, so the ref and the customer
+   stay put while the columns scroll under them */
+.deals th:nth-child(-n+2),.deals td:nth-child(-n+2){position:sticky;background:var(--card);z-index:1}
+.deals th:nth-child(1),.deals td:nth-child(1){left:0}
+.deals th:nth-child(2),.deals td:nth-child(2){left:var(--deal-ref,96px);box-shadow:inset -1px 0 0 var(--line)}
+.deals td input,.deals td select{padding:5px 7px;font-size:13px}
+.deals th:nth-child(1),.deals td:nth-child(1){min-width:96px;max-width:96px;box-sizing:border-box}
+.deals td:nth-child(2){min-width:190px}
+.deals td .quiet{white-space:nowrap}

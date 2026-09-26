@@ -424,6 +424,8 @@ const ICON={
   reports:'M4 20V11M10 20V4M16 20v-6M21 20H3',
   edc:'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
   fin:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
+  /* a pencil over a ruled sheet: correcting the won deals */
+  deals:'M4 5h9M4 10h6M4 15h4M14 19l1-4 6-6 3 3-6 6z',
   /* a spanner: the case is opened after the job is finished */
   aftersale:'M14.7 6.3a4 4 0 0 0-5.4 5.4l-5 5a1.5 1.5 0 0 0 2.1 2.1l5-5a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.1-2.1z',
   users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
@@ -459,7 +461,7 @@ function buildNav(){
      table and its win trigger are still there; nothing reads them. */
   if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
-  if(ME.role==='admin') admin.push(['edc','EDC']);
+  if(ME.role==='admin') admin.push(['edc','EDC'],['deals','Won deals']);
   /* every team with a dashboard of its own reaches it here; the scope switch
      inside decides which one they actually see */
   /* the manager runs sales and marketing; after-sale is the installation
@@ -488,7 +490,7 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
-    edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
+    edc:renderEdc,deals:renderDeals,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
     targets:renderTargets,inc:renderIncentive,lists:renderLists}[v])();
 }
 
