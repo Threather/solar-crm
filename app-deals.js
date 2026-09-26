@@ -1,36 +1,30 @@
-/* ---------------- Won deals (admin) ----------------
-   One table of every won deal where admin corrects what the record says:
-   the customer, the system, the EDC file, BOQ and installation. Asked for on
-   27 Sep 2026 for Cheanich - EDC dates could only be typed while a deal was
-   still on the worklist (Submitted is read-only), and BOQ or an install date
-   meant opening the lead, unlocking it and finding the box.
+/* ---------------- Edit deals: a scope of the EDC screen (admin) ----------------
+   One table of every won deal where admin corrects what the record says: the
+   EDC file with its branch and the BOQ first, then installation, the customer
+   and the system.
+   Asked for on 27 Sep 2026 for Cheanich - EDC dates could only be typed while
+   a deal was still on the worklist (Submitted is read-only), and BOQ or an
+   install date meant opening the lead, unlocking it and finding the box.
+   It lives inside EDC rather than on the nav, as Kevin asked.
 
-   Every cell saves the moment it changes, like the EDC worklist. The four tabs
-   are column sets over the same rows, so the table fits a laptop screen. */
-let DEALS=[], DEALTAB='edc', DEALF={q:'',sys:'',edc:''}, DEALPAGE=0;
+   Every cell saves the moment it changes, like the EDC worklist. The tabs are
+   column sets over the same rows, so the table fits a laptop screen. */
+let DEALS=[], DEALTAB='edc', DEALF={q:'',sys:''}, DEALPAGE=0;
 
-async function renderDeals(){
-  if(ME.role!=='admin'){
-    $('main').innerHTML=blank('Customer & EDC is admin only','Ask an admin to correct a deal.');return;}
-  $('main').innerHTML=SKEL;
-  /* eleven columns of inputs need the whole screen, not the 1180px reading width */
+/* called by renderEdc with the won deals it has already fetched */
+function drawEditDeals(rows){
+  /* the table needs the whole screen, not the 1180px reading width */
   $('main').style.maxWidth='none';
-  const gen=NAVGEN;
-  const rows=await fetchLeads(q=>q.eq('stage_code',WON));
-  if(gen!==NAVGEN)return;
   DEALS=rows.slice().sort((a,b)=>String(b.stage_entered_at||'').localeCompare(String(a.stage_entered_at||'')));
   const tab=(k,label)=>`<button class="${DEALTAB===k?'on':''}" onclick="DEALTAB='${k}';drawDeals();paintDealTabs()" data-tab="${k}">${label}</button>`;
-  $('main').innerHTML=`
-    <h2 style="margin-bottom:6px">Customer &amp; EDC</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every won deal. Changes save as you make them.</p>
+  return `
     <div class="toolbar">
-      <div class="scope" id="deal-tabs">${tab('edc','EDC')}${tab('install','BOQ &amp; installation')}${tab('cust','Customer')}${tab('sys','System')}</div>
+      <div class="scope" id="deal-tabs">${tab('edc','EDC &amp; BOQ')}${tab('install','Installation')}${tab('cust','Customer')}${tab('sys','System')}</div>
       <input placeholder="Search name, phone or ref ID…" value="${esc(DEALF.q)}" oninput="DEALF.q=this.value;DEALPAGE=0;drawDeals()">
       <select onchange="DEALF.sys=this.value;DEALPAGE=0;drawDeals()" title="System type">
         <option value="">All systems</option>${SYSTEM_TYPES.map(v=>opt(v,DEALF.sys)).join('')}<option value="-" ${DEALF.sys==='-'?'selected':''}>Not set</option></select>
     </div>
     <div id="dealwrap"></div>`;
-  drawDeals();
 }
 function paintDealTabs(){
   document.querySelectorAll('#deal-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===DEALTAB));
@@ -109,25 +103,26 @@ const dEng=l=>`<select onchange="saveDeal('${l.id}','site_engineer_id',this.valu
   STAFF.filter(s=>s.role==='site_engineer'&&(s.is_active||s.id===l.site_engineer_id))
     .map(s=>`<option value="${s.id}" ${s.id===l.site_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('')}</select>`;
 const dealOffice=l=>stk(['Branch',dSel(l,'edc_branch',EDC_BRANCHES)],['EDC price',dNum(l,'edc_fee_usd',false,90)]);
+const dealBoq=l=>stk(['BOQ',dSel(l,'boq_status',BOQ_STATUS)],['BOQ date',dDate(l,'boq_date')]);
 
 /* The EDC tab shows one size band at a time, because the two bands have
    different steps: two dates at 10 kWac or under, five above. Deals EDC cannot
    place yet get their own view with the two fields that place them. */
 const DEAL_EDC={
-  small:[{head:'Size',cell:dealEdcBand},{head:'EDC office',cell:dealOffice},
+  small:[{head:'Size',cell:dealEdcBand},{head:'EDC office',cell:dealOffice},{head:'BOQ',cell:dealBoq},
     ...EDC_SMALL.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
   /* five dates leave no room for a size column; the size rides under the office */
-  large:[{head:'EDC office',cell:l=>dealOffice(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
+  large:[{head:'EDC office &amp; BOQ',cell:l=>dealOffice(l)+dealBoq(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
     ...EDC_LARGE.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
   miss:[
     {head:'Why',cell:l=>edcExempt(l)?'<span class="quiet">Off-Grid, no EDC</span>':!edcApplies(l)?'<b>No system type</b>':'<b>No inverter size</b>'},
     {head:'System type',cell:l=>dSel(l,'system_type',SYSTEM_TYPES)},
     {head:'Inverter',cell:l=>`<div class="inl">${dNum(l,'inverter_kw',false,60)}<span>kW ×</span>${dNum(l,'inverter_pcs',true,48)}<span>pcs</span></div>`},
+    {head:'BOQ',cell:dealBoq},
     {head:'Sale engineer',cell:l=>esc(staffName(l.assigned_to))}]
 };
 const DEAL_COLS={
   install:[
-    {head:'BOQ',cell:l=>stk(['Status',dSel(l,'boq_status',BOQ_STATUS)],['Date',dDate(l,'boq_date')])},
     {head:'Delivery',cell:l=>dDate(l,'delivery_date')},
     {head:'Install start',cell:l=>dDate(l,'installation_start')},
     {head:'Install end',cell:l=>dDate(l,'installation_end')},

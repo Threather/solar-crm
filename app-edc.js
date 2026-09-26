@@ -36,8 +36,11 @@ async function renderEdc(){
         <button class="${EDCSCOPE==='work'?'on':''}" onclick="setEdcScope('work')">Worklist</button>
         <button class="${EDCSCOPE==='sent'?'on':''}" onclick="setEdcScope('sent')">Submitted (${started.length})</button>
         <button class="${EDCSCOPE==='miss'?'on':''}" onclick="setEdcScope('miss')">Missing information (${pending.length})</button>
+        <button class="${EDCSCOPE==='edit'?'on':''}" onclick="setEdcScope('edit')">Edit deals (${rows.length})</button>
       </div>
     </div>
+
+    ${EDCSCOPE==='edit'?`<p style="color:var(--ink-soft);font-size:13px;margin:-6px 0 12px">Every won deal. BOQ, dates, EDC, customer and system - changes save as you make them.</p>`+drawEditDeals(rows):''}
 
     ${EDCSCOPE==='work'?(outstanding.length?`
       ${edcTable('Inverter ≤ 10 kWac',smallOpen,EDC_SMALL)}
@@ -70,6 +73,7 @@ async function renderEdc(){
         <td>${esc(staffName(l.assigned_to))}</td></tr>`).join('')
       +`</tbody></table></div>`
       :blank('Nothing missing','Every won deal has enough information to be placed.')):''}`;
+  if(EDCSCOPE==='edit')drawDeals();
 }
 
 /* a submitted EDC file, with every date and the lead's own history beside it */
@@ -118,7 +122,7 @@ async function edcReview(id){
   $('lead-overlay').classList.add('open');
 }
 
-function setEdcScope(v){EDCSCOPE=v;renderEdc();}
+function setEdcScope(v){EDCSCOPE=v;$('main').style.maxWidth='';renderEdc();}
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
     <div class="empty" style="margin-bottom:22px"><b>Nothing pending here</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;

@@ -461,7 +461,7 @@ function buildNav(){
      table and its win trigger are still there; nothing reads them. */
   if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
-  if(ME.role==='admin') admin.push(['edc','EDC'],['deals','Customer & EDC']);
+  if(ME.role==='admin') admin.push(['edc','EDC']);
   /* every team with a dashboard of its own reaches it here; the scope switch
      inside decides which one they actually see */
   /* the manager runs sales and marketing; after-sale is the installation
@@ -483,7 +483,7 @@ function go(v){
   if(AUTH_LOST)return;
   NAVGEN++;
   VIEW=v;
-  /* Customer & EDC widens main for its table; every other screen reads at 1180 */
+  /* EDC's Edit deals widens main for its table; every other screen reads at 1180 */
   $('main').style.maxWidth='';
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
@@ -492,7 +492,7 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
-    edc:renderEdc,deals:renderDeals,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
+    edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
     targets:renderTargets,inc:renderIncentive,lists:renderLists}[v])();
 }
 
