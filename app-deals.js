@@ -11,24 +11,23 @@ let DEALS=[], DEALTAB='edc', DEALF={q:'',sys:'',edc:''}, DEALPAGE=0;
 
 async function renderDeals(){
   if(ME.role!=='admin'){
-    $('main').innerHTML=blank('Won deals is admin only','Ask an admin to correct a deal.');return;}
+    $('main').innerHTML=blank('Customer & EDC is admin only','Ask an admin to correct a deal.');return;}
   $('main').innerHTML=SKEL;
+  /* eleven columns of inputs need the whole screen, not the 1180px reading width */
+  $('main').style.maxWidth='none';
   const gen=NAVGEN;
   const rows=await fetchLeads(q=>q.eq('stage_code',WON));
   if(gen!==NAVGEN)return;
   DEALS=rows.slice().sort((a,b)=>String(b.stage_entered_at||'').localeCompare(String(a.stage_entered_at||'')));
   const tab=(k,label)=>`<button class="${DEALTAB===k?'on':''}" onclick="DEALTAB='${k}';drawDeals();paintDealTabs()" data-tab="${k}">${label}</button>`;
   $('main').innerHTML=`
-    <h2 style="margin-bottom:6px">Won deals</h2>
+    <h2 style="margin-bottom:6px">Customer &amp; EDC</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every won deal. Changes save as you make them.</p>
     <div class="toolbar">
       <div class="scope" id="deal-tabs">${tab('edc','EDC')}${tab('install','BOQ &amp; installation')}${tab('cust','Customer')}${tab('sys','System')}</div>
       <input placeholder="Search name, phone or ref ID…" value="${esc(DEALF.q)}" oninput="DEALF.q=this.value;DEALPAGE=0;drawDeals()">
       <select onchange="DEALF.sys=this.value;DEALPAGE=0;drawDeals()" title="System type">
         <option value="">All systems</option>${SYSTEM_TYPES.map(v=>opt(v,DEALF.sys)).join('')}<option value="-" ${DEALF.sys==='-'?'selected':''}>Not set</option></select>
-      <select onchange="DEALF.edc=this.value;DEALPAGE=0;drawDeals()" title="EDC">
-        <option value="">Any EDC state</option>
-        ${[['open','EDC pending'],['done','EDC complete'],['miss','Missing system info'],['exempt','Off-Grid']].map(([v,t])=>`<option value="${v}" ${DEALF.edc===v?'selected':''}>${t}</option>`).join('')}</select>
     </div>
     <div id="dealwrap"></div>`;
   drawDeals();
@@ -38,28 +37,30 @@ function paintDealTabs(){
 }
 /* older rows carry only city_province, as the lead modal allows for */
 const dealProv=l=>l.province||l.city_province||'';
-const dealEdcState=l=>edcExempt(l)?'exempt':!edcFields(l)?'miss':edcDone(l)<edcFields(l).length?'open':'done';
 
 function dealRows(){
   const q=DEALF.q.trim().toLowerCase();
   return DEALS.filter(l=>{
     if(q&&![l.customer_name,l.phone,l.ref_id].some(v=>String(v||'').toLowerCase().includes(q)))return false;
     if(DEALF.sys==='-'?!!l.system_type:DEALF.sys&&l.system_type!==DEALF.sys)return false;
-    if(DEALF.edc&&dealEdcState(l)!==DEALF.edc)return false;
     return true;
   });
 }
 
 function drawDeals(){
   const wrap=$('dealwrap'); if(!wrap)return;
-  const all=dealRows();
-  if(!all.length){wrap.innerHTML=blank('No won deal matches','Clear the search or the filters to see every won deal.');return;}
+  const found=dealRows();
+  const band=b=>found.filter(l=>dealBand(l)===b);
+  const bands=DEALTAB!=='edc'?'':`<div class="scope saleview">${[['small','10 kWac or under'],['large','Above 10 kWac'],['miss','Not placed yet']]
+    .map(([b,t])=>`<button class="${DEALBAND===b?'on':''}" onclick="DEALBAND='${b}';DEALPAGE=0;drawDeals()">${t} (${band(b).length})</button>`).join('')}</div>`;
+  const all=DEALTAB==='edc'?band(DEALBAND):found;
+  if(!all.length){wrap.innerHTML=bands+blank('No won deal here','Clear the search or the filters, or pick another size above.');return;}
   const pages=Math.ceil(all.length/PAGE_SIZE);
   if(DEALPAGE>pages-1)DEALPAGE=pages-1;
   const rows=all.slice(DEALPAGE*PAGE_SIZE,(DEALPAGE+1)*PAGE_SIZE);
-  const cols=DEAL_COLS[DEALTAB];
-  wrap.innerHTML=`<div class="tablewrap deals"><table><thead><tr>
-      <th>Ref ID</th><th>Customer</th>${cols.map(c=>`<th title="${esc(c.tip||'')}">${c.head}</th>`).join('')}
+  const cols=dealCols();
+  wrap.innerHTML=bands+`<div class="tablewrap deals"><table><thead><tr>
+      <th>Customer</th>${cols.map(c=>`<th title="${esc(c.tip||'')}">${c.head}</th>`).join('')}
     </tr></thead><tbody>`
     +rows.map(l=>`<tr id="deal-${l.id}">${dealRow(l)}</tr>`).join('')
     +`</tbody></table></div>`
@@ -69,19 +70,22 @@ function drawDeals(){
       <button class="btn-line" onclick="DEALPAGE++;drawDeals()" ${DEALPAGE<pages-1?'':'disabled'}>Next</button></div>`:'');
 }
 function dealRow(l){
-  return `<td class="refid" style="cursor:pointer" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'—')}</td>
-    <td><b>${esc(l.customer_name)}</b><span class="days">won ${fmtDate(l.stage_entered_at)}</span></td>`
-    +DEAL_COLS[DEALTAB].map(c=>`<td>${c.cell(l)}</td>`).join('');
+  return `<td class="who"><b>${esc(l.customer_name)}</b>
+      <a class="refid" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'no ref')}</a>
+      <span class="days">won ${fmtDate(l.stage_entered_at)}</span></td>`
+    +dealCols().map(c=>`<td>${c.cell(l)}</td>`).join('');
 }
 /* redraw one row after a save, so a derived cell (kWac, the EDC band, the
    commune list) follows without the table losing its place */
 function redrawDeal(id){
   const l=DEALS.find(x=>x.id===id), tr=$('deal-'+id);
+  /* a system type or inverter size can move the deal to another size band */
+  if(l&&DEALTAB==='edc'&&dealBand(l)!==DEALBAND){drawDeals();return;}
   if(l&&tr)tr.innerHTML=dealRow(l);
 }
 
 /* the cells. `k` is the column; every input calls saveDeal with it. */
-const dDate=(l,k)=>`<input type="date" style="min-width:130px" value="${l[k]||''}" onchange="saveDeal('${l.id}','${k}',this.value,this)">`;
+const dDate=(l,k)=>`<input type="date" value="${l[k]||''}" onchange="saveDeal('${l.id}','${k}',this.value,this)">`;
 const dText=(l,k,w)=>`<input style="min-width:${w||140}px" value="${esc(l[k]||'')}" onchange="saveDeal('${l.id}','${k}',this.value,this)">`;
 const dSel=(l,k,arr,w)=>`<select style="min-width:${w||120}px" onchange="saveDeal('${l.id}','${k}',this.value,this)">${optList(arr,l[k])}</select>`;
 const dNum=(l,k,int,w)=>numBox('dn-'+k+'-'+l.id,l[k],{attrs:`style="min-width:${w||70}px;width:${w||70}px" onchange="saveDeal('${l.id}','${k}',this.value,this)"`},int);
@@ -97,48 +101,60 @@ const dEdc=(l,k)=>{
 const dealEdcBand=l=>edcExempt(l)?'Exempt':!edcFields(l)?'<span class="quiet">no spec</span>'
   :`${kwac(l)} kWac<span class="days">${edcDone(l)} of ${edcFields(l).length} done</span>`;
 
+/* Two related fields share a cell, one above the other, so every tab fits a
+   laptop screen with no sideways scrolling (Kevin, 27 Sep 2026: the right
+   end of the table was cut off). Each carries its own small label. */
+const stk=(...parts)=>`<div class="stk">${parts.map(([lab,html])=>`<label>${lab}</label>${html}`).join('')}</div>`;
+const dEng=l=>`<select onchange="saveDeal('${l.id}','site_engineer_id',this.value,this)"><option value="">—</option>${
+  STAFF.filter(s=>s.role==='site_engineer'&&(s.is_active||s.id===l.site_engineer_id))
+    .map(s=>`<option value="${s.id}" ${s.id===l.site_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('')}</select>`;
+const dealOffice=l=>stk(['Branch',dSel(l,'edc_branch',EDC_BRANCHES)],['EDC price',dNum(l,'edc_fee_usd',false,90)]);
+
+/* The EDC tab shows one size band at a time, because the two bands have
+   different steps: two dates at 10 kWac or under, five above. Deals EDC cannot
+   place yet get their own view with the two fields that place them. */
+const DEAL_EDC={
+  small:[{head:'Size',cell:dealEdcBand},{head:'EDC office',cell:dealOffice},
+    ...EDC_SMALL.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
+  /* five dates leave no room for a size column; the size rides under the office */
+  large:[{head:'EDC office',cell:l=>dealOffice(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
+    ...EDC_LARGE.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
+  miss:[
+    {head:'Why',cell:l=>edcExempt(l)?'<span class="quiet">Off-Grid, no EDC</span>':!edcApplies(l)?'<b>No system type</b>':'<b>No inverter size</b>'},
+    {head:'System type',cell:l=>dSel(l,'system_type',SYSTEM_TYPES)},
+    {head:'Inverter',cell:l=>`<div class="inl">${dNum(l,'inverter_kw',false,60)}<span>kW ×</span>${dNum(l,'inverter_pcs',true,48)}<span>pcs</span></div>`},
+    {head:'Sale engineer',cell:l=>esc(staffName(l.assigned_to))}]
+};
 const DEAL_COLS={
-  edc:[
-    {head:'Size',cell:dealEdcBand},
-    {head:'Branch',cell:l=>edcApplies(l)?dSel(l,'edc_branch',EDC_BRANCHES,170):'<span class="quiet">—</span>'},
-    {head:'EDC price',tip:'What EDC charges for this submission',cell:l=>edcApplies(l)?dNum(l,'edc_fee_usd',false,90):'<span class="quiet">—</span>'},
-    ...EDC_SMALL.map(([k,s,f])=>({head:s+' ≤10',tip:f+' (10 kWac or under)',cell:l=>dEdc(l,k)})),
-    ...EDC_LARGE.map(([k,s,f])=>({head:s+(k==='edc_portal_date'?' >10':''),tip:f+' (above 10 kWac)',cell:l=>dEdc(l,k)}))
-  ],
   install:[
-    {head:'BOQ',cell:l=>dSel(l,'boq_status',BOQ_STATUS,100)},
-    {head:'BOQ date',cell:l=>dDate(l,'boq_date')},
+    {head:'BOQ',cell:l=>stk(['Status',dSel(l,'boq_status',BOQ_STATUS)],['Date',dDate(l,'boq_date')])},
     {head:'Delivery',cell:l=>dDate(l,'delivery_date')},
     {head:'Install start',cell:l=>dDate(l,'installation_start')},
     {head:'Install end',cell:l=>dDate(l,'installation_end')},
-    {head:'Team',cell:l=>dSel(l,'installation_team',INSTALL_TEAMS,150)},
-    {head:'Site engineer',cell:l=>`<select style="min-width:150px" onchange="saveDeal('${l.id}','site_engineer_id',this.value,this)"><option value="">—</option>${
-      STAFF.filter(s=>s.role==='site_engineer'&&(s.is_active||s.id===l.site_engineer_id))
-        .map(s=>`<option value="${s.id}" ${s.id===l.site_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('')}</select>`}
+    {head:'Who installs',cell:l=>stk(['Team',dSel(l,'installation_team',INSTALL_TEAMS)],['Site engineer',dEng(l)])}
   ],
   cust:[
-    {head:'Name',cell:l=>dText(l,'customer_name',170)},
-    {head:'Type',cell:l=>dSel(l,'customer_type',CUSTOMER_TYPES,110)},
-    {head:'Phone',cell:l=>dText(l,'phone',130)},
-    {head:'Address',cell:l=>dText(l,'site_address',180)},
-    {head:'Province',cell:l=>`<select style="min-width:130px" onchange="saveDeal('${l.id}','province',this.value,this)">${optList(PROVINCES,dealProv(l))}</select>`},
-    {head:'District',cell:l=>dSel(l,'district',Object.keys(GEO[dealProv(l)]||{}),130)},
-    {head:'Commune',cell:l=>dSel(l,'commune',((GEO[dealProv(l)]||{})[l.district])||[],130)}
+    {head:'Name',cell:l=>dText(l,'customer_name',160)},
+    {head:'Type &amp; phone',cell:l=>stk(['Type',dSel(l,'customer_type',CUSTOMER_TYPES)],['Phone',dText(l,'phone',120)])},
+    {head:'Address',cell:l=>dText(l,'site_address',200)},
+    {head:'Location',cell:l=>stk(
+      ['Province',`<select onchange="saveDeal('${l.id}','province',this.value,this)">${optList(PROVINCES,dealProv(l))}</select>`],
+      ['District',dSel(l,'district',Object.keys(GEO[dealProv(l)]||{}))],
+      ['Commune',dSel(l,'commune',((GEO[dealProv(l)]||{})[l.district])||[])])}
   ],
   sys:[
-    {head:'System',cell:l=>dSel(l,'system_type',SYSTEM_TYPES,100)},
-    {head:'Phase',cell:l=>dSel(l,'phase_type',PHASE_TYPES,110)},
-    {head:'Panel',cell:l=>dSel(l,'panel_brand',PANEL_BRANDS,100)},
-    {head:'Watt',cell:l=>dNum(l,'panel_watt',true,60)},
-    {head:'Pcs',cell:l=>dNum(l,'panel_pcs',true,50)},
-    {head:'Inverter',cell:l=>dSel(l,'inverter_brand',INVERTER_BRANDS,100)},
-    {head:'kW each',cell:l=>dNum(l,'inverter_kw',false,55)},
-    {head:'Pcs',cell:l=>dNum(l,'inverter_pcs',true,45)},
-    {head:'Battery',cell:l=>dSel(l,'battery_brand',BATTERY_BRANDS,100)},
-    {head:'kWh each',cell:l=>dNum(l,'battery_kwh_each',false,55)},
-    {head:'Pcs',cell:l=>dNum(l,'battery_pcs',true,45)}
+    {head:'System',cell:l=>stk(['Type',dSel(l,'system_type',SYSTEM_TYPES)],['Phase',dSel(l,'phase_type',PHASE_TYPES)])},
+    {head:'Panel',cell:l=>stk(['Brand',dSel(l,'panel_brand',PANEL_BRANDS)],
+      ['Watt × pcs',`<div class="inl">${dNum(l,'panel_watt',true,60)}<span>×</span>${dNum(l,'panel_pcs',true,48)}</div>`])},
+    {head:'Inverter',cell:l=>stk(['Brand',dSel(l,'inverter_brand',INVERTER_BRANDS)],
+      ['kW each × pcs',`<div class="inl">${dNum(l,'inverter_kw',false,60)}<span>×</span>${dNum(l,'inverter_pcs',true,48)}</div>`])},
+    {head:'Battery',cell:l=>stk(['Brand',dSel(l,'battery_brand',BATTERY_BRANDS)],
+      ['kWh each × pcs',`<div class="inl">${dNum(l,'battery_kwh_each',false,60)}<span>×</span>${dNum(l,'battery_pcs',true,48)}</div>`])}
   ]
 };
+let DEALBAND='small';
+const dealBand=l=>!edcApplies(l)||!edcFields(l)?'miss':edcFields(l)===EDC_SMALL?'small':'large';
+const dealCols=()=>DEALTAB==='edc'?DEAL_EDC[DEALBAND]:DEAL_COLS[DEALTAB];
 
 /* One save for every cell. The derived columns the lead modal works out on
    save - panel kWp, battery total, inverter total - are worked out here too,

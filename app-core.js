@@ -461,7 +461,7 @@ function buildNav(){
      table and its win trigger are still there; nothing reads them. */
   if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
-  if(ME.role==='admin') admin.push(['edc','EDC'],['deals','Won deals']);
+  if(ME.role==='admin') admin.push(['edc','EDC'],['deals','Customer & EDC']);
   /* every team with a dashboard of its own reaches it here; the scope switch
      inside decides which one they actually see */
   /* the manager runs sales and marketing; after-sale is the installation
@@ -483,6 +483,8 @@ function go(v){
   if(AUTH_LOST)return;
   NAVGEN++;
   VIEW=v;
+  /* Customer & EDC widens main for its table; every other screen reads at 1180 */
+  $('main').style.maxWidth='';
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   const nb=$('nav-'+v);if(nb)nb.classList.add('active');
   const crumb=$('crumb');if(crumb)crumb.textContent=nb?nb.textContent.trim():'';
