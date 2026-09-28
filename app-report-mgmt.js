@@ -1,4 +1,4 @@
-/* ---------------- MANAGEMENT REPORT ----------------
+﻿/* ---------------- MANAGEMENT REPORT ----------------
    Kevin's hand-drawn "September 2026 Sales & Pipeline Dashboard", photographed
    16 Sep 2026 and built here as a fourth Reports scope for the manager and
    admin. Its panels are his, in his order.
@@ -254,13 +254,13 @@ async function renderMgmtReport(){
   /* the facts block at the top right of their sheet */
   const monthLong=new Date(mStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
   const fmtDay=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  const expected=mtdCollected+outstanding;
-  /* Expected Payment Received This Month: every promised payment dated inside
-     this calendar month, whatever window is picked, like the rest of the row */
+  /* Outstanding Payment is what customers have promised to pay THIS calendar
+     month, as admin keys it on the Finance card - not every balance still owed
+     (Kevin, 28 Sep 2026). Total Payment Expected is that plus what has come in. */
   const mEnd=thisM+'-'+String(dim).padStart(2,'0');
   const expThis=expd.filter(p=>p.expected_on>=mStart&&p.expected_on<=mEnd);
   const expThisSum=expThis.reduce((a,p)=>a+Number(p.amount_usd||0),0);
-  const expCustomers=new Set(expThis.map(p=>p.lead_id)).size;
+  const expected=mtdCollected+expThisSum;
   const pct2=v=>v==null?'—':v.toFixed(2)+'%';
   const moneyAxis=v=>!v?'$0':v>=1000?'$'+(v/1000)+'k':'$'+v;
 
@@ -275,15 +275,14 @@ async function renderMgmtReport(){
       </div>
     </div>
     <div class="mg-band">${esc(monthLong)} SALES &amp; PIPELINE DASHBOARD</div>
-    <div class="kpis seven eight">
+    <div class="kpis seven">
       <!-- their seven boxes, in their order and their wording. The row is this
            month's, as the band above it says, whatever window is picked. -->
       ${kpi({label:'Monthly Target',value:cash(target||null)})}
       ${kpi({label:'Payment Collected',value:cash(mtdCollected),lead:true,
         delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord})}
-      ${kpi({label:'Outstanding Payment',value:cash(outstanding)})}
+      ${kpi({label:'Outstanding Payment',value:cash(expThisSum)})}
       ${kpi({label:'Total Payment Expected',value:cash(expected)})}
-      ${kpi({label:'Expected Payment Received This Month',value:cash(expThisSum)})}
       ${kpi({label:'Achievement %',value:target?pct2(mtdCollected/target*100):'—'})}
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
       ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—'})}
