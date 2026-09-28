@@ -427,7 +427,7 @@ function drawActiveTable(rows){
       <td>${qualPill(l)}</td>
       <td>${ME.role==='sales'
         ?(l.last_quot?`<b>${fmtMoney(l.last_quot.price_usd)}</b><span class="days">${fmtDate(l.last_quot.created_at)}</span>`:'—')
-        :(l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>')}</td>
+        :(l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'<span class="pooltag">NOT YET</span>')}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.next_follow_up)}</td>
       <td class="nowrap"><b>${daysIn(l.created_at)}d</b> old<span class="days">${daysIn(l.stage_entered_at)}d in stage</span></td>
       ${showRemarks()?`<td class="rem">${remarkStack(l)}</td>`:''}</tr>`;
@@ -446,7 +446,7 @@ function drawMktTable(rows){
       <td class="rowno">${ROWNO+i+1}</td><td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
-      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
+      <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'<span class="pooltag">NOT YET</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}</td>
       <td>${esc(l.site_address||'—')}</td>
       <td class="${od?'overdue':''}">${fmtDate(l.mkt_follow_up_date)}</td></tr>`;
@@ -498,8 +498,8 @@ function drawWonTable(rows){
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
-      <td>${esc(staffName(l.assigned_to))}</td>
-      <td>${l.site_engineer_id?esc(staffName(l.site_engineer_id)):'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
+      <td>${'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>'}</td>
+      <td>${l.site_engineer_id?'<span class="nm">'+esc(staffName(l.site_engineer_id))+'</span>':'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
       <td class="nowrap">${l.boq_status==='Done'
         ?`<span class="mark mark-done">Done</span>${l.boq_date?`<span class="days">${fmtDate(l.boq_date)}</span>`:''}`
         :l.boq_status
@@ -527,7 +527,7 @@ function drawLostTable(rows){
       <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
       <td>${qualPill(l)}</td>
       <td class="nowrap">${qcell(l)}</td>
-      <td>${l.assigned_to?esc(staffName(l.assigned_to)):'—'}</td>
+      <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'—'}</td>
       <td>${fmtDate(l.stage_entered_at)}</td>
       <td>${fmtDate(l.created_at)}</td></tr>`).join('')+`</tbody></table>`;
 }

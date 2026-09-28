@@ -876,3 +876,16 @@ th.colf.on .caret{color:var(--sun-deep);font-size:10px}
 
 /* the No column counts what the filters leave (28 Sep 2026) */
 .rowno{width:34px;text-align:right;color:var(--ink-mute);font-variant-numeric:tabular-nums;padding-right:6px}
+
+/* a person's name never breaks across two lines in a table */
+.nm{white-space:nowrap}
+
+/* room for the manager's tick box and No column at 1288px (28 Sep 2026) */
+table.with-rem .stagepill{white-space:normal;text-align:center;line-height:1.25}
+table.with-rem td.rem{min-width:140px}
+table.with-rem td.phone{max-width:104px}
+table.with-rem td.nowrap{white-space:normal}
+table.with-rem td.rem{width:auto;min-width:130px}
+table.with-rem th.colf button{display:inline;white-space:normal}
+table.with-rem th.colf .caret{white-space:nowrap;margin-left:3px}
+table.with-rem th{white-space:normal}
