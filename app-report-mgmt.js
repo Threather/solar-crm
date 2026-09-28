@@ -32,6 +32,17 @@
 /* the five channels, in the order the New lead form offers them */
 const MG_CHANNELS=['Digital_Marketing','Third_Party','Direct_Sales','Offline_Marketing','Existing_Customer'];
 /* the live rungs, which is what "active pipeline" means on his sheet */
+/* Conversion raw to qualified up to August 2026 is the client's own table, off
+   the "summary table" sheet of their workbook: raw is rows on Raw Lead, qualified
+   is Raw Lead rows with Status "Qualified". The app does not store that status,
+   so it cannot recount it; these are their figures as written (28 Sep 2026).
+   September onward is counted by the app. [raw, qualified] */
+const CONV_HISTORY={
+  '2025-07':[24,17],'2025-08':[88,24],'2025-09':[153,29],'2025-10':[133,23],
+  '2025-11':[20,7],'2025-12':[41,7],'2026-01':[156,53],'2026-02':[335,61],
+  '2026-03':[210,55],'2026-04':[259,69],'2026-05':[179,74],'2026-06':[160,60],
+  '2026-07':[187,44],'2026-08':[409,29]
+};
 const MG_ACTIVE=['info_gathering','telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff'];
 
 async function renderMgmtReport(){
@@ -308,7 +319,9 @@ async function renderMgmtReport(){
       ${convMonths.length
         ?lineChart(convMonths.map(m=>monthName(m)),
           [{name:'Conversion',color:'var(--viz-2)',
-            values:convMonths.map(m=>{const r=madeIn(m).length;return r?+(qualIn(m).length/r*100).toFixed(2):0;})}],
+            values:convMonths.map(m=>{
+              if(CONV_HISTORY[m]){const [r,q]=CONV_HISTORY[m];return +(q/r*100).toFixed(2);}
+              const r=madeIn(m).length;return r?+(qualIn(m).length/r*100).toFixed(2):0;})}],
           {title:'Conversion % from raw lead to qualified lead',compact:true,values:true,fmt:v=>v.toFixed(2)+'%'})
         :emptyChart('Conversion % from raw lead to qualified lead','No months to show yet','This fills in as leads accumulate.')}
       ${collPeople.length
