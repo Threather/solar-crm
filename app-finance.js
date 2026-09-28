@@ -1,4 +1,4 @@
-/* ---------------- FINANCE ----------------
+﻿/* ---------------- FINANCE ----------------
    Won deals with the money attached: what the contract says, what has been
    paid, what is left. Contract total is kept separate from the sale value
    sales recorded at closing, so a disagreement between them is visible
@@ -113,6 +113,11 @@ async function renderFinance(){
 }
 /* a deal that owes nothing is finished work, not today's work */
 const finSettled=r=>finDue(r)>0&&finDue(r)-finPaid(r)<=0;
+/* owing means money is owed. A won deal with no sale value owes nothing that can
+   be counted, so it is named under the list rather than sitting in it at $0 (28 Sep 2026) */
+const finOwing=r=>finDue(r)-finPaid(r)>0.005;
+const finNoValue=r=>!(finDue(r)>0);
+const finInScope=r=>FINSCOPE==='paid'?finSettled(r):finOwing(r);
 /* finance works its list by contract, by account type, by whose customer it is
    and by what is due — so those are the filters, not a second search box */
 function setFinFilter(k,v){FINFILTER[k]=v;drawFinance();}
@@ -176,7 +181,7 @@ function exportPayments(){
       staffName(p.lead.assigned_to),p.note,p.lead.fin?.finance_remark]));
 }
 function filteredFin(){
-  let rows=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
+  let rows=FINROWS.filter(finInScope);
   if(FILTER.q){const s=FILTER.q.toLowerCase();
     rows=rows.filter(r=>(r.customer_name||'').toLowerCase().includes(s)||(r.ref_id||'').toLowerCase().includes(s));}
   if(FINFILTER.status)rows=rows.filter(r=>FINFILTER.status==='__none'
@@ -199,11 +204,13 @@ const finFiltered=()=>!!(FILTER.q||FINFILTER.status||FINFILTER.acct||FINFILTER.e
 function drawFinance(){
   if(FINSCOPE==='pay')return drawPayments();
   const rows=filteredFin();
-  const all=FINROWS.filter(r=>FINSCOPE==='paid'?finSettled(r):!finSettled(r));
+  const all=FINROWS.filter(finInScope);
+  const novalue=FINSCOPE==='owing'?FINROWS.filter(finNoValue):[];
+  const nvNote=novalue.length?`<p class="days" style="margin:10px 0 0">${novalue.length} won deal${novalue.length===1?'':'s'} with no sale value, not listed: ${novalue.map(r=>`<a style="cursor:pointer;text-decoration:underline" onclick="openFinance('${r.id}')">${esc(r.customer_name)}</a>`).join(', ')}</p>`:'';
   if(!rows.length){$('finwrap').innerHTML=finFiltered()
     ?blank('No matches','No deal fits the current search and filters. Clear them to see everything.')
     :FINSCOPE==='paid'?blank('Nothing settled yet','Deals move here once the balance reaches zero.')
-    :blank('Nothing outstanding','Every won deal has been paid in full.');return;}
+    :blank('Nothing outstanding','Every won deal has been paid in full.');$('finwrap').insertAdjacentHTML('beforeend',nvNote);return;}
   /* the figures above count the whole list, so when a filter is on, say what
      is actually on screen rather than letting the two disagree in silence */
   const note=finFiltered()
@@ -229,11 +236,11 @@ function drawFinance(){
       <td>${fmtMoney(due)}</td>
       <td>${esc(r.fin?.contract_status||'—')}<span class="days">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
       <td class="nowrap">${r.fin?.follow_up_date?`<b class="${dueNow?'overdue':''}">${fmtDate(r.fin.follow_up_date)}</b>`:'—'}</td>
-      <td>${esc(staffName(r.assigned_to))}</td>
+      <td><span class="nm">${esc(staffName(r.assigned_to))}</span></td>
       <td class="rem">${r.fin?.finance_remark
         ?esc(r.fin.finance_remark)
         :'<span class="quiet">—</span>'}${r.fin?.payment_term?`<span class="days">${esc(r.fin.payment_term)}</span>`:''}</td>
-    </tr>`;}).join('')+`</tbody></table>`;
+    </tr>`;}).join('')+`</tbody></table>`+nvNote;
 }
 
 function openFinance(id){
