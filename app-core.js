@@ -274,8 +274,12 @@ const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;}
 /* marketing keeps ownership of these stages even after a salesperson is
    assigned — must match the leads_select / leads_update policies */
 const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
+/* A lead with a ref ID is qualified, as in the client's workbook, where a lead
+   is qualified once it is on the Leads sheet and carries a reference (client's
+   instruction, 28 Sep 2026). The stage still counts too, and the database
+   issues the ref on qualifying, so the two agree on every lead today. */
 function qualText(l){
-  if(QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
+  if(l.ref_id||QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
   if(l.stage_code===LOST)return l.qualification==='qualified'?'Qualified':'Disqualified';
   return 'Not qualified yet';
 }
