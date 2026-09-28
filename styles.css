@@ -833,3 +833,24 @@ td.numcell b{font-weight:600}
 /* two cards in a row finish level, so neither leaves a hole under the other */
 .homegrid.level{align-items:stretch}
 .homegrid.level>*{margin-top:0;margin-bottom:0;box-sizing:border-box}
+
+/* the manager's team tables above her leads list (28 Sep 2026) */
+.teampanel{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+.tp-box{flex:2 1 460px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tp-box+.tp-box{flex:1 1 300px}
+.tp-box h3{font-size:14px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline}
+table.tp{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px}
+table.tp th{font-size:11px;font-weight:600;color:var(--ink-soft);text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tp td{text-align:right;padding:5px 6px;border-bottom:1px solid var(--line-soft)}
+table.tp th:first-child,table.tp td:first-child{text-align:left}
+table.tp tr:last-child td{border-bottom:0}
+table.tp a{cursor:pointer;color:var(--ink)}
+table.tp a:hover{color:var(--sun-deep);text-decoration:underline}
+table.tp .tp-n{font-weight:600}
+table.tp .tp-n.bad{color:var(--bad)}
+table.tp tr.on td{background:var(--card-alt)}
+table.tp tr.on td:first-child a{font-weight:700}
+.bulkbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;margin-bottom:10px;
+  background:var(--card-alt);border:1px solid var(--sun);border-radius:8px;font-size:13px}
+.pickcol{width:28px;text-align:center}
+tr.picked td{background:var(--card-alt)}

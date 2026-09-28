@@ -68,7 +68,8 @@ const mktOnly=()=>ME.role==='marketing';
 function paintLeads(){
   const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
   const rows=scopeLeads();
-  $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='all'?allStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))+`
+  $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='all'?allStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))
+    +(isBoss()&&LEADSCOPE==='active'?teamPanel():'')+`
     <div class="toolbar">
       ${(ME.role==='site_engineer'||mktOnly())?'':`<div class="scope">
         ${[['active','Active'],['won','Won'],['lost','Lost'],['all','All']].map(([k,label])=>
@@ -93,10 +94,26 @@ function paintLeads(){
         <span>to</span>
         <input type="date" value="${FILTER.to||''}" onchange="FILTER.to=this.value;LEADPAGE=0;paintLeads()" aria-label="To">
       </span>
-      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:'',from:'',to:'',channel:''};LEADPAGE=0;paintLeads()">Clear</button>
+      ${isBoss()?`
+      <select onchange="FILTER.who=this.value;LEADPAGE=0;paintLeads()" title="Sale engineer">
+        <option value="">All sale engineers</option>
+        <option value="__none" ${FILTER.who==='__none'?'selected':''}>Not assigned</option>
+        ${holders().map(s=>`<option value="${s.id}" ${FILTER.who===s.id?'selected':''}>${esc(s.full_name)}</option>`).join('')}
+      </select>
+      <select onchange="FILTER.by=this.value;LEADPAGE=0;paintLeads()" title="Created by">
+        <option value="">Anyone created</option>
+        ${creators().map(s=>`<option value="${s.id}" ${FILTER.by===s.id?'selected':''}>${esc(s.full_name)}</option>`).join('')}
+      </select>
+      <select onchange="FILTER.fu=this.value;LEADPAGE=0;paintLeads()" title="Follow-up">
+        <option value="">Any follow-up</option>
+        ${[['overdue','Follow-up overdue'],['today','Follow-up today'],['none','No follow-up date'],['quiet','No remark in 7 days']].map(([k,t])=>
+          `<option value="${k}" ${FILTER.fu===k?'selected':''}>${t}</option>`).join('')}
+      </select>`:''}
+      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:'',from:'',to:'',channel:'',who:'',by:'',fu:''};LEADPAGE=0;SEL.clear();paintLeads()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
+    ${isBoss()?'<div class="bulkbar" id="bulkbar" style="display:none"></div>':''}
     <div class="tablewrap" id="tablewrap"></div>`;
   drawTable();
 }
@@ -107,8 +124,9 @@ function setScope(s){
   LEADSCOPE=s;
   /* the dates and the channel carry across tabs: they say which leads, not
      where a lead has got to */
-  FILTER={stage:'',q:'',qual:'',from:FILTER.from||'',to:FILTER.to||'',channel:FILTER.channel||''};
-  LEADPAGE=0;
+  FILTER={stage:'',q:'',qual:'',from:FILTER.from||'',to:FILTER.to||'',channel:FILTER.channel||'',
+    who:FILTER.who||'',by:FILTER.by||'',fu:''};
+  LEADPAGE=0;SEL.clear();
   paintLeads();
 }
 function mktStats(rows){
@@ -187,9 +205,114 @@ function filteredLeads(){
   if(FILTER.channel==='__mkt')rows=rows.filter(l=>['Digital_Marketing','Offline_Marketing'].includes(l.lead_channel));
   else if(FILTER.channel==='__none')rows=rows.filter(l=>!l.lead_channel);
   else if(FILTER.channel)rows=rows.filter(l=>l.lead_channel===FILTER.channel);
+  if(FILTER.who==='__none')rows=rows.filter(l=>!l.assigned_to);
+  else if(FILTER.who)rows=rows.filter(l=>l.assigned_to===FILTER.who);
+  if(FILTER.by)rows=rows.filter(l=>l.created_by===FILTER.by);
+  if(FILTER.fu)rows=rows.filter(FU_TEST[FILTER.fu]);
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
   return rows;
+}
+/* ---- the manager's view of her two teams (28 Sep 2026) ----
+   She runs sales and marketing and could only read the list one lead at a
+   time. So: filter by who holds a lead and who created it, a table of each
+   person's backlog that is itself the filter, and assigning many at once. */
+const isBoss=()=>['manager','admin'].includes(ME.role);
+const SEL=new Set();
+const todayStr=()=>localDay(new Date());
+const isOpen=l=>!TERMINAL.includes(l.stage_code);
+/* a lead nobody has written to in a week, counting only what people typed */
+const quietDays=7;
+const lastTouch=l=>l.last_remark?remarkDate(l.last_remark):localDay(l.created_at);
+const FU_TEST={
+  overdue:l=>!!l.next_follow_up&&l.next_follow_up.slice(0,10)<todayStr(),
+  today:l=>!!l.next_follow_up&&l.next_follow_up.slice(0,10)===todayStr(),
+  none:l=>!l.next_follow_up,
+  quiet:l=>(new Date(todayStr())-new Date(lastTouch(l)))/864e5>=quietDays
+};
+/* whoever holds leads, not whoever holds the role - see the per-person rule */
+function holders(){
+  const ids=new Set(LEADS.map(l=>l.assigned_to).filter(Boolean));
+  assignable().forEach(s=>ids.add(s.id));
+  return STAFF.filter(s=>ids.has(s.id)).sort((a,b)=>a.full_name.localeCompare(b.full_name));
+}
+function creators(){
+  const ids=new Set(LEADS.map(l=>l.created_by).filter(Boolean));
+  return STAFF.filter(s=>ids.has(s.id)).sort((a,b)=>a.full_name.localeCompare(b.full_name));
+}
+function teamPanel(){
+  const mon=todayStr().slice(0,7);
+  const open=LEADS.filter(isOpen);
+  const cell=(n,who,fu,cls)=>n?`<a class="tp-n ${cls||''}" onclick="event.stopPropagation();teamPick('who','${who}','${fu||''}')">${n}</a>`:'<span class="quiet">0</span>';
+  const people=holders().filter(s=>s.is_active||open.some(l=>l.assigned_to===s.id));
+  const sRow=(id,name)=>{
+    const mine=id==='__none'?open.filter(l=>!l.assigned_to):open.filter(l=>l.assigned_to===id);
+    const won=id==='__none'?0:LEADS.filter(l=>l.assigned_to===id&&l.stage_code===WON&&localDay(l.stage_entered_at).slice(0,7)===mon).length;
+    return `<tr class="${FILTER.who===id?'on':''}"><td><a onclick="teamPick('who','${id}','')">${esc(name)}</a></td>
+      <td>${cell(mine.length,id,'')}</td>
+      <td>${cell(mine.filter(FU_TEST.overdue).length,id,'overdue','bad')}</td>
+      <td>${cell(mine.filter(FU_TEST.today).length,id,'today')}</td>
+      <td>${cell(mine.filter(FU_TEST.none).length,id,'none')}</td>
+      <td>${cell(mine.filter(FU_TEST.quiet).length,id,'quiet','bad')}</td>
+      <td>${won||'<span class="quiet">0</span>'}</td></tr>`;
+  };
+  const mkt=STAFF.filter(s=>s.role==='marketing'&&s.is_active);
+  const mRow=s=>{
+    const made=LEADS.filter(l=>l.created_by===s.id);
+    const month=made.filter(l=>(l.lead_date||localDay(l.created_at)).slice(0,7)===mon);
+    const nophone=made.filter(l=>isOpen(l)&&!l.phone);
+    const waiting=made.filter(l=>isOpen(l)&&!l.assigned_to);
+    return `<tr class="${FILTER.by===s.id?'on':''}"><td><a onclick="teamPick('by','${s.id}','')">${esc(s.full_name)}</a></td>
+      <td>${month.length}</td><td>${nophone.length}</td><td>${waiting.length}</td></tr>`;
+  };
+  return `<div class="teampanel">
+    <div class="tp-box"><h3>Sales team <span class="days">open leads</span></h3>
+      <table class="tp"><thead><tr><th>Person</th><th>Open</th><th>Overdue</th><th>Today</th><th>No date</th><th>No remark ${quietDays}d+</th><th>Won this month</th></tr></thead>
+      <tbody>${people.map(s=>sRow(s.id,s.full_name)).join('')}${sRow('__none','Not assigned')}</tbody></table></div>
+    ${mkt.length?`<div class="tp-box"><h3>Marketing team</h3>
+      <table class="tp"><thead><tr><th>Person</th><th>Leads this month</th><th>No phone</th><th>Not assigned</th></tr></thead>
+      <tbody>${mkt.map(mRow).join('')}</tbody></table></div>`:''}
+  </div>`;
+}
+/* a number in the team table is the filter that shows those rows */
+function teamPick(kind,id,fu){
+  const same=FILTER[kind]===id&&(FILTER.fu||'')===fu;
+  FILTER.who='';FILTER.by='';
+  if(!same){FILTER[kind]=id;FILTER.fu=fu;}else FILTER.fu='';
+  LEADPAGE=0;SEL.clear();paintLeads();
+  $('tablewrap').scrollIntoView({block:'start',behavior:'smooth'});
+}
+function toggleSel(id,on){on?SEL.add(id):SEL.delete(id);drawBulkBar();}
+function toggleSelPage(on){
+  document.querySelectorAll('#tablewrap input.pick').forEach(c=>{c.checked=on;on?SEL.add(c.value):SEL.delete(c.value);});
+  drawBulkBar();
+}
+function selectAllFiltered(){filteredLeads().forEach(l=>SEL.add(l.id));drawTable();}
+function drawBulkBar(){
+  const bar=$('bulkbar');if(!bar)return;
+  const total=filteredLeads().length;
+  bar.style.display=SEL.size?'flex':'none';
+  bar.innerHTML=SEL.size?`<b>${SEL.size} selected</b>
+    ${SEL.size<total?`<button class="btn-line" onclick="selectAllFiltered()">Select all ${total.toLocaleString()}</button>`:''}
+    <span>Assign to</span>
+    <select id="bulk-who">${assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))}</option>`).join('')}</select>
+    <button class="btn-sun" onclick="bulkAssign()">Assign</button>
+    <button class="btn-line" onclick="SEL.clear();drawTable()">Clear selection</button>`:'';
+}
+async function bulkAssign(){
+  const who=$('bulk-who').value, ids=[...SEL];
+  if(!who||!ids.length)return;
+  if(!confirm(`Assign ${ids.length} lead${ids.length>1?'s':''} to ${staffName(who)}?`))return;
+  const at=new Date().toISOString();
+  for(let i=0;i<ids.length;i+=200){
+    const {error}=await sb.from('leads').update({assigned_to:who,assigned_at:at}).in('id',ids.slice(i,i+200));
+    if(error){toast('Assign failed. '+why(error));console.error(error);return;}
+  }
+  await Promise.all(ids.map(id=>logActivity(id,'assigned',null,null,'Assigned to '+staffName(who))));
+  LEADS.forEach(l=>{if(SEL.has(l.id)){l.assigned_to=who;l.assigned_at=at;}});
+  SEL.clear();
+  toast(ids.length+' assigned to '+staffName(who));
+  paintLeads();
 }
 /* marketing's list reads by the date the lead came in, which the person can
    backdate - so it is sorted on that, created_at breaking ties. Done before
@@ -202,7 +325,7 @@ function mktSort(rows){
 }
 function drawTable(){
   let all=filteredLeads();
-  if(!all.length){$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual||FILTER.from||FILTER.to||FILTER.channel
+  if(!all.length){drawBulkBar();$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual||FILTER.from||FILTER.to||FILTER.channel||FILTER.who||FILTER.by||FILTER.fu
     ?blank('No matches','Nothing in this list fits the current search or filters. Clear them to see everything.')
     :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a sale engineer marks them Closed-Won.')
     :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
@@ -216,6 +339,7 @@ function drawTable(){
   else if(LEADSCOPE==='lost')drawLostTable(rows);
   else drawActiveTable(rows);
   $('tablewrap').insertAdjacentHTML('beforeend',pager(all.length,pages));
+  drawBulkBar();
 }
 function pager(total,pages){
   if(pages<2)return '';
@@ -235,11 +359,13 @@ function goPage(n){
   $('tablewrap').scrollIntoView({block:'start',behavior:'smooth'});
 }
 function drawActiveTable(rows){
+  const pick=isBoss();
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
+    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th>Ref ID</th><th>Customer</th><th>Phone</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
-    return `<tr class="rowlink" onclick="openLead('${l.id}')">
+    return `<tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
+      ${pick?`<td class="pickcol" onclick="event.stopPropagation()"><input type="checkbox" class="pick" value="${l.id}" ${SEL.has(l.id)?'checked':''} onchange="toggleSel(this.value,this.checked);this.closest('tr').classList.toggle('picked',this.checked)"></td>`:''}
       <td class="refid">${esc(l.ref_id||'—')}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
@@ -275,7 +401,7 @@ function drawMktTable(rows){
 /* the date the contact happened, which is not always the day it was typed */
 const remarkDate=a=>a?(a.note_date||localDay(a.created_at)):'';
 /* the running log is the salesperson's working view, and nobody else's */
-const showRemarks=()=>ME.role==='sales'||ME.role==='admin';
+const showRemarks=()=>['sales','admin','manager'].includes(ME.role);
 /* A phone field can hold two or three numbers - "0969999989 / 0769999989",
    "077 59 87 89, 070 989 000" - since the Excel import. Each number is kept
    whole and the entry wraps only between them, so a narrow column never
