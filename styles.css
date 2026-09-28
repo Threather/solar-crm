@@ -910,3 +910,11 @@ table.fintable td.phone{max-width:none;width:1%}
 table.fintable td.cust{min-width:124px}
 table.fintable td.rem{max-width:160px}
 #finwrap table.fintable th,#finwrap table.fintable td{padding-left:6px;padding-right:6px}
+
+/* Lost: the salesperson's remark and admin's revised wording (28 Sep 2026) */
+table.losttable td.lostrem{min-width:150px;max-width:220px;white-space:normal}
+table.losttable td.lostrem b{display:block;font-size:12px}
+table.losttable .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+table.losttable td.lostrev{min-width:170px;max-width:240px;white-space:normal}
+table.losttable .revbox{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;resize:vertical;min-height:38px}
+table.losttable th{white-space:normal}

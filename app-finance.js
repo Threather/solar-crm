@@ -59,11 +59,18 @@ async function renderFinance(){
   const totalDue=FINROWS.reduce((a,r)=>a+finDue(r),0);
   const totalPaid=FINROWS.reduce((a,r)=>a+finPaid(r),0);
   const dueNow=FINROWS.filter(r=>finFollowDue(r));
+  /* Outstanding payment is what customers have promised to pay THIS calendar
+     month, as admin keys it on each card - the same figure as Management's box
+     (28 Sep 2026). The balance still owed overall is the Still owing list. */
+  const thisMonth=localDay(new Date()).slice(0,7);
+  const promisedThisMonth=FINROWS.reduce((a,r)=>a+r.expected
+    .filter(p=>(p.expected_on||'').slice(0,7)===thisMonth)
+    .reduce((b,p)=>b+Number(p.amount_usd||0),0),0);
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Finance</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Won deals. Open a row to record the contract and its payments.</p>
     <div class="stats">
-      <div class="stat hero ${totalDue-totalPaid>0?'alert':''}"><div class="n">${fmtMoney(totalDue-totalPaid)}</div><div class="l">Outstanding payment</div></div>
+      <div class="stat hero ${promisedThisMonth>0?'alert':''}"><div class="n">${fmtMoney(promisedThisMonth)}</div><div class="l">Outstanding payment · ${esc(monthName(thisMonth))}</div></div>
       <div class="stat"><div class="n">${dueNow.length}</div><div class="l">Follow up now</div></div>
       <div class="stat"><div class="n">${fmtMoney(totalPaid)}</div><div class="l">Payment collected</div></div>
       <div class="stat"><div class="n">${FINROWS.length}</div><div class="l">Closed-Won</div></div>
