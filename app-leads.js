@@ -1,4 +1,4 @@
-/* ---------------- LEADS ---------------- */
+﻿/* ---------------- LEADS ---------------- */
 /* Active, won and lost are one list sliced three ways. renderLeads fetches,
    paintLeads draws — kept apart so switching slice is instant and never
    round-trips to Supabase for rows it already holds. */
@@ -359,12 +359,12 @@ function drawBulkBar(){
     <select id="bulk-who">${assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))}</option>`).join('')}</select>
     <button class="btn-sun" onclick="bulkAssign()">Assign</button>
     <button class="btn-line" onclick="SEL.clear();LV.draw()">Clear selection</button>
-    ${ME.role==='admin'?`<span class="spacer"></span><button class="btn-line danger" onclick="bulkDelete()">Delete</button>`:''}`:'';
+    ${(LV.name==='pool'&&['admin','manager'].includes(ME.role))?`<span class="spacer"></span><button class="btn-line danger" onclick="bulkDelete()">Delete</button>`:''}`:'';
 }
 /* admin only, and a soft delete like the one on a single lead: the rows keep
    their history and can be brought back (28 Sep 2026) */
 async function bulkDelete(){
-  if(ME.role!=='admin')return;
+  if(!['admin','manager'].includes(ME.role))return;
   const ids=[...SEL];if(!ids.length)return;
   if(!confirm(`Delete ${ids.length} lead${ids.length>1?'s':''}? They leave every list and report.`))return;
   const at=new Date().toISOString();
