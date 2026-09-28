@@ -66,7 +66,6 @@ async function renderLeads(scope){
    no sales follow-up, and no Won/Lost tabs — those are stage by another name. */
 const mktOnly=()=>ME.role==='marketing';
 function paintLeads(){
-  const stg=STAGES.map(s=>`<option value="${s.stage_code}" ${s.stage_code===FILTER.stage?'selected':''}>${esc(s.stage_name)}</option>`).join('');
   const rows=scopeLeads();
   $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='all'?allStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))
     +(isBoss()&&LEADSCOPE==='active'?teamPanel():'')+`
@@ -76,13 +75,6 @@ function paintLeads(){
           `<button class="${LEADSCOPE===k?'on':''}" onclick="setScope('${k}')">${label}</button>`).join('')}
       </div>`}
       <input placeholder="Search name, phone or ref ID…" value="${esc(FILTER.q||'')}" oninput="FILTER.q=this.value;LEADPAGE=0;drawTable()">
-      ${(LEADSCOPE==='active'&&!mktOnly())?`
-      <select onchange="FILTER.stage=this.value;LEADPAGE=0;drawTable()"><option value="">All stages</option>${stg}</select>
-      <select onchange="FILTER.qual=this.value;LEADPAGE=0;drawTable()">
-        <option value="">All leads</option>
-        <option value="qualified" ${FILTER.qual==='qualified'?'selected':''}>Qualified only</option>
-        <option value="none" ${FILTER.qual==='none'?'selected':''}>Not qualified yet</option>
-      </select>`:''}
       <select onchange="FILTER.channel=this.value;LEADPAGE=0;paintLeads()" title="Channel">
         <option value="">All channels</option>
         <option value="__mkt" ${FILTER.channel==='__mkt'?'selected':''}>Marketing (digital + offline)</option>
@@ -95,21 +87,11 @@ function paintLeads(){
         <input type="date" value="${FILTER.to||''}" onchange="FILTER.to=this.value;LEADPAGE=0;paintLeads()" aria-label="To">
       </span>
       ${isBoss()?`
-      <select onchange="FILTER.who=this.value;LEADPAGE=0;paintLeads()" title="Sale engineer">
-        <option value="">All sale engineers</option>
-        <option value="__none" ${FILTER.who==='__none'?'selected':''}>Not assigned</option>
-        ${holders().map(s=>`<option value="${s.id}" ${FILTER.who===s.id?'selected':''}>${esc(s.full_name)}</option>`).join('')}
-      </select>
       <select onchange="FILTER.by=this.value;LEADPAGE=0;paintLeads()" title="Created by">
         <option value="">Anyone created</option>
         ${creators().map(s=>`<option value="${s.id}" ${FILTER.by===s.id?'selected':''}>${esc(s.full_name)}</option>`).join('')}
-      </select>
-      <select onchange="FILTER.fu=this.value;LEADPAGE=0;paintLeads()" title="Follow-up">
-        <option value="">Any follow-up</option>
-        ${[['overdue','Follow-up overdue'],['today','Follow-up today'],['none','No follow-up date'],['quiet','No remark in 7 days']].map(([k,t])=>
-          `<option value="${k}" ${FILTER.fu===k?'selected':''}>${t}</option>`).join('')}
       </select>`:''}
-      <button class="btn-line" onclick="FILTER={stage:'',q:'',qual:'',from:'',to:'',channel:'',who:'',by:'',fu:''};LEADPAGE=0;SEL.clear();paintLeads()">Clear</button>
+      <button class="btn-line" onclick="FILTER={q:'',from:'',to:'',channel:'',by:''};COLF={};LEADPAGE=0;SEL.clear();paintLeads()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
@@ -124,8 +106,9 @@ function setScope(s){
   LEADSCOPE=s;
   /* the dates and the channel carry across tabs: they say which leads, not
      where a lead has got to */
-  FILTER={stage:'',q:'',qual:'',from:FILTER.from||'',to:FILTER.to||'',channel:FILTER.channel||'',
-    who:FILTER.who||'',by:FILTER.by||'',fu:''};
+  FILTER={q:'',from:FILTER.from||'',to:FILTER.to||'',channel:FILTER.channel||'',by:FILTER.by||''};
+  /* the person carries across tabs like the dates; a stage or a BOQ does not */
+  COLF=COLF.eng?{eng:COLF.eng}:{};
   LEADPAGE=0;SEL.clear();
   paintLeads();
 }
@@ -191,12 +174,7 @@ function scopeLeads(){
   return LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
 }
 function filteredLeads(){
-  let rows=scopeLeads();
-  if(LEADSCOPE==='active'){
-    if(FILTER.stage)rows=rows.filter(l=>l.stage_code===FILTER.stage);
-    if(FILTER.qual==='none')rows=rows.filter(l=>qualText(l)!=='Qualified');
-    else if(FILTER.qual==='qualified')rows=rows.filter(l=>qualText(l)==='Qualified');
-  }
+  let rows=colFiltered(scopeLeads());
   /* the lead's own date - the day it came in, as the reports count it - and
      the channel, the two things "which leads" is usually asked by */
   const dayOf=l=>l.lead_date||localDay(l.created_at);
@@ -205,13 +183,80 @@ function filteredLeads(){
   if(FILTER.channel==='__mkt')rows=rows.filter(l=>['Digital_Marketing','Offline_Marketing'].includes(l.lead_channel));
   else if(FILTER.channel==='__none')rows=rows.filter(l=>!l.lead_channel);
   else if(FILTER.channel)rows=rows.filter(l=>l.lead_channel===FILTER.channel);
-  if(FILTER.who==='__none')rows=rows.filter(l=>!l.assigned_to);
-  else if(FILTER.who)rows=rows.filter(l=>l.assigned_to===FILTER.who);
   if(FILTER.by)rows=rows.filter(l=>l.created_by===FILTER.by);
-  if(FILTER.fu)rows=rows.filter(FU_TEST[FILTER.fu]);
   if(FILTER.q){const q=FILTER.q.toLowerCase();rows=rows.filter(l=>
     (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
   return rows;
+}
+/* ---- filters in the column headings, the way Excel does it (28 Sep 2026) ----
+   A heading with a ▾ lists the values in that column with how many rows carry
+   each, and ticking them filters the list. What has no column - search, the
+   dates, the channel, who created it - stays in the toolbar. Each column reads
+   its value through one function, so the heading, the ticks and the filter
+   cannot disagree. */
+let COLF={};
+const fuWord=l=>!l.next_follow_up?'No date':FU_TEST.overdue(l)?'Overdue':FU_TEST.today(l)?'Today':'Later';
+const COLSPEC={
+  stage:l=>(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code||'—',
+  qual:l=>qualText(l),
+  eng:l=>l.assigned_to?staffName(l.assigned_to):'Not assigned',
+  site:l=>l.site_engineer_id?staffName(l.site_engineer_id):'None',
+  boq:l=>l.boq_status||'Not set',
+  sched:l=>l.installation_start||l.installation_end?'Scheduled':'Not scheduled',
+  fu:fuWord,
+  rem:l=>FU_TEST.quiet(l)?'No remark in 7 days':'Remark in last 7 days',
+  chan:l=>(l.lead_channel||l.lead_source||'—').replace(/_/g,' '),
+  ctype:l=>l.customer_type||'—',
+  quot:l=>QUOTE_STAGE_TEXT[quoteStage(l,!!l.last_quot)]
+};
+function colFiltered(rows,skip){
+  for(const k in COLF){
+    if(k===skip||!COLF[k]||!COLF[k].length)continue;
+    const want=new Set(COLF[k]);
+    rows=rows.filter(l=>want.has(COLSPEC[k](l)));
+  }
+  return rows;
+}
+/* a heading: the label, and a ▾ that lights when its column is filtered */
+const th=(label,k)=>k
+  ?`<th class="colf ${COLF[k]&&COLF[k].length?'on':''}"><button onclick="event.stopPropagation();openColF(this,'${k}')">${label}<span class="caret">▾</span></button></th>`
+  :`<th>${label}</th>`;
+function openColF(btn,k){
+  closeColF();
+  /* the values come from the rows the OTHER filters leave, like Excel */
+  const base=colFiltered(scopeLeads(),k);
+  const count={};base.forEach(l=>{const v=COLSPEC[k](l);count[v]=(count[v]||0)+1;});
+  const vals=Object.keys(count).sort((a,b)=>count[b]-count[a]||a.localeCompare(b));
+  const cur=new Set(COLF[k]||[]);
+  const box=document.createElement('div');
+  box.className='colpop';box.id='colpop';box.onclick=e=>e.stopPropagation();
+  box.innerHTML=`${vals.length>8?`<input placeholder="Find…" oninput="colFind(this.value)">`:''}
+    <label class="all"><input type="checkbox" ${!cur.size?'checked':''} onchange="colAll('${k}',this.checked)"> All</label>
+    <div class="vals">${vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${cur.has(v)?'checked':''} onchange="colTick('${k}')"> <span>${esc(v)}</span><i>${count[v].toLocaleString()}</i></label>`).join('')}</div>`;
+  document.body.appendChild(box);
+  const r=btn.getBoundingClientRect();
+  box.style.top=(r.bottom+scrollY+4)+'px';
+  box.style.left=Math.min(r.left+scrollX,scrollX+innerWidth-box.offsetWidth-12)+'px';
+  setTimeout(()=>document.addEventListener('click',closeColF,{once:true}),0);
+}
+function closeColF(){const p=$('colpop');if(p)p.remove();}
+function colFind(q){q=q.toLowerCase();document.querySelectorAll('#colpop .vals label').forEach(x=>{x.style.display=x.textContent.toLowerCase().includes(q)?'':'none';});}
+function colTick(k){
+  COLF[k]=[...document.querySelectorAll('#colpop .vals input:checked')].map(c=>c.value);
+  document.querySelector('#colpop .all input').checked=!COLF[k].length;
+  colApply();
+}
+function colAll(k,on){
+  if(!on)return;
+  COLF[k]=[];document.querySelectorAll('#colpop .vals input').forEach(c=>c.checked=false);
+  colApply();
+}
+/* redraw the table under the open list, keeping the list where it is */
+function colApply(){
+  LEADPAGE=0;SEL.clear();
+  const pop=$('colpop');if(pop)pop.remove();
+  drawTable();
+  if(pop)document.body.appendChild(pop);
 }
 /* ---- the manager's view of her two teams (28 Sep 2026) ----
    She runs sales and marketing and could only read the list one lead at a
@@ -248,7 +293,7 @@ function teamPanel(){
   const sRow=(id,name)=>{
     const mine=id==='__none'?open.filter(l=>!l.assigned_to):open.filter(l=>l.assigned_to===id);
     const won=id==='__none'?0:LEADS.filter(l=>l.assigned_to===id&&l.stage_code===WON&&localDay(l.stage_entered_at).slice(0,7)===mon).length;
-    return `<tr class="${FILTER.who===id?'on':''}"><td><a onclick="teamPick('who','${id}','')">${esc(name)}</a></td>
+    return `<tr class="${(COLF.eng||[]).join()===name?'on':''}"><td><a onclick="teamPick('who','${id}','')">${esc(name)}</a></td>
       <td>${cell(mine.length,id,'')}</td>
       <td>${cell(mine.filter(FU_TEST.overdue).length,id,'overdue','bad')}</td>
       <td>${cell(mine.filter(FU_TEST.today).length,id,'today')}</td>
@@ -276,9 +321,16 @@ function teamPanel(){
 }
 /* a number in the team table is the filter that shows those rows */
 function teamPick(kind,id,fu){
-  const same=FILTER[kind]===id&&(FILTER.fu||'')===fu;
-  FILTER.who='';FILTER.by='';
-  if(!same){FILTER[kind]=id;FILTER.fu=fu;}else FILTER.fu='';
+  const FU={overdue:['fu','Overdue'],today:['fu','Today'],none:['fu','No date'],quiet:['rem','No remark in 7 days']};
+  if(kind==='by'){
+    FILTER.by=FILTER.by===id?'':id;COLF={};
+  }else{
+    const name=id==='__none'?'Not assigned':staffName(id);
+    const want={eng:[name]};
+    if(FU[fu])want[FU[fu][0]]=[FU[fu][1]];
+    const same=JSON.stringify(COLF)===JSON.stringify(want);
+    FILTER.by='';COLF=same?{}:want;
+  }
   LEADPAGE=0;SEL.clear();paintLeads();
   $('tablewrap').scrollIntoView({block:'start',behavior:'smooth'});
 }
@@ -325,7 +377,7 @@ function mktSort(rows){
 }
 function drawTable(){
   let all=filteredLeads();
-  if(!all.length){drawBulkBar();$('tablewrap').innerHTML=FILTER.q||FILTER.stage||FILTER.qual||FILTER.from||FILTER.to||FILTER.channel||FILTER.who||FILTER.by||FILTER.fu
+  if(!all.length){drawBulkBar();$('tablewrap').innerHTML=FILTER.q||FILTER.from||FILTER.to||FILTER.channel||FILTER.by||Object.values(COLF).some(v=>v&&v.length)
     ?blank('No matches','Nothing in this list fits the current search or filters. Clear them to see everything.')
     :LEADSCOPE==='won'?blank('No won deals yet','Deals appear here once a sale engineer marks them Closed-Won.')
     :LEADSCOPE==='lost'?blank('Nothing lost','Leads marked Closed-Lost are kept here.')
@@ -361,7 +413,7 @@ function goPage(n){
 function drawActiveTable(rows){
   const pick=isBoss();
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th>Ref ID</th><th>Customer</th><th>Phone</th><th>Stage</th><th>Qualified</th><th>${ME.role==='sales'?'Quotation':'Sale engineer'}</th><th>Follow-up</th><th>Aging</th>${showRemarks()?'<th>Remarks</th>':''}
+    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th>Ref ID</th>${th('Customer','ctype')}<th>Phone</th>${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
@@ -385,7 +437,7 @@ function drawActiveTable(rows){
 function drawMktTable(rows){
   /* already sorted by mktSort in drawTable, before the page was cut */
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Date</th><th>Customer</th><th>Phone</th><th>Sale engineer</th><th>Channel</th><th>Address</th><th>Follow-up</th>
+    <th>Date</th>${th('Customer','ctype')}<th>Phone</th>${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
   </tr></thead><tbody>`+rows.map(l=>{
     const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
@@ -437,7 +489,7 @@ function toggleRemarks(box){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}<th>Sale engineer</th><th>Site engineer</th><th>BOQ</th><th>Schedule</th>${ME.role==='admin'?'<th>EDC</th>':''}<th>Closed-Won</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}<th>Closed-Won</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -464,7 +516,7 @@ function drawLostTable(rows){
   const qcell=l=>{const s=quoteStage(l,!!l.last_quot);
     return s==='unknown'?`<span style="color:var(--ink-mute)">${QUOTE_STAGE_TEXT[s]}</span>`:QUOTE_STAGE_TEXT[s];};
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Qualified</th><th>Quotation</th><th>Sale engineer</th><th>Lost</th><th>Created</th>
+    <th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Qualified','qual')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Created</th>
   </tr></thead><tbody>`+rows.map(l=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="refid">${esc(l.ref_id||'—')}</td>

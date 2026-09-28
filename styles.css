@@ -1,4 +1,4 @@
-:root{
+﻿:root{
   /* Sun-bleached concrete, terracotta tile, panel glass — one hue family,
      lightness does the work. */
   --paper:#efece3; --card:#fffefb; --card-alt:#f6f3ea; --sunk:#eae6da;
@@ -854,3 +854,22 @@ table.tp tr.on td:first-child a{font-weight:700}
   background:var(--card-alt);border:1px solid var(--sun);border-radius:8px;font-size:13px}
 .pickcol{width:28px;text-align:center}
 tr.picked td{background:var(--card-alt)}
+
+/* filters in the column headings, like Excel (28 Sep 2026) */
+th.colf button{all:unset;cursor:pointer;display:inline-flex;white-space:nowrap;align-items:center;gap:4px;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit}
+th.colf .caret{font-size:9px;color:var(--ink-mute)}
+th.colf button:hover .caret{color:var(--ink)}
+th.colf.on button{color:var(--sun-deep)}
+th.colf.on .caret{color:var(--sun-deep);font-size:10px}
+.colpop{position:absolute;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 8px 24px rgba(26,23,20,.14);padding:8px;min-width:200px;max-width:300px;font-size:13px}
+.colpop input[placeholder]{width:100%;box-sizing:border-box;margin-bottom:6px}
+.colpop .vals{max-height:280px;overflow:auto}
+.colpop label{text-transform:none;letter-spacing:normal;font-weight:400;color:var(--ink);display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:5px;cursor:pointer}
+.colpop label:hover{background:var(--card-alt)}
+.colpop label span{flex:1}
+.colpop label i{font-style:normal;color:var(--ink-mute);font-variant-numeric:tabular-nums}
+.colpop label.all{border-bottom:1px solid var(--line-soft);margin-bottom:4px;padding-bottom:6px;font-weight:600}
+.colpop label input[type=checkbox]{width:auto;flex:none;margin:0}
+.colpop label span{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.colpop{min-width:230px}
