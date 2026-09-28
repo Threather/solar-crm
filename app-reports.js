@@ -1,4 +1,4 @@
-/* ---------------- CSV EXPORT ----------------
+﻿/* ---------------- CSV EXPORT ----------------
    Everyone exports, but only what RLS already lets them read, so a sales
    export contains that salesperson's leads and nothing else. */
 function csvCell(v){
@@ -983,5 +983,5 @@ function drawQuots(){
       <td><b>${fmtMoney(q.price_usd)}</b></td>
       <td>${fmtDate(q.released_date)}</td>
       <td>${esc(staffName(q.provided_by))}</td>
-      <td><button class="btn-line" onclick="printQuote('${q.id}')">Document</button></td></tr>`).join('')+`</tbody></table>`;
+      <td class="nowrap"><button class="btn-line" onclick="printQuote('${q.id}',null,'km')">ខ្មែរ</button> <button class="btn-line" onclick="printQuote('${q.id}',null,'en')">English</button></td></tr>`).join('')+`</tbody></table>`;
 }

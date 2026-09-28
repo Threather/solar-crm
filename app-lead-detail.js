@@ -1,4 +1,4 @@
-/* ---------------- LEAD DETAIL ---------------- */
+﻿/* ---------------- LEAD DETAIL ---------------- */
 async function openLead(id){
   const [{data:l,error},{data:acts},{data:quots},{data:fin}]=await Promise.all([
     sb.from('leads').select('*').eq('id',id).single(),
@@ -518,7 +518,7 @@ function quotCard(q,leadId,canUse,inUse,canDelete){
     <span class="days">${esc(q.ampere_phase||'')} · released ${fmtDate(q.released_date||q.created_at)} by ${esc(staffName(q.provided_by))}</span>
     ${inUse?'<span class="qtag">In use</span>':''}
     <div class="acts">
-      <button class="btn-mini" onclick="printQuote('${q.id}','${leadId}')">Quotation document</button>
+      <button class="btn-mini" onclick="printQuote('${q.id}','${leadId}','km')">Quotation (ខ្មែរ)</button><button class="btn-mini" onclick="printQuote('${q.id}','${leadId}','en')">Quotation (English)</button>
       ${(canUse&&!inUse)?`<button class="btn-mini" onclick="useQuot('${q.id}','${leadId}')" title="Copy this option's specification onto the lead, so EDC, installation and the export all follow it">Use this one</button>`:''}
       ${canDelete?`<button class="btn-mini qdel" onclick="delQuot('${q.id}','${leadId}')" title="Remove this option. A quotation has no undo.">Delete</button>`:''}
     </div></div>`;

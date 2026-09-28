@@ -1,8 +1,9 @@
-/* ---------------- QUOTATION DOCUMENT ----------------
+﻿/* ---------------- QUOTATION DOCUMENT ----------------
    Khmer taken from the client's own workbook, so it is their wording, not a
    translation. Every string lives here: corrections are one edit, not thirty.
    Anything the app cannot work out is printed as a fill-in box. */
-const QT={
+const QT_KM={
+  lang:'km', letters:['ក','ខ','គ','ឃ'], n1:'១', n2:'២', n3:'៣', yr:'ឆ្នាំ', perfWarranty:'ធានាលើប្រសិទ្ធភាព',
   company:'SOLARWORKS SOLUTIONS CO., LTD.',
   addr1:'#Plot A, VTRUST Tower, F1 Office, 2nd Floor, Street 169',
   addr2:'Village 12, Sangkat Veal Vong, Khan 7 Makara, Phnom Penh',
@@ -86,6 +87,85 @@ const QT={
   dots:'………………………………….', dots2:'....................................................................',
   page:'Page'
 };
+/* The English sheet (28 Sep 2026): the sales team pick Khmer or English per
+   customer. Translated line for line from the Khmer above, same keys, same
+   layout - so a correction to one language is one edit here, and the document
+   code never knows which language it is printing. */
+const QT_EN={
+  lang:'en', letters:['A','B','C','D'], n1:'1', n2:'2', n3:'3', yr:'years', perfWarranty:'Performance warranty',
+  company:QT_KM.company, addr1:QT_KM.addr1, addr2:QT_KM.addr2, tel:QT_KM.tel,
+  title:'QUOTATION',
+  cust:'Customer name:', addr:'Address:', phone:'Phone number:', date:'Date:',
+  vat:'VAT TIN:', systype:'Solar system type:',
+  valid:'Validity:', validDays:'7 days',
+  size:'Solar system size:', battsize:'Battery size:',
+  project:'Project', projectVal:ph=>': Outright purchase'+(ph?' ('+ph+' phase)':''),
+  projectref:'Project reference', teamref:'Team reference', na:': N/A',
+  no:'No.', desc:'Description', img:'Picture', qty:'Quantity', warranty:'Warranty',
+  supply:'Supply, design and installation of solar panels',
+  mgmtFor:(sys,kwp)=>'Management of the proposed '+(sys||'')+' solar system, '+kwp+' kWp',
+  s1:'Management',
+  s1a:'Notification to Electricité du Cambodge (EDC) or the local electricity authority',
+  s1b:'Includes service fees for:',
+  s1c:'A. AC/DC electrical technical drawings',
+  s1d:'B. Project management, documentation and applications to the relevant authorities',
+  s1e:'C. System testing and commissioning',
+  s1f:'D. Installation service, labour, transport, accommodation and meals',
+  s2:'Main components',
+  s2a:'A. Solar panels', s2b:'B. Inverter', s2c:'C. Battery', s2d:'D. Mounting system',
+  model:'Model', panelsize:'Panel size', invsize:'Inverter size', battcap:'Battery capacity',
+  warrantyN:n=>'Warranty: '+n+' years', perfWarrantyN:n=>'Performance warranty: '+n+' years',
+  unitPanel:'pcs', unitPiece:'pcs', unitSet:'set',
+  mount1:'Solar mounting structure', mount2:'End and mid clamps',
+  mount3:'Tile hooks and L-feet', mount4:'Rail splices', mount5:'Bolts…',
+  s3:'Electrical balance of system',
+  e1:'Cable trays and cable supports',
+  e2:'AC cable, 3.5 m, from the solar board to the house distribution board',
+  e3:'Earth cable, 100 m (for the solar panels and inverter)',
+  e4:'DC cable, 240 m', e5:'AC/DC distribution box', e6:'AC/DC protection devices',
+  payHead:'*Payment terms:',
+  pay1:'A. 40% on the day the customer signs this quotation',
+  pay2:'B. 50% on the day the solar equipment is delivered to the customer\'s site',
+  pay3:'C. 10% on the day installation is complete, the system tested and successfully commissioned',
+  sysprice:'System price', total:'Total price (USD):',
+  discount:'Discount', netTotal:'Total :',
+  vat10:'VAT 10% :', grand:'Grand Total :',
+  eff:'Solar system performance:',
+  bill:'Electricity bill', perMonth:'USD/month',
+  tariff:'Unit price (electricity bill)', perKwh:'USD/kWh',
+  yearly:'Annual solar energy produced', perYear:'kWh/year',
+  produced:'Value of energy produced', usdYear:'USD/year',
+  exported:'Compensation fee to EDC',
+  saved:'Savings', savedMonth:'Monthly savings', usdMonth:'USD/month',
+  payback:'Payback period', months:'months', years:'years',
+  note:'*Note:',
+  f1:'1. The results shown are PVsyst estimates based on historical data. Actual system performance may differ depending on weather, site conditions and other factors.',
+  f2:'2. Actual savings may differ depending on the customer\'s electricity usage.',
+  f3:'3. The prices in this quotation are estimates only. The final price will be given after an inspection at the customer\'s site.',
+  f4:'4. The electricity bill and the customer\'s average electricity usage are based on information provided by the customer.',
+  terms:'Other terms',
+  t1:'Maintenance service', t1w:'1-year warranty',
+  t1a:'One general inspection, including:',
+  t1b:'A. Checking DC fuses and AC/DC voltage',
+  t1c:'B. Checking the distribution box, MCBs, connections and earth cable',
+  t1d:'C. Checking current and voltage',
+  t1e:'Includes one replacement of the following parts:',
+  t1f:'A. Fuses    B. MC4 connectors    C. AC/DC MCBs',
+  t2:'Delivery time',
+  t2a:'A. Residential: 7 to 10 days after the deposit is received',
+  t2b:'B. Industrial and commercial: 6 to 8 weeks after the deposit is received',
+  t2c:'*Note: Delivery may be delayed by unforeseen factors such as supplier delays, transport problems or other circumstances.',
+  t2d:'Note: Parts are replaced only in case of operational failure (excluding damage caused by human error, improper use or external factors).',
+  agree1:'By this quotation,',
+  agree2:'I agree to accept the offer for the solar',
+  agree3:'energy project under the technical terms of this quotation',
+  approved:'Approved by:', approverName:'Name: Choub Pisey',
+  approverRole:'Position: Head of Sales and Marketing',
+  custSign:'Customer signature and stamp', signName:'Name :', signDate:'Date :',
+  dots:QT_KM.dots, dots2:QT_KM.dots2,
+  page:'Page'
+};
+let QT=QT_KM;
 /* EDC's published compensation rate card, banded by inverter kWac. The band
    under 10 kWac is blank on their sheet, which means no fee — the same
    threshold EDC paperwork already turns on. Ceilings are inclusive: "over 10
@@ -218,13 +298,15 @@ function imgFor(model,kind,brand,size){
    loosely, like the brands, because admin edits the system-type list - and
    "Off-Grid" carries no "on", so it cannot match by accident. */
 const KH_LETTERS=['ក','ខ','គ','ឃ'];
-const khLabel=(i,text)=>KH_LETTERS[i]+'. '+String(text).replace(/^[ក-៿]\.\s*/,'');
+const khLabel=(i,text)=>QT.letters[i]+'. '+String(text).replace(/^([ក-៿]|[A-D])\.\s*/,'');
 const isOnGrid=sys=>/on[\s-]?grid/i.test(sys||'');
 /* a blank the salesperson fills in on screen before printing */
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
 const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
-function printQuote(quotId,leadId){
+function printQuote(quotId,leadId,lang){
+  /* Khmer unless English is asked for; every string on the sheet reads QT */
+  QT=lang==='en'?QT_EN:QT_KM;
   const q=(QUOTS||[]).find(x=>x.id===quotId)||(LEADQUOTS||[]).find(x=>x.id===quotId);
   if(!q){toast('Could not find that quotation');return;}
   const l=(LEADS||[]).find(x=>x.id===(leadId||q.lead_id))||q.leads||{};
@@ -456,7 +538,7 @@ function quoteHtml(q,l,c){
     window.addEventListener('load',function(){recalc();vatToggle();});
   </scr`+`ipt>`;
   const kwpTxt=c.kwp?c.kwp.toFixed(2):'';
-  return `<!doctype html><html lang="km"><head><meta charset="utf-8">
+  return `<!doctype html><html lang="${QT.lang}"><head><meta charset="utf-8">
 <title>${QT.title} ${esc(l.customer_name||'')}</title>
 <style>
   /* Zero page margin, and the sheet carries its own instead. Chrome prints
@@ -771,8 +853,8 @@ function quoteHtml(q,l,c){
              +'<tr><td>'+QT.projectref+'</td><td class="val">'+qb(90,l.ref_id?': '+l.ref_id:QT.na)+'</td></tr>'
              +'<tr><td>'+QT.teamref+'</td><td class="val">'+qb(90,QT.na)+'</td></tr></table>'
              +QT.supply+'<br><span class="sec">'+QT.mgmtFor(q.system_type,kwpTxt)+'</span>','')}
-      ${row('១','<span class="sec">'+QT.s1+'</span>'
-             +'<div class="ind">ក. '+QT.s1a+'</div>'
+      ${row(QT.n1,'<span class="sec">'+QT.s1+'</span>'
+             +'<div class="ind">'+QT.letters[0]+'. '+QT.s1a+'</div>'
              +'<div class="ind it"><b>'+QT.s1b+'</b></div>'
              +'<div class="ind2">'+QT.s1c+'</div><div class="ind2">'+QT.s1d+'</div>'
              +'<div class="ind2">'+QT.s1e+'</div><div class="ind2">'+QT.s1f+'</div>','')}
@@ -780,26 +862,26 @@ function quoteHtml(q,l,c){
            rule drawn between the panel, the inverter, the battery and the
            mounting. They are rows of this table, sharing its columns, and the
            ល.រ cell spans them. -->
-      <tr class="comp"><td class="n" rowspan="${onGrid?4:5}">២</td>
+      <tr class="comp"><td class="n" rowspan="${onGrid?4:5}">${QT.n2}</td>
           <td class="sec2">${QT.s2}</td><td class="q"></td><td class="im"></td></tr>
           ${grpRow(khLabel(0,QT.s2a)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
              (q.panel_pcs||'')+' '+QT.unitPanel,
-             '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>'
-             +'<span class="wty">ធានាលើប្រសិទ្ធភាព: '+qb(16)+' ឆ្នាំ</span>',
+             '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>'
+             +'<span class="wty">'+QT.perfWarranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt),c.base)}
           ${grpRow(khLabel(1,QT.s2b)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mInv||q.inverter_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.invsize+'</span>: '+(c.kwac?c.kwac.toFixed(2):'')+' kWac</div>',
              (q.inverter_pcs||'')+' '+QT.unitPiece,
-             '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
+             '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw),c.base)}
           ${onGrid?'':grpRow(khLabel(2,QT.s2c)
              +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mBatt||q.battery_brand||'')+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.battcap+'</span>: '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh</div>',
              (q.battery_pcs||'')+' '+QT.unitPiece,
-             '<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
+             '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh),c.base)}
           ${grpRow(khLabel(onGrid?2:3,QT.s2d)
              +'<div class="ind it">* '+QT.mount1+'</div><div class="ind it">* '+QT.mount2+'</div>'
@@ -810,11 +892,11 @@ function quoteHtml(q,l,c){
                 the whole mounting set, the way electrical.jpg carries the
                 electrical bundle. No part number: it is a set, not a product. */
              'img/mounting.png',c.base)}
-      ${row('៣','<span class="sec">'+QT.s3+'</span>'
+      ${row(QT.n3,'<span class="sec">'+QT.s3+'</span>'
              +'<div class="ind">* '+QT.e1+'</div><div class="ind">* '+QT.e2+'</div>'
              +'<div class="ind">* '+QT.e3+'</div><div class="ind">* '+QT.e4+'</div>'
              +'<div class="ind">* '+QT.e5+'</div><div class="ind">* '+QT.e6+'</div>',
-             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+QT.warranty+': '+qb(16)+' ឆ្នាំ</span>',
+             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
              /* cables, breakers and the AC/DC boxes - one picture for the
                 whole electrical set, the way their own sheet carries it. No
                 part number is derived for it: it is a bundle, not a product.
@@ -885,13 +967,13 @@ function quoteHtml(q,l,c){
     <colgroup><col style="width:14%"><col style="width:62%"><col style="width:24%"></colgroup>
     <thead><tr><th>${QT.no}</th><th>${QT.desc}</th><th>${QT.warranty}</th></tr></thead>
     <tbody>
-      <tr><td class="n">១</td><td><span class="sec">${QT.t1}</span>
+      <tr><td class="n">${QT.n1}</td><td><span class="sec">${QT.t1}</span>
         <div class="ind">* ${QT.t1a}</div>
         <div class="ind2 it">${QT.t1b}</div><div class="ind2 it">${QT.t1c}</div><div class="ind2 it">${QT.t1d}</div>
         <div class="ind">* ${QT.t1e}</div>
         <div class="ind2 it">${QT.t1f}</div></td>
         <td class="q" style="vertical-align:middle">${QT.t1w}</td></tr>
-      <tr><td class="n">២</td><td><span class="sec">${QT.t2}</span>
+      <tr><td class="n">${QT.n2}</td><td><span class="sec">${QT.t2}</span>
         <div class="ind it">${QT.t2a}</div><div class="ind it">${QT.t2b}</div>
         <div class="ind it warn"><span class="lower-h">${QT.t2c.slice(0,QT.t2c.indexOf(':')+1)}</span>${QT.t2c.slice(QT.t2c.indexOf(':')+1)}</div></td>
         <td class="q"></td></tr>
