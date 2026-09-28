@@ -918,3 +918,6 @@ table.losttable .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orie
 table.losttable td.lostrev{min-width:170px;max-width:240px;white-space:normal}
 table.losttable .revbox{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;resize:vertical;min-height:38px}
 table.losttable th{white-space:normal}
+table.losttable td.lostrem{min-width:130px}
+table.losttable td.lostrev{min-width:150px}
+#tablewrap table.losttable th,#tablewrap table.losttable td{padding-left:7px;padding-right:7px}

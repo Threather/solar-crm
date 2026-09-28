@@ -517,19 +517,37 @@ function drawLostTable(rows){
   /* lost before or after a quotation went out - see quoteStage */
   const qcell=l=>{const s=quoteStage(l,!!l.last_quot);
     return s==='unknown'?`<span style="color:var(--ink-mute)">${QUOTE_STAGE_TEXT[s]}</span>`:QUOTE_STAGE_TEXT[s];};
-  $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Qualified','qual')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Created</th>
+  /* Remark is what sales typed as the detail when they closed it; Revised
+     remark is admin's shorter wording of it, typed here and saved on the spot
+     (28 Sep 2026). Everyone else reads both. */
+  const canRevise=ME.role==='admin';
+  const lostRem=l=>l.lost_note||l.lost_reason
+    ?`${l.lost_reason?`<b>${esc(l.lost_reason)}</b>`:''}${l.lost_note?`<span class="clamp lostnote" title="${esc(l.lost_note)}">${esc(l.lost_note)}</span>`:''}`
+    :'<span class="quiet">—</span>';
+  const revised=l=>canRevise
+    ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
+    :(l.lost_note_revised?esc(l.lost_note_revised):'<span class="quiet">—</span>');
+  $('tablewrap').innerHTML=`<table class="losttable"><thead><tr>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Qualified','qual')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Remark</th><th>Revised remark</th>
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
-      <td>${esc(l.lead_channel||l.lead_source||'—')}</td>
+      <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}</td>
       <td>${qualPill(l)}</td>
-      <td class="nowrap">${qcell(l)}</td>
+      <td>${qcell(l)}</td>
       <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'—'}</td>
       <td>${fmtDate(l.stage_entered_at)}</td>
-      <td>${fmtDate(l.created_at)}</td></tr>`).join('')+`</tbody></table>`;
+      <td class="lostrem">${lostRem(l)}</td>
+      <td class="lostrev" ${canRevise?'onclick="event.stopPropagation()"':''}>${revised(l)}</td></tr>`).join('')+`</tbody></table>`;
+}
+async function saveRevised(id,box){
+  const v=box.value.trim()||null;
+  const {error}=await sb.from('leads').update({lost_note_revised:v}).eq('id',id);
+  if(error){toast('Could not save. '+why(error));console.error(error);return;}
+  const l=LEADS.find(x=>x.id===id);if(l)l.lost_note_revised=v;
+  toast('Revised remark saved');
 }
 
 /* ---------------- POOL ---------------- */
