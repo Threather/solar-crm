@@ -586,8 +586,10 @@ async function assignLead(leadId,staffId){
 
 /* ---------------- NEW LEAD ---------------- */
 function renderNew(){
-  if(!['marketing','sales','manager','admin'].includes(ME.role)){
-    $('main').innerHTML=blank('New lead is not open to your role','Ask sales or marketing to create it.');return;}
+  /* sales take leads, they do not make them (manager's rule, 28 Sep 2026) -
+     a returning customer is still theirs, through New deal on the won lead */
+  if(!['marketing','manager','admin'].includes(ME.role)){
+    $('main').innerHTML=blank('New lead is not open to your role','Marketing creates new leads.');return;}
   $('main').innerHTML=`
     <h2 style="margin-bottom:12px">New lead</h2>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:820px">
@@ -608,6 +610,9 @@ function renderNew(){
         <div><label>Monthly electricity bill (USD)</label>${numBox('f-bill','')}</div>
         <div><label>Lead channel *</label><select id="f-chan" onchange="subChan()">${optList(Object.keys(CHANNELS),'Digital_Marketing',false)}</select></div>
         <div><label>Sub-channel *</label><select id="f-sub"></select></div>
+        ${['manager','admin'].includes(ME.role)?`<div><label>Sale engineer</label><select id="f-who">
+          <option value="">Automatic</option>
+          ${assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))}</option>`).join('')}</select></div>`:''}
       </div>
       <div id="f-refwrap" style="display:none" class="grid2">
         <div><label>Referrer name</label><input id="f-refname"></div>
@@ -753,6 +758,12 @@ async function createLead(){
       battery_brand:p.battery_brand,battery_kwh_each:p.battery_kwh_each,
       battery_pcs:p.battery_pcs,battery_kwh:p.battery_kwh
     });
+  }
+  /* the manager's pick comes first. A lead saved already holding a salesperson
+     is left alone by fn_assign_sales_on_phone; left on Automatic, the
+     round-robin assigns as it always has */
+  if($('f-who')&&$('f-who').value){
+    row.assigned_to=$('f-who').value;row.assigned_at=new Date().toISOString();
   }
   if($('f-chan').value==='Offline_Marketing'){
     row.event_name=$('f-eventname').value.trim()||null;

@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    SOLAR CRM — frontend v2 (Phase 1)
    ============================================================ */
 /* Every request the app makes goes through netFetch, handed to the Supabase
@@ -457,7 +457,8 @@ function buildNav(){
   }
   const work=[['home','Today'],['leads','Leads']];
   if(['manager','admin'].includes(ME.role)) work.push(['pool','Unassigned']);
-  if(['marketing','sales','manager','admin'].includes(ME.role)) work.push(['new','New lead']);
+  /* sales take leads, they do not make them (manager's rule, 28 Sep 2026) */
+  if(['marketing','manager','admin'].includes(ME.role)) work.push(['new','New lead']);
   const money=[];
   /* the quotation log carries prices, so it follows quotations_select rather
      than being a wider list that happens to look harmless */
