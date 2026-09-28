@@ -607,8 +607,9 @@ async function renderPool(){
      a lost lead is not waiting for sales, and a pool of dead rows buries the
      seventeen that are */
   POOL=await fetchLeads(q=>q.is('assigned_to',null).not('stage_code','in','(closed_lost,closed_won)'));
-  /* oldest waiting first: they have been waiting longest */
-  POOL.sort((a,b)=>(a.lead_date||a.created_at).localeCompare(b.lead_date||b.created_at));
+  /* least waiting first, newest at the top (manager, 28 Sep 2026) - sorted
+     on created_at, the same clock the Waiting column counts from */
+  POOL.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Open leads with no sale engineer. Tick them and assign, or add a phone number and one is assigned automatically.</p>
