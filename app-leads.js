@@ -1,4 +1,4 @@
-/* ---------------- LEADS ---------------- */
+﻿/* ---------------- LEADS ---------------- */
 /* Active, won and lost are one list sliced three ways. renderLeads fetches,
    paintLeads draws — kept apart so switching slice is instant and never
    round-trips to Supabase for rows it already holds. */
@@ -217,7 +217,7 @@ function filteredLeads(){
    She runs sales and marketing and could only read the list one lead at a
    time. So: filter by who holds a lead and who created it, a table of each
    person's backlog that is itself the filter, and assigning many at once. */
-const isBoss=()=>['manager','admin'].includes(ME.role);
+const isBoss=()=>ME.role==='manager';
 const SEL=new Set();
 const todayStr=()=>localDay(new Date());
 const isOpen=l=>!TERMINAL.includes(l.stage_code);
