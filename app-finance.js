@@ -155,7 +155,7 @@ function drawPayments(){
     : 'all time';
   $('finwrap').innerHTML=`<p class="days" style="margin:0 0 8px">${rows.length} payment${rows.length===1?'':'s'} · ${esc(word)} · <b>${fmtMoney(total)}</b> received${fees?' · '+fmtMoney(fees)+' in fees on top':''}</p>
     <table class="table-compact"><thead><tr>
-    <th style="width:118px">Date</th><th>Customer</th><th style="width:110px">Type of account</th>
+    <th style="width:118px">Date</th><th>Customer</th><th style="width:64px">Type of account</th>
     <th style="width:104px">Ref ID</th>
     <th style="width:110px">Amount</th><th style="width:100px">Other fee</th>
     <th style="width:150px">Sale engineer</th><th>Note</th><th>Remark</th>
@@ -206,7 +206,7 @@ function drawFinance(){
   const rows=filteredFin();
   const all=FINROWS.filter(finInScope);
   const novalue=FINSCOPE==='owing'?FINROWS.filter(finNoValue):[];
-  const nvNote=novalue.length?`<p class="days" style="margin:10px 0 0">${novalue.length} won deal${novalue.length===1?'':'s'} with no sale value, not listed: ${novalue.map(r=>`<a style="cursor:pointer;text-decoration:underline" onclick="openFinance('${r.id}')">${esc(r.customer_name)}</a>`).join(', ')}</p>`:'';
+  const nvNote=novalue.length?`<p class="days" style="margin:0;padding:10px 12px">${novalue.length} won deal${novalue.length===1?'':'s'} with no sale value, not listed: ${novalue.map(r=>`<a style="cursor:pointer;text-decoration:underline" onclick="openFinance('${r.id}')">${esc(r.customer_name)}</a>`).join(', ')}</p>`:'';
   if(!rows.length){$('finwrap').innerHTML=finFiltered()
     ?blank('No matches','No deal fits the current search and filters. Clear them to see everything.')
     :FINSCOPE==='paid'?blank('Nothing settled yet','Deals move here once the balance reaches zero.')
@@ -220,25 +220,25 @@ function drawFinance(){
      question this page exists to answer; won month, channel, system and the
      sale value moved to the card and the CSV, where nobody had to scroll
      sideways to reach them. */
-  $('finwrap').innerHTML=note+`<table class="table-compact"><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th style="width:110px">Type of account</th><th>Phone</th>
+  $('finwrap').innerHTML=note+`<table class="table-compact fintable"><thead><tr>
+    <th>Ref ID</th><th>Customer</th><th style="width:64px">Type of account</th><th>Phone</th>
     <th>Balance</th><th>Paid</th>
     <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th><th>Remark</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
     return `<tr class="rowlink" onclick="openFinance('${r.id}')">
       <td class="refid">${esc(r.ref_id||'—')}</td>
-      <td><b>${esc(r.customer_name)}</b></td>
+      <td class="cust"><b>${esc(r.customer_name)}</b></td>
       <td>${r.fin?.account_type?esc(r.fin.account_type):'<span class="quiet">—</span>'}</td>
-      <td class="phone">${r.phone?esc(r.phone):'<span class="quiet">—</span>'}</td>
+      <td class="phone">${r.phone?(/[a-z@]/i.test(r.phone)?`<span class="handle">${esc(r.phone)}</span>`:phoneCell(r.phone)):'<span class="quiet">—</span>'}</td>
       <td><b class="${bal>0.005?'overdue':''}">${fmtMoney(bal)}</b></td>
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
       <td>${fmtMoney(due)}</td>
-      <td>${esc(r.fin?.contract_status||'—')}<span class="days">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
+      <td>${esc(r.fin?.contract_status||'—')}<span class="days nm">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
       <td class="nowrap">${r.fin?.follow_up_date?`<b class="${dueNow?'overdue':''}">${fmtDate(r.fin.follow_up_date)}</b>`:'—'}</td>
       <td><span class="nm">${esc(staffName(r.assigned_to))}</span></td>
       <td class="rem">${r.fin?.finance_remark
-        ?esc(r.fin.finance_remark)
+        ?`<span class="clamp" title="${esc(r.fin.finance_remark)}">${esc(r.fin.finance_remark)}</span>`
         :'<span class="quiet">—</span>'}${r.fin?.payment_term?`<span class="days">${esc(r.fin.payment_term)}</span>`:''}</td>
     </tr>`;}).join('')+`</tbody></table>`+nvNote;
 }

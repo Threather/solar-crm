@@ -889,3 +889,24 @@ table.with-rem td.rem{width:auto;min-width:130px}
 table.with-rem th.colf button{display:inline;white-space:normal}
 table.with-rem th.colf .caret{white-space:nowrap;margin-left:3px}
 table.with-rem th{white-space:normal}
+
+/* Finance at 1288px: a name on at most two lines, the remark cut at three
+   (hover for the rest), no sideways scroll (28 Sep 2026) */
+table.fintable td.cust{min-width:150px;max-width:190px}
+table.fintable td.rem{min-width:0;width:auto;max-width:200px}
+table.fintable .clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+table.fintable td.phone{max-width:120px;overflow-wrap:anywhere}
+table.fintable td.phone{max-width:96px}
+table.fintable td.cust{min-width:140px}
+table.fintable th{white-space:normal}
+#finwrap table.fintable th,#finwrap table.fintable td{padding-left:7px;padding-right:7px}
+table.fintable td.phone{white-space:normal;word-break:break-all}
+table.fintable td.refid{white-space:nowrap}
+table.fintable td.rem{max-width:170px}
+table.fintable td.phone{word-break:normal;min-width:84px}
+table.fintable td.phone .ph{white-space:nowrap}
+table.fintable td.phone .handle{word-break:break-all}
+table.fintable td.phone{max-width:none;width:1%}
+table.fintable td.cust{min-width:124px}
+table.fintable td.rem{max-width:160px}
+#finwrap table.fintable th,#finwrap table.fintable td{padding-left:6px;padding-right:6px}
