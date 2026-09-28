@@ -274,12 +274,16 @@ const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;}
 /* marketing keeps ownership of these stages even after a salesperson is
    assigned — must match the leads_select / leads_update policies */
 const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
-/* A lead with a ref ID is qualified, as in the client's workbook, where a lead
-   is qualified once it is on the Leads sheet and carries a reference (client's
-   instruction, 28 Sep 2026). The stage still counts too, and the database
-   issues the ref on qualifying, so the two agree on every lead today. */
+/* Two rules, split by the lead's own date (client's instruction, 28 Sep 2026).
+   The leads the workbook brought in, up to the last import on 27 Sep, are
+   qualified exactly as the workbook says: on its Leads sheet, which is having a
+   ref ID. From 28 Sep the stage decides, Telling Price onward, as it always
+   did - so moving a new lead back unqualifies it again. */
+const EXCEL_QUAL_UNTIL='2026-09-27';
 function qualText(l){
-  if(l.ref_id||QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
+  if((l.lead_date||localDay(l.created_at))<=EXCEL_QUAL_UNTIL)
+    return l.ref_id?'Qualified':l.stage_code===LOST?'Disqualified':'Not qualified yet';
+  if(QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
   if(l.stage_code===LOST)return l.qualification==='qualified'?'Qualified':'Disqualified';
   return 'Not qualified yet';
 }
