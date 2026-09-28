@@ -1,4 +1,4 @@
-﻿/* ---------------- LEADS ---------------- */
+/* ---------------- LEADS ---------------- */
 /* Active, won and lost are one list sliced three ways. renderLeads fetches,
    paintLeads draws — kept apart so switching slice is instant and never
    round-trips to Supabase for rows it already holds. */
@@ -7,6 +7,8 @@ async function renderLeads(scope){
   if(ME.role==='finance'){
     $('main').innerHTML=blank('Leads are not open to your role','Won deals and their payments are under Finance.');return;}
   LEADSCOPE=scope||LEADSCOPE;
+  /* coming back from Unassigned: its column ticks mean nothing here */
+  if(LV!==LV_LEADS){LV=LV_LEADS;COLF={};SEL.clear();LEADPAGE=0;}
   $('main').innerHTML=SKEL;
   /* each orders on something unique, so a table past a thousand rows pages
      without repeating any */
@@ -195,6 +197,10 @@ function filteredLeads(){
    its value through one function, so the heading, the ticks and the filter
    cannot disagree. */
 let COLF={}, ROWNO=0;
+/* which list the heading filters, the tick boxes and the pager are driving -
+   Leads, or the Unassigned pool (28 Sep 2026). One set of tools, two lists. */
+const LV_LEADS={name:'leads',src:()=>scopeLeads(),rows:()=>filteredLeads(),draw:()=>drawTable(),after:()=>paintLeads()};
+let LV=LV_LEADS;
 const fuWord=l=>!l.next_follow_up?'No date':FU_TEST.overdue(l)?'Overdue':FU_TEST.today(l)?'Today':'Later';
 const COLSPEC={
   stage:l=>(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code||'—',
@@ -207,7 +213,10 @@ const COLSPEC={
   rem:l=>FU_TEST.quiet(l)?'No remark in 7 days':'Remark in last 7 days',
   chan:l=>(l.lead_channel||l.lead_source||'—').replace(/_/g,' '),
   ctype:l=>l.customer_type||'—',
-  quot:l=>QUOTE_STAGE_TEXT[quoteStage(l,!!l.last_quot)]
+  quot:l=>QUOTE_STAGE_TEXT[quoteStage(l,!!l.last_quot)],
+  by:l=>l.created_by?staffName(l.created_by):'—',
+  hasphone:l=>l.phone?'Has phone':'No phone',
+  wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
 };
 function colFiltered(rows,skip){
   for(const k in COLF){
@@ -224,7 +233,7 @@ const th=(label,k)=>k
 function openColF(btn,k){
   closeColF();
   /* the values come from the rows the OTHER filters leave, like Excel */
-  const base=colFiltered(scopeLeads(),k);
+  const base=colFiltered(LV.src(),k);
   const count={};base.forEach(l=>{const v=COLSPEC[k](l);count[v]=(count[v]||0)+1;});
   const vals=Object.keys(count).sort((a,b)=>count[b]-count[a]||a.localeCompare(b));
   const cur=new Set(COLF[k]||[]);
@@ -255,7 +264,7 @@ function colAll(k,on){
 function colApply(){
   LEADPAGE=0;SEL.clear();
   const pop=$('colpop');if(pop)pop.remove();
-  drawTable();
+  LV.draw();
   if(pop)document.body.appendChild(pop);
 }
 /* ---- the manager's view of her two teams (28 Sep 2026) ----
@@ -339,17 +348,34 @@ function toggleSelPage(on){
   document.querySelectorAll('#tablewrap input.pick').forEach(c=>{c.checked=on;on?SEL.add(c.value):SEL.delete(c.value);});
   drawBulkBar();
 }
-function selectAllFiltered(){filteredLeads().forEach(l=>SEL.add(l.id));drawTable();}
+function selectAllFiltered(){LV.rows().forEach(l=>SEL.add(l.id));LV.draw();}
 function drawBulkBar(){
   const bar=$('bulkbar');if(!bar)return;
-  const total=filteredLeads().length;
+  const total=LV.rows().length;
   bar.style.display=SEL.size?'flex':'none';
   bar.innerHTML=SEL.size?`<b>${SEL.size} selected</b>
     ${SEL.size<total?`<button class="btn-line" onclick="selectAllFiltered()">Select all ${total.toLocaleString()}</button>`:''}
     <span>Assign to</span>
     <select id="bulk-who">${assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))}</option>`).join('')}</select>
     <button class="btn-sun" onclick="bulkAssign()">Assign</button>
-    <button class="btn-line" onclick="SEL.clear();drawTable()">Clear selection</button>`:'';
+    <button class="btn-line" onclick="SEL.clear();LV.draw()">Clear selection</button>
+    ${ME.role==='admin'?`<span class="spacer"></span><button class="btn-line danger" onclick="bulkDelete()">Delete</button>`:''}`:'';
+}
+/* admin only, and a soft delete like the one on a single lead: the rows keep
+   their history and can be brought back (28 Sep 2026) */
+async function bulkDelete(){
+  if(ME.role!=='admin')return;
+  const ids=[...SEL];if(!ids.length)return;
+  if(!confirm(`Delete ${ids.length} lead${ids.length>1?'s':''}? They leave every list and report.`))return;
+  const at=new Date().toISOString();
+  for(let i=0;i<ids.length;i+=200){
+    const {error}=await sb.from('leads').update({is_deleted:true,deleted_at:at,deleted_by:ME.id}).in('id',ids.slice(i,i+200));
+    if(error){toast('Delete failed. '+why(error));console.error(error);return;}
+  }
+  LEADS=LEADS.filter(l=>!SEL.has(l.id));
+  SEL.clear();
+  toast(ids.length+' deleted');
+  LV.after();
 }
 async function bulkAssign(){
   const who=$('bulk-who').value, ids=[...SEL];
@@ -364,7 +390,7 @@ async function bulkAssign(){
   LEADS.forEach(l=>{if(SEL.has(l.id)){l.assigned_to=who;l.assigned_at=at;}});
   SEL.clear();
   toast(ids.length+' assigned to '+staffName(who));
-  paintLeads();
+  LV.after();
 }
 /* marketing's list reads by the date the lead came in, which the person can
    backdate - so it is sorted on that, created_at breaking ties. Done before
@@ -409,7 +435,7 @@ function pager(total,pages){
 }
 function goPage(n){
   LEADPAGE=Math.max(0,n);
-  drawTable();
+  LV.draw();
   $('tablewrap').scrollIntoView({block:'start',behavior:'smooth'});
 }
 function drawActiveTable(rows){
@@ -551,30 +577,80 @@ async function saveRevised(id,box){
 }
 
 /* ---------------- POOL ---------------- */
+/* The pool runs on the Leads list's own tools (28 Sep 2026): search, the lead's
+   date, filters in the headings, the No column, pages of fifty, and tick-and-
+   assign in bulk. It held 150 rows in one long table with a dropdown on every
+   line, which the manager could not work. */
+let POOL=[], PFILTER={q:'',from:'',to:''};
+const LV_POOL={name:'pool',
+  src:()=>poolBase(),
+  rows:()=>colFiltered(poolBase()),
+  draw:()=>drawPool(),
+  after:()=>renderPool()};
+function poolBase(){
+  let rows=POOL;
+  const dayOf=l=>l.lead_date||localDay(l.created_at);
+  if(PFILTER.from)rows=rows.filter(l=>dayOf(l)>=PFILTER.from);
+  if(PFILTER.to)rows=rows.filter(l=>dayOf(l)<=PFILTER.to);
+  if(PFILTER.q){const q=PFILTER.q.toLowerCase();rows=rows.filter(l=>
+    (l.customer_name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.ref_id||'').toLowerCase().includes(q));}
+  return rows;
+}
 async function renderPool(){
   if(!['manager','admin'].includes(ME.role)){
     $('main').innerHTML=blank('The pool is manager and admin only','Leads with no sale engineer are handed out from here.');return;}
+  if(LV!==LV_POOL){LV=LV_POOL;COLF={};PFILTER={q:'',from:'',to:''};LEADPAGE=0;}
+  SEL.clear();
   $('main').innerHTML=SKEL;
   /* only leads still open. After the 23 Sep 2026 import this list held 1,804
      rows, 1,787 of them Closed-Lost enquiries nobody was ever going to call -
      a lost lead is not waiting for sales, and a pool of dead rows buries the
      seventeen that are */
-  const pool=await fetchLeads(q=>q.is('assigned_to',null).not('stage_code','in','(closed_lost,closed_won)'));
-  const canAssign=['manager','admin'].includes(ME.role);
-  const salesOpts=assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))} (${esc(s.staff_id)})</option>`).join('');
+  POOL=await fetchLeads(q=>q.is('assigned_to',null).not('stage_code','in','(closed_lost,closed_won)'));
+  /* oldest waiting first: they have been waiting longest */
+  POOL.sort((a,b)=>(a.lead_date||a.created_at).localeCompare(b.lead_date||b.created_at));
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">No phone number yet, so no sale engineer. Add a number and one gets assigned automatically. Assign by hand only if you need to.</p>
-    ${pool.length?`<div class="tablewrap"><table><thead><tr>
-      <th>Ref ID</th><th>Customer</th><th>Phone</th><th>Channel</th><th>Waiting</th><th>Created by</th><th style="min-width:220px">Assign</th>
-    </tr></thead><tbody>`+pool.map(l=>`
-      <tr><td class="refid">${esc(l.ref_id||'—')}</td>
-      <td><b class="rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">${esc(l.customer_name)}</b></td>
-      <td>${esc(l.phone||'—')}</td><td>${esc(l.lead_channel||l.lead_source||'—')}</td>
-      <td>${daysIn(l.created_at)}d</td><td>${esc(staffName(l.created_by))}</td>
-      <td>${canAssign?`<div style="display:flex;gap:6px"><select id="as-${l.id}">${salesOpts}</select>
-            <button class="btn-sun" onclick="assignLead('${l.id}',document.getElementById('as-${l.id}').value)">Assign</button></div>`:'—'}</td>
-      </tr>`).join('')+`</tbody></table></div>`:blank('Everything is with sales','Leads appear here only while they have no phone number. Adding one assigns a sale engineer automatically.')}`;
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Open leads with no sale engineer. Tick them and assign, or add a phone number and one is assigned automatically.</p>
+    <div class="toolbar">
+      <input placeholder="Search name, phone or ref ID…" value="${esc(PFILTER.q)}" oninput="PFILTER.q=this.value;LEADPAGE=0;SEL.clear();drawPool()">
+      <span class="daterange" title="The lead's own date">
+        <input type="date" value="${PFILTER.from}" onchange="PFILTER.from=this.value;LEADPAGE=0;SEL.clear();drawPool()" aria-label="From">
+        <span>to</span>
+        <input type="date" value="${PFILTER.to}" onchange="PFILTER.to=this.value;LEADPAGE=0;SEL.clear();drawPool()" aria-label="To">
+      </span>
+      <button class="btn-line" onclick="PFILTER={q:'',from:'',to:''};COLF={};LEADPAGE=0;SEL.clear();renderPool()">Clear</button>
+    </div>
+    <div class="bulkbar" id="bulkbar" style="display:none"></div>
+    <div class="tablewrap" id="tablewrap"></div>`;
+  drawPool();
+}
+function drawPool(){
+  const all=LV_POOL.rows();
+  if(!all.length){drawBulkBar();$('tablewrap').innerHTML=(PFILTER.q||PFILTER.from||PFILTER.to||Object.values(COLF).some(v=>v&&v.length))
+    ?blank('No matches','Nothing waiting fits the current search or filters. Clear them to see everything.')
+    :blank('Everything is with sales','Every open lead has a sale engineer.');return;}
+  const pages=Math.ceil(all.length/PAGE_SIZE);
+  if(LEADPAGE>pages-1)LEADPAGE=pages-1;
+  const rows=all.slice(LEADPAGE*PAGE_SIZE,(LEADPAGE+1)*PAGE_SIZE);
+  ROWNO=LEADPAGE*PAGE_SIZE;
+  $('tablewrap').innerHTML=`<table class="pooltable"><thead><tr>
+    <th class="pickcol"><input type="checkbox" title="Select this page" ${rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Date</th>${th('Customer','ctype')}${th('Phone','hasphone')}${th('Channel','chan')}${th('Stage','stage')}${th('Waiting','wait')}${th('Created by','by')}
+  </tr></thead><tbody>`+rows.map((l,i)=>`
+    <tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
+      <td class="pickcol" onclick="event.stopPropagation()"><input type="checkbox" class="pick" value="${l.id}" ${SEL.has(l.id)?'checked':''} onchange="toggleSel(this.value,this.checked);this.closest('tr').classList.toggle('picked',this.checked)"></td>
+      <td class="rowno">${ROWNO+i+1}</td>
+      <td class="refid">${esc(l.ref_id||'—')}</td>
+      <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
+      <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
+      <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}</td>
+      <td>${stagePill(l.stage_code)}</td>
+      <td class="nowrap">${daysIn(l.created_at)}d</td>
+      <td><span class="nm">${esc(staffName(l.created_by))}</span></td>
+    </tr>`).join('')+`</tbody></table>`+pager(all.length,pages);
+  drawBulkBar();
 }
 async function assignLead(leadId,staffId){
   if(!staffId)return;

@@ -921,3 +921,7 @@ table.losttable th{white-space:normal}
 table.losttable td.lostrem{min-width:130px}
 table.losttable td.lostrev{min-width:150px}
 #tablewrap table.losttable th,#tablewrap table.losttable td{padding-left:7px;padding-right:7px}
+
+/* the one destructive button on the bulk bar reads red: red means danger */
+.bulkbar .danger{color:var(--bad);border-color:var(--bad)}
+table.pooltable td.cust{min-width:130px}
