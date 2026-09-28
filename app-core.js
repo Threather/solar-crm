@@ -634,3 +634,16 @@ async function fetchLeads(extra){
     });
   }catch(error){toast('Could not load leads');console.error(error);return[];}
 }
+/* A repeat purchase takes the first deal's ref plus a count - 202605-00047-2,
+   then -3 - so the number itself says which customer it follows (28 Sep 2026).
+   Any suffix on the parent is stripped first, so a third deal opened from the
+   second is still -3. fn_lead_flow only issues a ref when there is none, so a
+   ref set here survives qualification. No parent ref, no suffix: null. */
+async function repeatRef(parentRef){
+  if(!parentRef)return null;
+  const base=parentRef.replace(/-\d{1,2}$/,'');
+  const {data}=await sb.from('leads').select('ref_id').like('ref_id',base+'-%');
+  let n=1;
+  (data||[]).forEach(r=>{const m=/-(\d{1,2})$/.exec(r.ref_id.slice(base.length));if(m)n=Math.max(n,+m[1]);});
+  return base+'-'+(n+1);
+}

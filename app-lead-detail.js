@@ -492,7 +492,8 @@ async function newDealFrom(leadId){
     assigned_to:l.assigned_to,assigned_at:l.assigned_to?new Date().toISOString():null,
     site_engineer_id:l.site_engineer_id,
     lead_channel:'Existing_Customer',lead_sub_channel:'Expansion',
-    parent_lead_id:l.id,created_by:ME.id
+    parent_lead_id:l.id,created_by:ME.id,
+    ref_id:await repeatRef(l.ref_id)
   };
   const {data:made,error}=await sb.from('leads').insert(copy).select().single();
   if(error){toast('Could not create it. '+why(error));console.error(error);return;}

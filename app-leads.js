@@ -543,6 +543,7 @@ async function createLead(){
     const p=NEWPARENT;
     Object.assign(row,{
       parent_lead_id:p.id,
+      ref_id:await repeatRef(p.ref_id),
       assigned_to:p.assigned_to||null,
       assigned_at:p.assigned_to?new Date().toISOString():null,
       site_engineer_id:p.site_engineer_id||null,
