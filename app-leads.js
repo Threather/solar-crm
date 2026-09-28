@@ -194,7 +194,7 @@ function filteredLeads(){
    dates, the channel, who created it - stays in the toolbar. Each column reads
    its value through one function, so the heading, the ticks and the filter
    cannot disagree. */
-let COLF={};
+let COLF={}, ROWNO=0;
 const fuWord=l=>!l.next_follow_up?'No date':FU_TEST.overdue(l)?'Overdue':FU_TEST.today(l)?'Today':'Later';
 const COLSPEC={
   stage:l=>(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code||'—',
@@ -386,6 +386,8 @@ function drawTable(){
   const pages=Math.ceil(all.length/PAGE_SIZE);
   if(LEADPAGE>pages-1)LEADPAGE=pages-1;
   const rows=all.slice(LEADPAGE*PAGE_SIZE,(LEADPAGE+1)*PAGE_SIZE);
+  /* the No column counts down what is on screen now, so it restarts with every filter */
+  ROWNO=LEADPAGE*PAGE_SIZE;
   if(mktOnly())drawMktTable(rows);
   else if(LEADSCOPE==='won')drawWonTable(rows);
   else if(LEADSCOPE==='lost')drawLostTable(rows);
@@ -413,12 +415,12 @@ function goPage(n){
 function drawActiveTable(rows){
   const pick=isBoss();
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th>Ref ID</th>${th('Customer','ctype')}<th>Phone</th>${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
-  </tr></thead><tbody>`+rows.map(l=>{
+    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}<th>Phone</th>${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
+  </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
       ${pick?`<td class="pickcol" onclick="event.stopPropagation()"><input type="checkbox" class="pick" value="${l.id}" ${SEL.has(l.id)?'checked':''} onchange="toggleSel(this.value,this.checked);this.closest('tr').classList.toggle('picked',this.checked)"></td>`:''}
-      <td class="refid">${esc(l.ref_id||'—')}</td>
+      <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${stagePill(l.stage_code)}</td>
@@ -437,11 +439,11 @@ function drawActiveTable(rows){
 function drawMktTable(rows){
   /* already sorted by mktSort in drawTable, before the page was cut */
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Date</th>${th('Customer','ctype')}<th>Phone</th>${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
-  </tr></thead><tbody>`+rows.map(l=>{
+    <th class="rowno">No</th><th>Date</th>${th('Customer','ctype')}<th>Phone</th>${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
+  </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
-      <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
+      <td class="rowno">${ROWNO+i+1}</td><td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${l.assigned_to?esc(staffName(l.assigned_to)):'<span class="pooltag">NOT YET</span>'}</td>
@@ -489,10 +491,10 @@ function toggleRemarks(box){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}<th>Closed-Won</th>
-  </tr></thead><tbody>`+rows.map(l=>`
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}<th>Closed-Won</th>
+  </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
-      <td class="refid">${esc(l.ref_id||'—')}</td>
+      <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
@@ -516,10 +518,10 @@ function drawLostTable(rows){
   const qcell=l=>{const s=quoteStage(l,!!l.last_quot);
     return s==='unknown'?`<span style="color:var(--ink-mute)">${QUOTE_STAGE_TEXT[s]}</span>`:QUOTE_STAGE_TEXT[s];};
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Qualified','qual')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Created</th>
-  </tr></thead><tbody>`+rows.map(l=>`
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Qualified','qual')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Created</th>
+  </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
-      <td class="refid">${esc(l.ref_id||'—')}</td>
+      <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}</td>

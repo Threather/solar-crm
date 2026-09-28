@@ -873,3 +873,6 @@ th.colf.on .caret{color:var(--sun-deep);font-size:10px}
 .colpop label input[type=checkbox]{width:auto;flex:none;margin:0}
 .colpop label span{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .colpop{min-width:230px}
+
+/* the No column counts what the filters leave (28 Sep 2026) */
+.rowno{width:34px;text-align:right;color:var(--ink-mute);font-variant-numeric:tabular-nums;padding-right:6px}
