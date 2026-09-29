@@ -215,7 +215,6 @@ async function renderMgmtReport(){
   const lostAfter=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='after');
   const lostBefore=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='before');
   const lostUnknown=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='unknown');
-  const lostAfterValue=lostAfter.reduce((a,l)=>a+Number(quotBy[l.id]?.price_usd||0),0);
 
   /* ---- month by month ---- */
   const months=lastMonths(rows,dayOf,12);
@@ -416,7 +415,7 @@ async function renderMgmtReport(){
           ?gSplit([['After a quotation',lostAfter.length,'var(--viz-1)','After'],
                    ['Before any quotation',lostBefore.length,'var(--viz-s2)','Before'],
                    ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
-           +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
+           +ledger([['After a quotation',lostAfter.length,''],
                     ['Before any quotation',lostBefore.length,''],
                     ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
