@@ -729,6 +729,7 @@ function groupChart(labels,series,opts){
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
     </svg>
+    ${o.after||''}
   </div>`;
 }
 /* One or two series over time as lines, which is what he drew for the lead

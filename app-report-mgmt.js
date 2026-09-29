@@ -182,12 +182,20 @@ async function renderMgmtReport(){
   }).filter(r=>r[2]>0);
 
   /* leads handled against leads still active, per person */
+  /* Still-open is split by where the lead came from - this window or earlier -
+     and wins the same way, so a win on last month's customer is not read as
+     this month's new business (Kevin, 29 Sep 2026) */
   const handled=people.map(p=>{
     const mine=rows.filter(l=>l.assigned_to===p.id);
+    const isNew=l=>inWin(dayOf(l));
+    const open=mine.filter(l=>!TERMINAL.includes(l.stage_code));
+    const wonHere=wonInWin.filter(l=>l.assigned_to===p.id);
     return {name:p.full_name,
-      handled:mine.filter(l=>inWin(dayOf(l))).length,
-      active:mine.filter(l=>!TERMINAL.includes(l.stage_code)).length};
-  }).filter(r=>r.handled||r.active);
+      handled:mine.filter(isNew).length,
+      active:open.length,
+      openNew:open.filter(isNew).length, openOld:open.filter(l=>!isNew(l)).length,
+      wonNew:wonHere.filter(isNew).length, wonOld:wonHere.filter(l=>!isNew(l)).length};
+  }).filter(r=>r.handled||r.active||r.wonNew||r.wonOld);
 
   /* ---- closed-lost ---- */
   const reasons={};
@@ -371,9 +379,12 @@ async function renderMgmtReport(){
         :emptyChart('Avg. daily contact to customer','No contacts logged','Nothing in the contact log '+per+'.')}
       ${handled.length
         ?groupChart(handled.map(r=>r.name.split(' ')[0]),
-          [{name:'Handled '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
-           {name:'# of Active Lead',color:'var(--viz-1)',values:handled.map(r=>r.active)}],
-          {title:'# of leads held and # of active lead',compact:true})
+          [{name:'New '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
+           {name:'Still open, new '+per,color:'var(--viz-1)',values:handled.map(r=>r.openNew)},
+           {name:'Still open, from before',color:'var(--viz-mute)',values:handled.map(r=>r.openOld)}],
+          {title:'# of leads held and # of active lead',compact:true,
+           after:`<table class="tp heldtab"><thead><tr><th>Person</th><th>New</th><th>Open: new</th><th>Open: before</th><th>Won: new</th><th>Won: before</th></tr></thead><tbody>${
+             handled.map(r=>`<tr><td>${esc(r.name.split(' ')[0])}</td><td>${r.handled}</td><td>${r.openNew}</td><td>${r.openOld}</td><td>${r.wonNew}</td><td>${r.wonOld}</td></tr>`).join('')}</tbody></table>`})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
         ?groupChart(typePeople.map(first),

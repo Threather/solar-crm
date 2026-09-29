@@ -925,3 +925,7 @@ table.losttable td.lostrev{min-width:150px}
 /* the one destructive button on the bulk bar reads red: red means danger */
 .bulkbar .danger{color:var(--bad);border-color:var(--bad)}
 table.pooltable td.cust{min-width:130px}
+
+/* the table under # of leads held: open and won, split new against before */
+table.heldtab{margin-top:10px;font-size:12px}
+table.heldtab th{font-size:10px}
