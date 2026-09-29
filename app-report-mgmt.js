@@ -1,4 +1,4 @@
-﻿/* ---------------- MANAGEMENT REPORT ----------------
+/* ---------------- MANAGEMENT REPORT ----------------
    Kevin's hand-drawn "September 2026 Sales & Pipeline Dashboard", photographed
    16 Sep 2026 and built here as a fourth Reports scope for the manager and
    admin. Its panels are his, in his order.
@@ -382,9 +382,7 @@ async function renderMgmtReport(){
           [{name:'New '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
            {name:'Still open, new '+per,color:'var(--viz-1)',values:handled.map(r=>r.openNew)},
            {name:'Still open, from before',color:'var(--viz-mute)',values:handled.map(r=>r.openOld)}],
-          {title:'# of leads held and # of active lead',compact:true,
-           after:`<table class="tp heldtab"><thead><tr><th>Person</th><th>New</th><th>Open: new</th><th>Open: before</th><th>Won: new</th><th>Won: before</th></tr></thead><tbody>${
-             handled.map(r=>`<tr><td>${esc(r.name.split(' ')[0])}</td><td>${r.handled}</td><td>${r.openNew}</td><td>${r.openOld}</td><td>${r.wonNew}</td><td>${r.wonOld}</td></tr>`).join('')}</tbody></table>`})
+          {title:'# of leads held and # of active lead',compact:true})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
         ?groupChart(typePeople.map(first),
