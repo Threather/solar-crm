@@ -138,7 +138,7 @@ async function renderSalesReport(){
   /* Closed-Lost is qualified-then-lost; Disqualified is counted beside it */
   const lostMtd=rows.filter(l=>isClosedLost(l)&&within(l.stage_entered_at,mtd[0],mtd[1]));
   const disqMtd=rows.filter(l=>isDisqualified(l)&&within(l.stage_entered_at,mtd[0],mtd[1]));
-  const qualMtd=gotMtd.filter(l=>qualText(l)==='Qualified');
+  const qualMtd=gotMtd.filter(l=>isQualLead(l));
 
   /* ---- block 5 and 7 figures, per person and for the company ---- */
   const targetOf=id=>Number(tg.person[id]?.collection||0);

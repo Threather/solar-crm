@@ -298,6 +298,10 @@ function qualText(l){
 const isClosedLost=l=>l.stage_code===LOST&&qualText(l)==='Qualified';
 const isDisqualified=l=>l.stage_code===LOST&&qualText(l)!=='Qualified';
 const lostType=l=>isClosedLost(l)?'Closed-Lost':'Disqualified';
+/* a Qualified Lead on every dashboard: qualified and not lost - a lead that
+   qualified and was then lost is counted as Closed-Lost, never twice
+   (Kevin, 29 Sep 2026) */
+const isQualLead=l=>qualText(l)==='Qualified'&&l.stage_code!==LOST;
 /* Why a lead was lost, for the reports (29 Sep 2026). The dropdown reason when
    sales picked one; otherwise admin's Revised remark, which the client already
    writes as a short standard phrase - so the panels read their own wording,

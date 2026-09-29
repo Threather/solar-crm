@@ -1,4 +1,4 @@
-/* ---------------- MARKETING REPORT ----------------
+﻿/* ---------------- MARKETING REPORT ----------------
    The client's Daily Marketing Report, in their sections and their order.
    Cost per lead needs a spend figure and the target needs a number, both set
    by admin on the Targets screen. Where one is missing this says so rather
@@ -21,7 +21,7 @@ async function renderMktReport(){
   const got=rows.filter(inWin);
   const byCh=c=>got.filter(l=>chOf(l)===c).length;
 
-  const qualified=got.filter(l=>qualText(l)==='Qualified');
+  const qualified=got.filter(l=>isQualLead(l));
   const disqualified=got.filter(l=>qualText(l)==='Disqualified');
   const qualRate=got.length?Math.round(qualified.length/got.length*100):null;
 
@@ -35,7 +35,7 @@ async function renderMktReport(){
   const budget=tg.company.spend??null;
   const spend=tg.company.spend_actual??null;
   const cpl=spend!=null&&mtd.length?spend/mtd.length:null;
-  const mtdQual=mtd.filter(l=>qualText(l)==='Qualified');
+  const mtdQual=mtd.filter(l=>isQualLead(l));
   const cpql=spend!=null&&mtdQual.length?spend/mtdQual.length:null;
   const targetCpl=budget!=null&&leadTarget?budget/leadTarget:null;
 
@@ -50,8 +50,8 @@ async function renderMktReport(){
   /* his sheet breaks digital down by sub-channel, which is where the money
      actually goes - Facebook against Telegram, not "digital" as one lump */
   const subs=[...new Set(got.filter(l=>l.lead_sub_channel).map(l=>l.lead_sub_channel))].sort();
-  const subQ=s=>got.filter(l=>l.lead_sub_channel===s&&qualText(l)==='Qualified').length;
-  const subD=s=>got.filter(l=>l.lead_sub_channel===s&&qualText(l)!=='Qualified').length;
+  const subQ=s=>got.filter(l=>l.lead_sub_channel===s&&isQualLead(l)).length;
+  const subD=s=>got.filter(l=>l.lead_sub_channel===s&&!isQualLead(l)).length;
 
   /* "contact captured" can only mean a phone number: the app records no email
      on a lead. Marketing capture it once and then only admin may change it. */
@@ -189,7 +189,7 @@ async function renderMktReport(){
     </tr></thead><tbody>`+[...MKT_CH,'Other'].map(c=>{
       const set=got.filter(l=>chOf(l)===c);
       if(!set.length)return '';
-      const q=set.filter(l=>qualText(l)==='Qualified');
+      const q=set.filter(l=>isQualLead(l));
       const qt=set.filter(l=>everReached(reached,l,'quotation_sent'));
       const w=set.filter(l=>everReached(reached,l,WON));
       return `<tr><td><b>${esc(c.replace(/_/g,' '))}</b></td><td>${set.length}</td>

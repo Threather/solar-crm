@@ -128,7 +128,7 @@ async function renderMgmtReport(){
   const MG_MARKETING=['Digital_Marketing','Offline_Marketing'];
   /* the Qualified Lead bar counts qualified leads still open or won - the lost
      ones are the Closed-Lost bar beside it, not counted twice (Kevin, 29 Sep 2026) */
-  const qualified=got.filter(l=>qualText(l)==='Qualified'&&l.stage_code!==LOST);
+  const qualified=got.filter(l=>isQualLead(l));
 
   /* ---- per person, on whoever holds the rows ---- */
   const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
@@ -218,7 +218,7 @@ async function renderMgmtReport(){
   /* ---- month by month ---- */
   const months=lastMonths(rows,dayOf,12);
   const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m);
-  const qualIn=m=>madeIn(m).filter(l=>qualText(l)==='Qualified');
+  const qualIn=m=>madeIn(m).filter(l=>isQualLead(l));
   /* their sheet shows six months of conversion, April to September */
   const convMonths=months.slice(-6);
 
@@ -240,7 +240,7 @@ async function renderMgmtReport(){
     const k=localDay(dayOf(l));
     if(k.slice(0,7)!==thisM)return;
     mktDay[k]=(mktDay[k]||0)+1;
-    if(qualText(l)==='Qualified')qualDay[k]=(qualDay[k]||0)+1;
+    if(isQualLead(l))qualDay[k]=(qualDay[k]||0)+1;
   });
 
   /* stage distribution, his four bars */
