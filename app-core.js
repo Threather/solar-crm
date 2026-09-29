@@ -279,7 +279,9 @@ const EARLY_STAGES=['info_gathering','telling_price','pending_quotation'];
    qualified exactly as the workbook says: on its Leads sheet, which is having a
    ref ID. From 28 Sep the stage decides, Telling Price onward, as it always
    did - so moving a new lead back unqualifies it again. */
-const EXCEL_QUAL_UNTIL='2026-09-27';
+/* moved to the end of August on 29 Sep 2026: September leads are qualified by
+   stage, Telling Price onward, like every lead after them */
+const EXCEL_QUAL_UNTIL='2026-08-31';
 function qualText(l){
   if((l.lead_date||localDay(l.created_at))<=EXCEL_QUAL_UNTIL)
     return l.ref_id?'Qualified':l.stage_code===LOST?'Disqualified':'Not qualified yet';
