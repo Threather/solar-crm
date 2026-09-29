@@ -298,6 +298,22 @@ function qualText(l){
 const isClosedLost=l=>l.stage_code===LOST&&qualText(l)==='Qualified';
 const isDisqualified=l=>l.stage_code===LOST&&qualText(l)!=='Qualified';
 const lostType=l=>isClosedLost(l)?'Closed-Lost':'Disqualified';
+/* Why a lead was lost, for the reports (29 Sep 2026). The dropdown reason when
+   sales picked one; otherwise admin's Revised remark, which the client already
+   writes as a short standard phrase - so the panels read their own wording,
+   with the few spelling variants folded together. */
+const LOST_WORDING={
+  "customer don't want to install now":"Customer don't want to install solar now",
+  'suspect competitor. so decide to close.':'Suspect Competitor.',
+  'customer just want to know the information':'Customer just want to know the price',
+  'customer want only installment':'Customer want direct installment with Solarworks'
+};
+function lostReasonOf(l){
+  if(l.lost_reason&&l.lost_reason!=='Not qualified')return l.lost_reason;
+  const r=(l.lost_note_revised||'').trim();
+  if(!r)return 'Not recorded';
+  return LOST_WORDING[r.toLowerCase()]||r;
+}
 function qualPill(l){
   const t=qualText(l);
   if(t==='Qualified')return '<span class="badge b-on">qualified</span>';

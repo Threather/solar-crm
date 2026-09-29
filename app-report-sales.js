@@ -1,4 +1,4 @@
-/* ---------------- SALES REPORT ----------------
+﻿/* ---------------- SALES REPORT ----------------
    Rebuilt 16 Sep 2026 against the client's own workbook, "Reporting Template
    for Sales Team.xlsx" — its blocks, in its order, under its headings. Do not
    tidy the wording: they recognise their own report by it.
@@ -317,7 +317,7 @@ async function renderSalesReport(){
            emptyWhy:'This fills in as leads move through the pipeline.'}))}
 
       ${repPanel('MTD Closed-Lost Status',(()=>{
-        const reasons={};lostMtd.forEach(l=>{const r=l.lost_reason||'Not recorded';reasons[r]=(reasons[r]||0)+1;});
+        const reasons={};lostMtd.forEach(l=>{const r=lostReasonOf(l);reasons[r]=(reasons[r]||0)+1;});
         return lostMtd.length
           ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12})
           :blank('Nothing lost this month','No lead was moved to Closed-Lost in '+monthName(thisM)+'.');

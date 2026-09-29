@@ -204,7 +204,7 @@ async function renderMgmtReport(){
 
   /* ---- closed-lost ---- */
   const reasons={};
-  lostInWin.forEach(l=>{const r=l.lost_reason||'Not recorded';reasons[r]=(reasons[r]||0)+1;});
+  lostInWin.forEach(l=>{const r=lostReasonOf(l);reasons[r]=(reasons[r]||0)+1;});
   /* read through quoteStage, the one rule the Lost list uses too. It had an
      'unknown' group until the client's quotation history was imported;
      lostUnknown stays so the panel cannot break if one is ever needed again */
