@@ -115,6 +115,13 @@ async function renderSalesReport(){
      log has nothing for that stage - if the lead sits there now and got there
      inside it. See the note at the top: the log is thin. */
   const enteredIn=(l,code,a,b)=>{
+    /* the Closed-Lost column counts Closed-Lost only - qualified, then lost,
+       and still lost - never a Disqualified lead or one reopened since, the
+       same test Management counts its 39 by, and on the lost date
+       (stage_entered_at) rather than the log, which still carries the
+       import's moves for leads re-dated from the client's C-lost sheet
+       (29 Sep 2026) */
+    if(code===LOST)return isClosedLost(l)&&within(l.stage_entered_at,a,b);
     const logged=moves.some(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b);
     if(logged)return true;
     if((loggedFor[l.id]||new Set()).has(code))return false;
