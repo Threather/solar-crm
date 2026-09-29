@@ -135,7 +135,9 @@ async function renderSalesReport(){
   const wonAll=rows.filter(l=>l.stage_code===WON);
   const gotMtd=rows.filter(l=>within(dayOf(l),mtd[0],mtd[1]));
   const wonMtd=wonAll.filter(l=>within(l.stage_entered_at,mtd[0],mtd[1]));
-  const lostMtd=rows.filter(l=>l.stage_code===LOST&&within(l.stage_entered_at,mtd[0],mtd[1]));
+  /* Closed-Lost is qualified-then-lost; Disqualified is counted beside it */
+  const lostMtd=rows.filter(l=>isClosedLost(l)&&within(l.stage_entered_at,mtd[0],mtd[1]));
+  const disqMtd=rows.filter(l=>isDisqualified(l)&&within(l.stage_entered_at,mtd[0],mtd[1]));
   const qualMtd=gotMtd.filter(l=>qualText(l)==='Qualified');
 
   /* ---- block 5 and 7 figures, per person and for the company ---- */
@@ -254,7 +256,7 @@ async function renderSalesReport(){
       const cycle=avgDays(mine(p.id).filter(l=>l.stage_code===WON)
         .map(l=>daysBetween(dayOf(l),l.stage_entered_at)));
       const w=mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,mStart,today)).length;
-      const lo=mine(p.id).filter(l=>l.stage_code===LOST&&within(l.stage_entered_at,mStart,today)).length;
+      const lo=mine(p.id).filter(l=>isClosedLost(l)&&within(l.stage_entered_at,mStart,today)).length;
       return `<tr><td><b>${esc(p.full_name)}</b></td>
         <td>${p.joined_date?esc(fmtDate(p.joined_date)):'<span class="quiet">—</span>'}</td>
         <td>${leadsTouched}</td>
@@ -292,7 +294,8 @@ async function renderSalesReport(){
         gFunnel([['Total Raw Lead',gotMtd.length,'var(--viz-s2)'],
                  ['Qualified Lead',qualMtd.length,'var(--viz-s4)'],
                  ['Closed-Won',wonMtd.length,'var(--viz-good)'],
-                 ['Closed-Lost',lostMtd.length,'var(--bad)']])
+                 ['Closed-Lost',lostMtd.length,'var(--bad)'],
+                 ['Disqualified',disqMtd.length,'var(--viz-mute)']])
         +ledger([['Raw lead to qualified',pct(qualMtd.length,gotMtd.length)],
                  ['Qualified to won',pct(wonMtd.length,qualMtd.length)],
                  ['Raw lead to won',pct(wonMtd.length,gotMtd.length)]]))}

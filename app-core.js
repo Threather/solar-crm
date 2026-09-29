@@ -285,10 +285,19 @@ const EXCEL_QUAL_UNTIL='2026-08-31';
 function qualText(l){
   if((l.lead_date||localDay(l.created_at))<=EXCEL_QUAL_UNTIL)
     return l.ref_id?'Qualified':l.stage_code===LOST?'Disqualified':'Not qualified yet';
-  if(QUALIFIED_STAGES.includes(l.stage_code))return 'Qualified';
-  if(l.stage_code===LOST)return l.qualification==='qualified'?'Qualified':'Disqualified';
+  /* from September: a phone number AND Telling Price onward (Kevin, 29 Sep 2026) */
+  if(QUALIFIED_STAGES.includes(l.stage_code))return l.phone?'Qualified':'Not qualified yet';
+  if(l.stage_code===LOST)return l.qualification==='qualified'&&l.phone?'Qualified':'Disqualified';
   return 'Not qualified yet';
 }
+/* Two kinds of lost, counted apart (29 Sep 2026). A lead lost before it ever
+   qualified - no number, or dropped on Information Gathering - is
+   Disqualified. One that qualified and was then lost is Closed-Lost, the
+   figure management reads. Both sit on stage closed_lost; qualText tells them
+   apart. */
+const isClosedLost=l=>l.stage_code===LOST&&qualText(l)==='Qualified';
+const isDisqualified=l=>l.stage_code===LOST&&qualText(l)!=='Qualified';
+const lostType=l=>isClosedLost(l)?'Closed-Lost':'Disqualified';
 function qualPill(l){
   const t=qualText(l);
   if(t==='Qualified')return '<span class="badge b-on">qualified</span>';

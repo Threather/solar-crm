@@ -86,7 +86,10 @@ async function renderMgmtReport(){
   const open=rows.filter(l=>!TERMINAL.includes(l.stage_code));
   const won=rows.filter(l=>l.stage_code===WON);
   const wonInWin=won.filter(l=>inWin(l.stage_entered_at));
-  const lostInWin=rows.filter(l=>l.stage_code===LOST&&inWin(l.stage_entered_at));
+  /* management reads real Closed-Lost - qualified, then lost. Disqualified
+     (lost before ever qualifying) is its own number beside it */
+  const lostInWin=rows.filter(l=>isClosedLost(l)&&inWin(l.stage_entered_at));
+  const disqInWin=rows.filter(l=>isDisqualified(l)&&inWin(l.stage_entered_at));
 
   /* ---- the KPI row: collection ---- */
   const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
@@ -230,7 +233,8 @@ async function renderMgmtReport(){
     ['Raw Lead',got.length,'var(--ink)'],
     ['Qualified Lead',qualified.length,'var(--viz-2)'],
     ['Closed-Won',wonInWin.length,'var(--viz-good)'],
-    ['Closed-Lost',lostInWin.length,'var(--viz-1)']
+    ['Closed-Lost',lostInWin.length,'var(--viz-1)'],
+    ['Disqualified',disqInWin.length,'var(--viz-mute)']
   ];
 
   /* Residential against C&I, per salesperson, two columns each */

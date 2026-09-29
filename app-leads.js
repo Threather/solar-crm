@@ -164,7 +164,8 @@ function allStats(rows){
 }
 function lostStats(rows){
   return `<div class="stats">
-      <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Lost leads</div></div>
+      <div class="stat hero"><div class="n">${rows.filter(isClosedLost).length.toLocaleString()}</div><div class="l">Closed-Lost</div></div>
+      <div class="stat"><div class="n">${rows.filter(isDisqualified).length.toLocaleString()}</div><div class="l">Disqualified</div></div>
     </div>`;
 }
 /* rows for the current tab, before the toolbar filters */
@@ -214,6 +215,7 @@ const COLSPEC={
   chan:l=>(l.lead_channel||l.lead_source||'—').replace(/_/g,' '),
   ctype:l=>l.customer_type||'—',
   quot:l=>QUOTE_STAGE_TEXT[quoteStage(l,!!l.last_quot)],
+  ltype:l=>lostType(l),
   by:l=>l.created_by?staffName(l.created_by):'—',
   hasphone:l=>l.phone?'Has phone':'No phone',
   wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
@@ -554,14 +556,14 @@ function drawLostTable(rows){
     ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
     :(l.lost_note_revised?esc(l.lost_note_revised):'<span class="quiet">—</span>');
   $('tablewrap').innerHTML=`<table class="losttable"><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Qualified','qual')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Remark</th><th>Revised remark</th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Remark</th><th>Revised remark</th>
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}</td>
-      <td>${qualPill(l)}</td>
+      <td>${isClosedLost(l)?'<span class="badge b-off">closed-lost</span>':'<span class="days" style="display:inline">disqualified</span>'}</td>
       <td>${qcell(l)}</td>
       <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'—'}</td>
       <td>${fmtDate(l.stage_entered_at)}</td>
