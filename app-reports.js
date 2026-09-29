@@ -239,6 +239,18 @@ async function repExportPdf(){
     const title=$('main').querySelector('h2')?.textContent||'Report';
     const when=repWindowSentence();
     main.classList.add('exporting');
+    /* a chart pushed to the foot of its card by an automatic top margin was
+       drawn by html2canvas that margin lower again, so it lost its bottom
+       strip - the salesperson names
+       (Kevin, 29 Sep 2026). For the capture the gap moves onto whatever sits
+       above the chart, and is put back afterwards. */
+    const pinned=[];
+    main.querySelectorAll('svg').forEach(s=>{
+      const mt=parseFloat(getComputedStyle(s).marginTop)||0, p=s.previousElementSibling;
+      if(!mt||!p)return;
+      pinned.push([s,s.getAttribute('style')],[p,p.getAttribute('style')]);
+      p.style.setProperty('margin-bottom',(parseFloat(getComputedStyle(p).marginBottom)+mt)+'px','important');
+      s.style.setProperty('margin-top','0','important');});
     const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
     const PW=297,PH=210,M=10,TOP=17,BOT=12,w=PW-2*M,room=PH-TOP-BOT,GAP=4;
     const shots=[];
@@ -254,7 +266,8 @@ async function repExportPdf(){
         shots.push({c,wmm:r.width*mmPerPx,hmm:r.height*mmPerPx,
           glue:el.matches('h3,.mg-head,.mg-band,.person,.sechead,p')});
       }
-    }finally{main.classList.remove('exporting');}
+    }finally{main.classList.remove('exporting');
+      pinned.reverse().forEach(([s,was])=>was==null?s.removeAttribute('style'):s.setAttribute('style',was));}
     let y=TOP,started=false;
     const place=(img,x,wmm,hmm)=>{pdf.addImage(img,'JPEG',x,y,wmm,hmm);y+=hmm+GAP;started=true;};
     const newPage=()=>{pdf.addPage();y=TOP;};
