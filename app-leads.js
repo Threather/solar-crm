@@ -216,6 +216,8 @@ const COLSPEC={
   ctype:l=>l.customer_type||'—',
   quot:l=>QUOTE_STAGE_TEXT[quoteStage(l,!!l.last_quot)],
   ltype:l=>lostType(l),
+  /* the month a lead was lost in, so this month's losses are one tick away */
+  lostm:l=>l.stage_entered_at?monthName(localDay(l.stage_entered_at).slice(0,7)):'—',
   by:l=>l.created_by?staffName(l.created_by):'—',
   hasphone:l=>l.phone?'Has phone':'No phone',
   wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
@@ -556,7 +558,7 @@ function drawLostTable(rows){
     ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
     :(l.lost_note_revised?esc(l.lost_note_revised):'<span class="quiet">—</span>');
   $('tablewrap').innerHTML=`<table class="losttable"><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}<th>Lost</th><th>Remark</th><th>Revised remark</th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}<th>Remark</th><th>Revised remark</th>
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
