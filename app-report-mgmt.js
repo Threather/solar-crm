@@ -190,8 +190,11 @@ async function renderMgmtReport(){
     const isNew=l=>inWin(dayOf(l));
     const open=mine.filter(l=>!TERMINAL.includes(l.stage_code));
     const wonHere=wonInWin.filter(l=>l.assigned_to===p.id);
+    /* handled = every lead in their hands during the window: new in it,
+       still open, or won or lost in it (Kevin, 29 Sep 2026). Active is the
+       open ones only, whatever month they came in. */
     return {name:p.full_name,
-      handled:mine.filter(isNew).length,
+      handled:mine.filter(l=>isNew(l)||!TERMINAL.includes(l.stage_code)||inWin(l.stage_entered_at)).length,
       active:open.length,
       openNew:open.filter(isNew).length, openOld:open.filter(l=>!isNew(l)).length,
       wonNew:wonHere.filter(isNew).length, wonOld:wonHere.filter(l=>!isNew(l)).length};
