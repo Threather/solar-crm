@@ -102,8 +102,10 @@ async function openLead(id){
         ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
         <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
         <div><label>Estimated close date</label><input id="d-closedate" type="date" value="${l.expected_close_date||''}" ${canEng?'':'disabled'} title="Optional. When you expect this to be signed — usually set once the quotation has gone out."></div>`:''}
-        ${l.stage_code===LOST?`<div><label>Why it was lost</label><select id="d-lostreason" ${canSales?'':'disabled'}>${optList(LOST_REASONS,l.lost_reason)}</select></div>
-        <div style="grid-column:2/-1"><label>Detail</label><input id="d-lostnote" value="${esc(l.lost_note||'')}" placeholder="Anything worth remembering" ${canSales?'':'disabled'}></div>`:''}
+        ${l.stage_code===LOST?`<!-- Remark is sales' own words; Revised remark is admin's standard wording
+             of it, which the dashboards count (Kevin, 29 Sep 2026) -->
+        <div style="grid-column:1/-1"><label>Remark</label><input id="d-lostnote" value="${esc(l.lost_note||'')}" placeholder="Why the customer did not go ahead" ${canSales?'':'disabled'}></div>
+        <div style="grid-column:1/-1"><label>Revised remark</label><input id="d-lostrev" value="${esc(l.lost_note_revised||'')}" placeholder="Standard wording, set by admin" ${isAdmin?'':'disabled'}></div>`:''}
         ${(isMkt||isAdmin||ME.role==='manager')?`<div><label>Marketing follow-up</label><input id="d-mktfollow" type="date" value="${l.mkt_follow_up_date||''}" ${(isMkt||isAdmin)?'':'disabled'} title="Marketing's own date, separate from the sales follow-up"></div>`:''}
       </div>
       <label style="margin-top:10px;display:block">Add remark</label>
@@ -354,7 +356,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
            service_other_note:'d-svother',
            boq_status:'d-boq',boq_date:'d-boqdate',
            expected_close_date:'d-closedate',mkt_follow_up_date:'d-mktfollow',
-           lost_reason:'d-lostreason',lost_note:'d-lostnote'};
+           lost_note:'d-lostnote',lost_note_revised:'d-lostrev'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
   /* panel kWp is derived, and its input is readonly so val() skips it */
@@ -390,13 +392,11 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   /* the reason is the whole point of the closed-lost analysis, so it is asked
      for at the moment the stage moves rather than left for someone to fill in
      later, which is to say never */
-  if(newStage===LOST&&oldStage!==LOST&&!upd.lost_reason&&!$('d-lostreason')){
-    const lines=['Why was this lost?','']
-      .concat(LOST_REASONS.map((r,i)=>(i+1)+'. '+r))
-      .concat(['','Type the number, or leave empty to record it later.']);
-    const pick=prompt(lines.join('\n'));
-    const n=Number(pick);
-    if(n>=1&&n<=LOST_REASONS.length)upd.lost_reason=LOST_REASONS[n-1];
+  /* moving to Closed-Lost asks for the Remark in the salesperson's own words;
+     admin turns it into the standard Revised remark later (29 Sep 2026) */
+  if(newStage===LOST&&oldStage!==LOST&&!upd.lost_note&&!$('d-lostnote')){
+    const why=prompt('Remark: why did the customer not go ahead?\n\nLeave empty to write it later.');
+    if(why&&why.trim())upd.lost_note=why.trim();
   }
   if(newStage===WON&&oldStage!==WON&&(!saleNow||Number(saleNow)<=0)){toast('Enter the final sale value before marking Closed-Won');return;}
   /* Done with no date is the state that breaks the operations report: BOQ
