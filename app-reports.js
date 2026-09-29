@@ -395,12 +395,15 @@ function gFunnel(steps,opts){
 /* two numbers whose proportion is the whole story */
 function gSplit(parts,left,right){
   const total=parts.reduce((a,p)=>a+Number(p[1]||0),0)||1;
-  return `<div class="gsplit">`+parts.map(([label,v,color])=>{
+  /* a part carries an optional short word, so the text fits inside a narrow
+     part instead of being cut off; a very narrow one shows only its share */
+  return `<div class="gsplit">`+parts.map(([label,v,color,short])=>{
     const w=(Number(v||0)/total)*100;
     if(w<=0)return '';
-    return `<span style="width:${w}%;background:${color}" title="${esc(label)}: ${esc(v)}">${w>14?esc(label):''}</span>`;
-  }).join('')+`</div>
-  <div class="gsplit-l"><span>${esc(left||'')}</span><span>${esc(right||'')}</span></div>`;
+    const txt=w>=22?`${short||label} ${Math.round(w)}%`:w>=9?`${Math.round(w)}%`:'';
+    return `<span style="width:${w}%;background:${color}" title="${esc(label)}: ${esc(v)}">${esc(txt)}</span>`;
+  }).join('')+`</div>`+(left||right?`
+  <div class="gsplit-l"><span>${esc(left||'')}</span><span>${esc(right||'')}</span></div>`:'');
 }
 /* Share of a whole as a pie. Asked for by Kevin on 27 Sep 2026 for the
    installation teams; the ledger under it carries the exact figures, so the

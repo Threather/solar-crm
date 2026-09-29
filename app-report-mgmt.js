@@ -413,10 +413,9 @@ async function renderMgmtReport(){
       <!-- asked for on 16 Sep 2026 and not on their sheet, so it follows it -->
       ${repPanel('Closed-lost, before or after a quotation',
         lostInWin.length
-          ?gSplit([['After a quotation',lostAfter.length,'var(--viz-1)'],
-                   ['Before any quotation',lostBefore.length,'var(--viz-s2)'],
-                   ['Unknown',lostUnknown.length,'var(--viz-mute)']],
-              'after '+pct(lostAfter.length,lostAfter.length+lostBefore.length)+(lostUnknown.length?' of known':''),'before')
+          ?gSplit([['After a quotation',lostAfter.length,'var(--viz-1)','After'],
+                   ['Before any quotation',lostBefore.length,'var(--viz-s2)','Before'],
+                   ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
            +ledger([['After a quotation',lostAfter.length,cash(lostAfterValue)+' quoted'],
                     ['Before any quotation',lostBefore.length,''],
                     ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
