@@ -244,8 +244,7 @@ async function renderMgmtReport(){
     ['Raw Lead',got.length,'var(--ink)'],
     ['Qualified Lead',qualified.length,'var(--viz-2)'],
     ['Closed-Won',wonInWin.length,'var(--viz-good)'],
-    ['Closed-Lost',lostInWin.length,'var(--viz-1)'],
-    ['Disqualified',disqInWin.length,'var(--viz-mute)']
+    ['Closed-Lost',lostInWin.length,'var(--viz-1)']
   ];
 
   /* Residential against C&I, per salesperson, two columns each */
