@@ -1,4 +1,4 @@
-/* ---------------- MANAGEMENT REPORT ----------------
+﻿/* ---------------- MANAGEMENT REPORT ----------------
    Kevin's hand-drawn "September 2026 Sales & Pipeline Dashboard", photographed
    16 Sep 2026 and built here as a fourth Reports scope for the manager and
    admin. Its panels are his, in his order.
@@ -154,7 +154,9 @@ async function renderMgmtReport(){
     if(!l||!l.assigned_to){collUnassigned+=amt;return;}
     collByPerson[l.assigned_to]=(collByPerson[l.assigned_to]||0)+amt;
   });
-  const collPeople=people.filter(p=>(collByPerson[p.id]||0)>0);
+  /* every per-person chart lists the same people, a zero included - Han had
+     dropped off every chart he had nothing in (Kevin, 29 Sep 2026) */
+  const collPeople=people;
 
   /* quotations sent, counted per person on who released them */
   const quotByPerson={};
@@ -179,7 +181,7 @@ async function renderMgmtReport(){
       if(inWin(d))notes.push(localDay(d));}));
     const days=new Set(notes).size;
     return [p.full_name,days?+(notes.length/days).toFixed(2):0,notes.length,days,p.id];
-  }).filter(r=>r[2]>0);
+  });
 
   /* leads handled against leads still active, per person */
   /* Still-open is split by where the lead came from - this window or earlier -
@@ -198,7 +200,7 @@ async function renderMgmtReport(){
       active:open.length,
       openNew:open.filter(isNew).length, openOld:open.filter(l=>!isNew(l)).length,
       wonNew:wonHere.filter(isNew).length, wonOld:wonHere.filter(l=>!isNew(l)).length};
-  }).filter(r=>r.handled||r.active||r.wonNew||r.wonOld);
+  });
 
   /* ---- closed-lost ---- */
   const reasons={};
@@ -248,7 +250,7 @@ async function renderMgmtReport(){
   ];
 
   /* Residential against C&I, per salesperson, two columns each */
-  const typePeople=people.filter(p=>got.some(l=>l.assigned_to===p.id));
+  const typePeople=people;
   const typeOf=(p,want)=>got.filter(l=>l.assigned_to===p.id&&l.customer_type===want).length;
 
   /* against a MONTHLY target, so this month's leads - never the window's. On
@@ -266,15 +268,16 @@ async function renderMgmtReport(){
      contract figure where finance has one and the sale value where not */
   const valueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0);
   const tcvBy={}; wonInWin.forEach(l=>{if(l.assigned_to)tcvBy[l.assigned_to]=(tcvBy[l.assigned_to]||0)+valueOf(l);});
-  const tcvPeople=people.filter(p=>(tcvBy[p.id]||0)>0);
+  const tcvPeople=people;
 
   /* Sales and lead summary: what each person holds open against what they won */
   const summary=people.map(p=>({p,
     active:open.filter(l=>l.assigned_to===p.id).length,
-    won:wonInWin.filter(l=>l.assigned_to===p.id).length})).filter(r=>r.active||r.won);
+    won:wonInWin.filter(l=>l.assigned_to===p.id).length}));
 
   /* quotations sent, per person, coloured by that person where they hold a colour */
-  const quotRows=Object.entries(quotByPerson).filter(r=>r[1]>0);
+  people.forEach(p=>{if(!(p.id in quotByPerson))quotByPerson[p.id]=0;});
+  const quotRows=Object.entries(quotByPerson).filter(r=>r[1]>0||people.some(p=>p.id===r[0]));
 
   /* the facts block at the top right of their sheet */
   const monthLong=new Date(mStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();

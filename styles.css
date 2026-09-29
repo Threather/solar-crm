@@ -929,3 +929,15 @@ table.pooltable td.cust{min-width:130px}
 /* the table under # of leads held: open and won, split new against before */
 table.heldtab{margin-top:10px;font-size:12px}
 table.heldtab th{font-size:10px}
+table.losttable td.nowrap{white-space:nowrap}
+table.losttable td.phone{max-width:100px;white-space:normal;overflow-wrap:anywhere}
+#tablewrap table.losttable th,#tablewrap table.losttable td{padding-left:5px;padding-right:5px}
+table.losttable .badge{font-size:11px;padding:2px 7px}
+table.losttable td.lostrem{min-width:120px}
+table.losttable td.lostrev{min-width:130px}
+#tablewrap table.losttable td.phone{max-width:96px}
+#tablewrap table.losttable td.phone .ph{white-space:normal;overflow-wrap:anywhere}
+#tablewrap table.losttable td.phone{max-width:104px}
+#tablewrap table.losttable td.phone .ph{white-space:nowrap;overflow-wrap:normal}
+#tablewrap table.losttable td.phone .handle{word-break:break-all}
+table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}

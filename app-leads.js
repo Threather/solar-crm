@@ -560,13 +560,13 @@ function drawLostTable(rows){
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
-      <td><b>${esc(l.customer_name)}</b></td>
-      <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td class="lcust"><b>${esc(l.customer_name)}</b></td>
+      <td class="phone">${l.phone?(/[a-z@]/i.test(l.phone)?`<span class="handle">${esc(l.phone)}</span>`:phoneCell(l.phone)):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}</td>
-      <td>${isClosedLost(l)?'<span class="badge b-off">closed-lost</span>':'<span class="days" style="display:inline">disqualified</span>'}</td>
+      <td class="nowrap">${isClosedLost(l)?'<span class="badge b-off" style="white-space:nowrap">Closed-Lost</span>':'<span class="badge" style="white-space:nowrap">Disqualified</span>'}</td>
       <td>${qcell(l)}</td>
       <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'—'}</td>
-      <td>${fmtDate(l.stage_entered_at)}</td>
+      <td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
       <td class="lostrem">${lostRem(l)}</td>
       <td class="lostrev" ${canRevise?'onclick="event.stopPropagation()"':''}>${revised(l)}</td></tr>`).join('')+`</tbody></table>`;
 }
