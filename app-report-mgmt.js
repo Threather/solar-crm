@@ -379,9 +379,10 @@ async function renderMgmtReport(){
         :emptyChart('Avg. daily contact to customer','No contacts logged','Nothing in the contact log '+per+'.')}
       ${handled.length
         ?groupChart(handled.map(r=>r.name.split(' ')[0]),
-          [{name:'New '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
-           {name:'Still open, new '+per,color:'var(--viz-1)',values:handled.map(r=>r.openNew)},
-           {name:'Still open, from before',color:'var(--viz-mute)',values:handled.map(r=>r.openOld)}],
+          [{name:'Handled '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
+           {name:'# of Active Lead',values:handled.map(r=>r.active),parts:[
+             {name:'Active, from '+per,color:'var(--viz-1)',values:handled.map(r=>r.openNew)},
+             {name:'Active, from before',color:'var(--viz-mute)',values:handled.map(r=>r.openOld)}]}],
           {title:'# of leads held and # of active lead',compact:true})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
