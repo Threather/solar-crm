@@ -374,7 +374,6 @@ async function renderMgmtReport(){
         lostInWin.length
           ?gRank(Object.entries(reasons),{color:'var(--viz-2)',limit:6,
              emptyWhy:'This fills in as leads are lost.'})
-            +`<div class="cap" style="margin-top:10px"><b>*Note:</b> closed-lost ${esc(per)}, including leads that came in earlier.</div>`
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
 
