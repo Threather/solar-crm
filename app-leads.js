@@ -551,8 +551,10 @@ function drawLostTable(rows){
      remark is admin's shorter wording of it, typed here and saved on the spot
      (28 Sep 2026). Everyone else reads both. */
   const canRevise=ME.role==='admin';
-  const lostRem=l=>l.lost_note||l.lost_reason
-    ?`${l.lost_reason?`<b>${esc(l.lost_reason)}</b>`:''}${l.lost_note?`<span class="clamp lostnote" title="${esc(l.lost_note)}">${esc(l.lost_note)}</span>`:''}`
+  /* Remark is what sales wrote, in their own words - never the dropdown reason
+     (Kevin, 29 Sep 2026); admin's standard wording is the Revised remark */
+  const lostRem=l=>l.lost_note
+    ?`<span class="clamp lostnote" title="${esc(l.lost_note)}">${esc(l.lost_note)}</span>`
     :'<span class="quiet">—</span>';
   const revised=l=>canRevise
     ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
