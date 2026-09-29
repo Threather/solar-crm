@@ -126,7 +126,9 @@ async function renderMgmtReport(){
      so counting them would flatter the number the target is set against. */
   const leadTarget=Number(tg.company.leads||0);
   const MG_MARKETING=['Digital_Marketing','Offline_Marketing'];
-  const qualified=got.filter(l=>qualText(l)==='Qualified');
+  /* the Qualified Lead bar counts qualified leads still open or won - the lost
+     ones are the Closed-Lost bar beside it, not counted twice (Kevin, 29 Sep 2026) */
+  const qualified=got.filter(l=>qualText(l)==='Qualified'&&l.stage_code!==LOST);
 
   /* ---- per person, on whoever holds the rows ---- */
   const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
