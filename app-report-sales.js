@@ -98,7 +98,9 @@ async function renderSalesReport(){
      have been deactivated - the same rule as assignable(). Without the active
      test the four dead test accounts each got their own weekly and monthly
      table, four sheets of zeros. */
-  const people=STAFF.filter(s=>(s.is_active&&['sales','manager'].includes(s.role))||holders.has(s.id));
+  const people=STAFF.filter(s=>(s.is_active&&['sales','manager'].includes(s.role))||holders.has(s.id))
+    /* whoever has left (Han) sits at the right of every chart (Kevin, 29 Sep 2026) */
+    .sort((a,b)=>(a.is_active?0:1)-(b.is_active?0:1));
   const shown=ME.role==='sales'?people.filter(p=>p.id===ME.id)
             :REPFILTER.person?people.filter(p=>p.id===REPFILTER.person):people;
 

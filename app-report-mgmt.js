@@ -135,7 +135,9 @@ async function renderMgmtReport(){
   /* active sales and managers, plus anyone still holding a lead - the rule
      assignable() uses, and the one the sales report was given. Without the
      active test the four dead test accounts sat on every per-person chart. */
-  const people=STAFF.filter(s=>(s.is_active&&['sales','manager'].includes(s.role))||holders.has(s.id));
+  const people=STAFF.filter(s=>(s.is_active&&['sales','manager'].includes(s.role))||holders.has(s.id))
+    /* whoever has left (Han) sits at the right of every chart (Kevin, 29 Sep 2026) */
+    .sort((a,b)=>(a.is_active?0:1)-(b.is_active?0:1));
   const nameOf=id=>staffName(id);
 
   /* a column chart draws nothing for a zero, so an axis of people who have
@@ -265,6 +267,10 @@ async function renderMgmtReport(){
   const PCOL=['var(--viz-2)','var(--viz-mute)','var(--ink)','var(--viz-1)','var(--viz-3)','var(--viz-4)','var(--viz-good)'];
   const colOf={}; people.forEach((p,i)=>colOf[p.id]=PCOL[i%PCOL.length]);
   const first=p=>p.full_name.split(' ')[0];
+  /* Unassigned sits before whoever has left, so Han stays at the far right */
+  const collCols=collPeople.map(p=>({name:p.full_name.split(" ")[0],v:collByPerson[p.id]||0,col:colOf[p.id],gone:!p.is_active}));
+  if(collUnassigned){const k=collCols.findIndex(c=>c.gone);
+    collCols.splice(k<0?collCols.length:k,0,{name:'Unassigned',v:collUnassigned,col:'var(--viz-mute)'});}
 
   /* Total contract value by each sales: deals won in the window, at the
      contract figure where finance has one and the sale value where not */
@@ -279,7 +285,8 @@ async function renderMgmtReport(){
 
   /* quotations sent, per person, coloured by that person where they hold a colour */
   people.forEach(p=>{if(!(p.id in quotByPerson))quotByPerson[p.id]=0;});
-  const quotRows=Object.entries(quotByPerson).filter(r=>r[1]>0||people.some(p=>p.id===r[0]));
+  const quotRows=Object.entries(quotByPerson).filter(r=>r[1]>0||people.some(p=>p.id===r[0]))
+    .sort((a,b)=>{const i=id=>{const k=people.findIndex(p=>p.id===id);return k<0?people.filter(p=>p.is_active).length-0.5:k;};return i(a[0])-i(b[0]);});
 
   /* the facts block at the top right of their sheet */
   const monthLong=new Date(mStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
@@ -344,13 +351,12 @@ async function renderMgmtReport(){
           {title:'Conversion % from raw lead to qualified lead',compact:true,values:true,fmt:v=>v.toFixed(2)+'%'})
         :emptyChart('Conversion % from raw lead to qualified lead','No months to show yet','This fills in as leads accumulate.')}
       ${collPeople.length
-        ?colChart(collPeople.map(first).concat(collUnassigned?['Unassigned']:[]),
-          collPeople.map(p=>collByPerson[p.id]||0).concat(collUnassigned?[collUnassigned]:[]),
-          {title:'Payment collection by each sales',colors:collPeople.map(p=>colOf[p.id]).concat(['var(--viz-mute)']),
+        ?colChart(collCols.map(c=>c.name),collCols.map(c=>c.v),
+          {title:'Payment collection by each sales',colors:collCols.map(c=>c.col),
            compact:true,table:false,fmt:cash,axisFmt:moneyAxis})
         :emptyChart('Payment collection by each sales','Nothing collected '+per,'This fills in as payments are recorded.')}
       ${tcvPeople.length
-        ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]),
+        ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]||0),
           {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
            compact:true,table:false,fmt:cash,axisFmt:moneyAxis,cap:'Deals won '+per})
         :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
