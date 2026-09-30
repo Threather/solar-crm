@@ -57,7 +57,7 @@ function homeSales(rows){
   const due=live.filter(l=>l.next_follow_up&&new Date(l.next_follow_up)<=new Date().setHours(23,59,59,999))
     .sort((a,b)=>(a.next_follow_up||'').localeCompare(b.next_follow_up||''));
   const overdue=due.filter(l=>isLate(l.next_follow_up));
-  const pool=rows.filter(l=>!l.assigned_to&&!TERMINAL.includes(l.stage_code));
+  const pool=rows.filter(inPool);
   const stale=live.filter(l=>!l.next_follow_up);
   const canPool=['manager','admin'].includes(ME.role);
   /* a won deal with no BOQ blocks the install, so it is counted here as well

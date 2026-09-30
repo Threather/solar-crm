@@ -304,7 +304,7 @@ function teamPanel(){
   const cell=(n,who,fu,cls)=>n?`<a class="tp-n ${cls||''}" onclick="event.stopPropagation();teamPick('who','${who}','${fu||''}')">${n}</a>`:'<span class="quiet">0</span>';
   const people=holders().filter(s=>s.is_active||open.some(l=>l.assigned_to===s.id));
   const sRow=(id,name)=>{
-    const mine=id==='__none'?open.filter(l=>!l.assigned_to):open.filter(l=>l.assigned_to===id);
+    const mine=id==='__none'?open.filter(inPool):open.filter(l=>l.assigned_to===id);
     const won=id==='__none'?0:LEADS.filter(l=>l.assigned_to===id&&l.stage_code===WON&&localDay(l.stage_entered_at).slice(0,7)===mon).length;
     return `<tr class="${(COLF.eng||[]).join()===name?'on':''}"><td><a onclick="teamPick('who','${id}','')">${esc(name)}</a></td>
       <td>${cell(mine.length,id,'')}</td>
@@ -319,7 +319,7 @@ function teamPanel(){
     const made=LEADS.filter(l=>l.created_by===s.id);
     const month=made.filter(l=>(l.lead_date||localDay(l.created_at)).slice(0,7)===mon);
     const nophone=made.filter(l=>isOpen(l)&&!l.phone);
-    const waiting=made.filter(l=>isOpen(l)&&!l.assigned_to);
+    const waiting=made.filter(inPool);
     return `<tr class="${FILTER.by===s.id?'on':''}"><td><a onclick="teamPick('by','${s.id}','')">${esc(s.full_name)}</a></td>
       <td>${month.length}</td><td>${nophone.length}</td><td>${waiting.length}</td></tr>`;
   };
@@ -339,7 +339,8 @@ function teamPick(kind,id,fu){
     FILTER.by=FILTER.by===id?'':id;COLF={};
   }else{
     const name=id==='__none'?'Not assigned':staffName(id);
-    const want={eng:[name]};
+    /* Not assigned counts only leads with a phone (inPool), so its list does too */
+    const want=id==='__none'?{eng:[name],hasphone:['Has phone']}:{eng:[name]};
     if(FU[fu])want[FU[fu][0]]=[FU[fu][1]];
     const same=JSON.stringify(COLF)===JSON.stringify(want);
     FILTER.by='';COLF=same?{}:want;
@@ -615,10 +616,11 @@ async function renderPool(){
   POOL=await fetchLeads(q=>q.is('assigned_to',null).not('stage_code','in','(closed_lost,closed_won)'));
   /* least waiting first, newest at the top (manager, 28 Sep 2026) - sorted
      on created_at, the same clock the Waiting column counts from */
+  POOL=POOL.filter(inPool);
   POOL.sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Not yet with sales</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Open leads with no sale engineer. Tick them and assign, or add a phone number and one is assigned automatically.</p>
+    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Open leads with a phone number and no sale engineer. Tick them and assign, or add a phone number and one is assigned automatically.</p>
     <div class="toolbar">
       <input placeholder="Search name, phone or ref ID…" value="${esc(PFILTER.q)}" oninput="PFILTER.q=this.value;LEADPAGE=0;SEL.clear();drawPool()">
       <span class="daterange" title="The lead's own date">

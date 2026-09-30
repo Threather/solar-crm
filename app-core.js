@@ -217,6 +217,10 @@ const STAGE_COLORS={info_gathering:'#eae7dd|#5c574c',telling_price:'#dce6e9|#3d6
 pending_quotation:'#e8dfea|#6c4f7b',quotation_sent:'#f5e7c4|#7d6015',follow_up:'#f9d5c7|#b04a2e',
 agreement_signoff:'#dde4da|#4a6b4f',closed_won:'#d9e8dc|#2f6b41',closed_lost:'#f0ddd9|#a8412f'};
 const TERMINAL=['closed_won','closed_lost'];
+/* waiting for sales on Unassigned: open, nobody holds it, and it has a phone
+   number - with no number there is nobody for sales to call yet, so it is
+   still marketing's (manager, 30 Sep 2026) */
+const inPool=l=>!l.assigned_to&&!TERMINAL.includes(l.stage_code)&&!!(l.phone||'').trim();
 const WON='closed_won';
 const LOST='closed_lost';
 /* Qualification follows the stage: a lead is qualified from Quotation sent
