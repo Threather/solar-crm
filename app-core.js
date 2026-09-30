@@ -658,8 +658,18 @@ const rowsOf=build=>fetchAll(build).then(data=>({data}),error=>({data:null,error
    before that - confirmed complete. So a lead with no quotation was never
    priced. There was an 'unknown' for the imported leads until that sheet
    arrived; it is gone because the question it stood for was answered. */
+/* After a quotation: a quotation saved in the CRM, or the stage history
+   reaching Quotation Sent - the client's Activity Log, loaded 30 Sep 2026,
+   records quotations sent before the CRM kept them (Kevin, 30 Sep 2026).
+   QUOTED_LOG is filled by loadQuotedLog() before any screen asks. */
+let QUOTED_LOG=new Set();
+async function loadQuotedLog(){
+  const rows=await fetchAll(()=>sb.from('lead_activities').select('lead_id')
+    .eq('activity_type','stage_change').eq('to_stage','quotation_sent').order('id'));
+  QUOTED_LOG=new Set(rows.map(r=>r.lead_id));
+}
 function quoteStage(l,hasQuote){
-  return hasQuote?'after':'before';
+  return hasQuote||QUOTED_LOG.has(l.id)?'after':'before';
 }
 const QUOTE_STAGE_TEXT={after:'After quotation',before:'Before quotation',unknown:'Unknown'};
 /* the dashboards' form: no leads is an empty list, and a failed read is logged

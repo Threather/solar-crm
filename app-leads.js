@@ -60,6 +60,7 @@ async function renderLeads(scope){
     const qby={};
     qs.forEach(q=>{if(!qby[q.lead_id])qby[q.lead_id]=q;});
     LEADS.forEach(l=>{l.last_quot=qby[l.id]||null;});
+    await loadQuotedLog().catch(e=>console.error(e));
   }
   paintLeads();
 }

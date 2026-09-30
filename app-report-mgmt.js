@@ -67,6 +67,8 @@ async function renderMgmtReport(){
     rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd').order('expected_on').order('id')).then(r=>r.data||[])
   ]);
 
+  /* Quotation Sent in the stage history counts as after a quotation too */
+  await loadQuotedLog().catch(e=>console.error(e));
   const actsBy={},quotBy={},saleBy={},finBy={},paidBy={},feeBy={};
   acts.forEach(a=>(actsBy[a.lead_id]=actsBy[a.lead_id]||[]).push(a));
   quots.forEach(q=>quotBy[q.lead_id]=q);
