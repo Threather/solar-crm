@@ -659,13 +659,15 @@ const rowsOf=build=>fetchAll(build).then(data=>({data}),error=>({data:null,error
    priced. There was an 'unknown' for the imported leads until that sheet
    arrived; it is gone because the question it stood for was answered. */
 /* After a quotation: a quotation saved in the CRM, or the stage history
-   reaching Quotation Sent - the client's Activity Log, loaded 30 Sep 2026,
-   records quotations sent before the CRM kept them (Kevin, 30 Sep 2026).
+   reaching Telling Price or any later stage - a price was given once the
+   lead got that far (Kevin, 30 Sep 2026; the client's Activity Log, loaded
+   the same day, carries the history from before the CRM).
    QUOTED_LOG is filled by loadQuotedLog() before any screen asks. */
 let QUOTED_LOG=new Set();
 async function loadQuotedLog(){
   const rows=await fetchAll(()=>sb.from('lead_activities').select('lead_id')
-    .eq('activity_type','stage_change').eq('to_stage','quotation_sent').order('id'));
+    .eq('activity_type','stage_change')
+    .in('to_stage',['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff']).order('id'));
   QUOTED_LOG=new Set(rows.map(r=>r.lead_id));
 }
 function quoteStage(l,hasQuote){
