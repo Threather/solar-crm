@@ -488,6 +488,8 @@ function buildNav(){
   }
   const work=[['home','Today'],['leads','Leads']];
   if(['manager','admin'].includes(ME.role)) work.push(['pool','Unassigned']);
+  /* same name and same phone number (30 Sep 2026) */
+  if(['manager','admin'].includes(ME.role)) work.push(['dups','Duplicates']);
   /* sales take leads, they do not make them (manager's rule, 28 Sep 2026) */
   if(['marketing','manager','admin'].includes(ME.role)) work.push(['new','New lead']);
   const money=[];
@@ -531,7 +533,7 @@ function go(v){
   /* Leads keeps whichever slice you were last looking at, so closing a won
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
-    pool:renderPool,new:renderNew,quots:renderQuots,reports:renderReports,
+    pool:renderPool,dups:renderDups,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
     targets:renderTargets,inc:renderIncentive,lists:renderLists}[v])();
 }
