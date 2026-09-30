@@ -779,7 +779,7 @@ function useCustomer(i){
 function subChan(){
   const ch=$('f-chan').value;
   let subs=CHANNELS[ch]||[];
-  if(ch==='Direct_Sales') subs=STAFF.filter(s=>s.role==='sales'&&s.is_active).map(s=>s.full_name);
+  if(ch==='Direct_Sales') subs=STAFF.filter(s=>['sales','manager'].includes(s.role)&&s.is_active).map(s=>s.full_name);
   $('f-sub').innerHTML=optList(subs,'');
   $('f-refwrap').style.display  = ch==='Third_Party'      ? 'grid' : 'none';
   $('f-eventwrap').style.display= ch==='Offline_Marketing'? 'grid' : 'none';

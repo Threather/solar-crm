@@ -138,7 +138,12 @@ async function openLead(id){
         ${canChan?`<div><label>Channel</label><select id="d-chan" onchange="dSubChan()">${optList(Object.keys(CHANNELS),l.lead_channel,false)}</select></div>
         <div><label>Sub-channel</label><select id="d-sub">${optList(subChanOf(l.lead_channel),l.lead_sub_channel)}</select></div>`
         :`<div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>`}
-        ${(l.referrer_name&&!isMkt)?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
+        ${isAdmin&&(l.referrer_name||l.referrer_phone||l.lead_channel==='Third_Party')
+          /* admin corrects the referrer - it decides who the third-party
+             incentive is paid to (30 Sep 2026) */
+          ?`<div><label>Referrer name</label><input id="d-refname" value="${esc(l.referrer_name||'')}"></div>
+            <div><label>Referrer phone</label><input id="d-refphone" value="${esc(l.referrer_phone||'')}"></div>`
+          :(l.referrer_name&&!isMkt)?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
         ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
       </div>
     </div>
@@ -347,7 +352,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
      the permission rules live in one place instead of being restated here. */
   /* a channel changed here needs its sub-channel, as on New lead */
   if(val('d-chan')!==undefined&&!$('d-sub').value){needField('d-sub','Pick a sub-channel');return;}
-  const m={lead_channel:'d-chan',lead_sub_channel:'d-sub',customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
+  const m={referrer_name:'d-refname',referrer_phone:'d-refphone',lead_channel:'d-chan',lead_sub_channel:'d-sub',customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
            stage_code:'d-stage',next_follow_up:'d-follow',
            site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
            monthly_bill_usd:'d-bill',
@@ -450,7 +455,8 @@ async function unlockCustomer(id){
 }
 /* the sub-channels a channel offers; Direct Sales lists the salespeople */
 function subChanOf(ch){
-  return ch==='Direct_Sales'?STAFF.filter(s=>s.role==='sales'&&s.is_active).map(s=>s.full_name):(CHANNELS[ch]||[]);
+  /* the manager sells too, so she is a Direct Sales sub-channel (30 Sep 2026) */
+  return ch==='Direct_Sales'?STAFF.filter(s=>['sales','manager'].includes(s.role)&&s.is_active).map(s=>s.full_name):(CHANNELS[ch]||[]);
 }
 function dSubChan(){
   const s=$('d-sub');if(!s)return;
