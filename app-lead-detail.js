@@ -27,6 +27,9 @@ async function openLead(id){
      can key in a system, quote, and own customer identity as well. Kevin's
      call - a manager who cannot do their people's job cannot cover for them. */
   const isMgr=ME.role==='manager';
+  /* a channel picked by mistake can be put right by whoever picks it -
+     marketing on their own lead - and by the manager and admin (30 Sep 2026) */
+  const canChan=isAdmin||isMgr||(ME.role==='marketing'&&l.created_by===ME.id);
   const canAssign=isAdmin||isMgr;
   /* sales and engineering are one role now, so the owner does the key-in too */
   const canEng=isAdmin||isSales||isMgr;
@@ -132,7 +135,9 @@ async function openLead(id){
         <div><label>Phone${phoneLocked?' · captured':''}</label><input id="d-phone" value="${esc(l.phone||'')}" placeholder="Not captured yet" ${canPhone?'':'disabled'}${phoneLocked?' title="Already captured. Ask an admin to change it."':''}></div>
         ${isMkt?'':`<div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>`}
         <div><label>Assigned sale engineer</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
-        <div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
+        ${canChan?`<div><label>Channel</label><select id="d-chan" onchange="dSubChan()">${optList(Object.keys(CHANNELS),l.lead_channel,false)}</select></div>
+        <div><label>Sub-channel</label><select id="d-sub">${optList(subChanOf(l.lead_channel),l.lead_sub_channel)}</select></div>`
+        :`<div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>`}
         ${(l.referrer_name&&!isMkt)?`<div><label>Referrer</label><input value="${esc(l.referrer_name)} ${esc(l.referrer_phone||'')}" disabled></div>`:''}
         ${isAdmin&&l.customer_locked?`<div><label>Customer lock</label><button class="btn-line" onclick="unlockCustomer('${l.id}')">Reopen for sales</button></div>`:''}
       </div>
@@ -340,7 +345,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
 
   /* Every field is gated by whether openLead rendered its input enabled, so
      the permission rules live in one place instead of being restated here. */
-  const m={customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
+  /* a channel changed here needs its sub-channel, as on New lead */
+  if(val('d-chan')!==undefined&&!$('d-sub').value){needField('d-sub','Pick a sub-channel');return;}
+  const m={lead_channel:'d-chan',lead_sub_channel:'d-sub',customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
            stage_code:'d-stage',next_follow_up:'d-follow',
            site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
            monthly_bill_usd:'d-bill',
@@ -440,6 +447,14 @@ async function unlockCustomer(id){
   if(error){toast('Could not reopen it');console.error(error);return;}
   await logActivity(id,'edit',null,null,'Customer details reopened for sales');
   toast('Customer details reopened');closeLead();go(VIEW);
+}
+/* the sub-channels a channel offers; Direct Sales lists the salespeople */
+function subChanOf(ch){
+  return ch==='Direct_Sales'?STAFF.filter(s=>s.role==='sales'&&s.is_active).map(s=>s.full_name):(CHANNELS[ch]||[]);
+}
+function dSubChan(){
+  const s=$('d-sub');if(!s)return;
+  s.innerHTML=optList(subChanOf($('d-chan').value),'');
 }
 async function softDelete(id){
   if(!['admin','manager'].includes(ME.role))return;
