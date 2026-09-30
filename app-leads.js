@@ -169,12 +169,17 @@ function lostStats(rows){
     </div>`;
 }
 /* rows for the current tab, before the toolbar filters */
+/* The manager sees only leads with a phone number: one with none is still
+   marketing's, and nobody in sales can call it yet (Kevin, 30 Sep 2026). Her
+   Marketing team table still counts them, under No phone. */
+const mgrRows=()=>ME.role==='manager'?LEADS.filter(l=>(l.phone||'').trim()):LEADS;
 function scopeLeads(){
   if(mktOnly())return LEADS;
-  if(LEADSCOPE==='won')return LEADS.filter(l=>l.stage_code===WON);
-  if(LEADSCOPE==='lost')return LEADS.filter(l=>l.stage_code===LOST);
-  if(LEADSCOPE==='all')return LEADS;
-  return LEADS.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
+  const LEADS_=mgrRows();
+  if(LEADSCOPE==='won')return LEADS_.filter(l=>l.stage_code===WON);
+  if(LEADSCOPE==='lost')return LEADS_.filter(l=>l.stage_code===LOST);
+  if(LEADSCOPE==='all')return LEADS_;
+  return LEADS_.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
 }
 function filteredLeads(){
   let rows=colFiltered(scopeLeads());
@@ -300,12 +305,12 @@ function creators(){
 }
 function teamPanel(){
   const mon=todayStr().slice(0,7);
-  const open=LEADS.filter(isOpen);
+  const open=mgrRows().filter(isOpen);
   const cell=(n,who,fu,cls)=>n?`<a class="tp-n ${cls||''}" onclick="event.stopPropagation();teamPick('who','${who}','${fu||''}')">${n}</a>`:'<span class="quiet">0</span>';
   const people=holders().filter(s=>s.is_active||open.some(l=>l.assigned_to===s.id));
   const sRow=(id,name)=>{
     const mine=id==='__none'?open.filter(inPool):open.filter(l=>l.assigned_to===id);
-    const won=id==='__none'?0:LEADS.filter(l=>l.assigned_to===id&&l.stage_code===WON&&localDay(l.stage_entered_at).slice(0,7)===mon).length;
+    const won=id==='__none'?0:mgrRows().filter(l=>l.assigned_to===id&&l.stage_code===WON&&localDay(l.stage_entered_at).slice(0,7)===mon).length;
     return `<tr class="${(COLF.eng||[]).join()===name?'on':''}"><td><a onclick="teamPick('who','${id}','')">${esc(name)}</a></td>
       <td>${cell(mine.length,id,'')}</td>
       <td>${cell(mine.filter(FU_TEST.overdue).length,id,'overdue','bad')}</td>
