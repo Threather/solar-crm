@@ -68,13 +68,17 @@ async function renderOpsReport(){
      point at the wrong step entirely. Same rule as the Installation Start
      count above. */
   const started=l=>l.installation_start&&localDay(l.installation_start)<=today;
+  /* each step belongs to the window its finishing date falls in, so Today and
+     This month show how fast the steps finished then went (Kevin, 30 Sep 2026).
+     All time lets every step through, as before. */
+  const inW=v=>!windowed||(v&&inRange(localDay(v),range));
   /* BOQ released to the kit arriving on site (27 Sep 2026); a delivery date still
      ahead is a booking, as with installation */
-  const tatDeliv =avgDays(f.map(l=>l.delivery_date&&localDay(l.delivery_date)<=today?daysBetween(l.boq_date,l.delivery_date):null));
-  const tatBoq   =avgDays(f.map(l=>started(l)?daysBetween(l.boq_date,l.installation_start):null));
-  const tatInst  =avgDays(f.map(l=>started(l)?daysBetween(l.installation_start,instDoneOn(l)):null));
-  const tatInform=avgDays(f.map(l=>daysBetween(instDoneOn(l),edcSentOn(l))));
-  const tatSeen  =avgDays(f.map(l=>daysBetween(edcSentOn(l),edcSeenOn(l))));
+  const tatDeliv =avgDays(f.map(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date)?daysBetween(l.boq_date,l.delivery_date):null));
+  const tatBoq   =avgDays(f.map(l=>started(l)&&inW(l.installation_start)?daysBetween(l.boq_date,l.installation_start):null));
+  const tatInst  =avgDays(f.map(l=>started(l)&&inW(instDoneOn(l))?daysBetween(l.installation_start,instDoneOn(l)):null));
+  const tatInform=avgDays(f.map(l=>inW(edcSentOn(l))?daysBetween(instDoneOn(l),edcSentOn(l)):null));
+  const tatSeen  =avgDays(f.map(l=>inW(edcSeenOn(l))?daysBetween(edcSentOn(l),edcSeenOn(l)):null));
 
   /* BOQ released to the day EDC signed it off, which is the whole job. Falls
      back to the finish when EDC has not been round yet, so a project still in
@@ -149,7 +153,7 @@ async function renderOpsReport(){
     </div>`:''}
 
     <div class="homegrid level">
-      ${repPanel('I. Project status pipeline',`<div class="pipe">
+      ${repPanel('I. Project status pipeline',`<div class="cap" style="margin:-4px 0 10px">All won deals, as of today</div><div class="pipe">
         ${bar('BOQ released',boqDone.length,f.length)}
         ${bar('Installation scheduled',scheduled.length,f.length)}
         ${bar('Installation in progress',running.length,f.length)}
@@ -162,8 +166,8 @@ async function renderOpsReport(){
         teamRows.length
           /* pie beside its ledger rather than above it, so the card is no
              taller than the pipeline next to it (Kevin, 27 Sep 2026) */
-          ?`<div class="pieled">`+gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
-              teamTotal+' project'+(teamTotal===1?'':'s')+' · '+teamRows.length+' teams')
+          ?`<div class="cap" style="margin:-4px 0 10px">As of today</div><div class="pieled">`+gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
+              teamTotal+' project'+(teamTotal===1?'':'s')+' · '+teamRows.filter(r=>r[0]!=='No team yet').length+' teams')
            +ledger(teamRows.map((r,i)=>[r[0],r[1],
               Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))+`</div>`
           :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
@@ -176,7 +180,7 @@ async function renderOpsReport(){
         ['Installation duration',tatInst.avg,sla.install||null,tatInst.n],
         ['Installation to EDC submission',tatInform.avg,sla.inform||null,tatInform.n],
         ['EDC submission to inspection',tatSeen.avg,sla.inspect||null,tatSeen.n]
-      ],{emptyWhy:'Turnaround needs a date at both ends of a step.'})
+      ],{emptyWhy:windowed?'No step finished '+per+'.':'Turnaround needs a date at both ends of a step.'})
       +(Object.values(sla).some(Boolean)?'':`<div class="cap" style="margin-top:10px">No turnaround targets set for ${esc(monthName(monthStart().slice(0,7)))}.</div>`))}
 
       ${(()=>{
