@@ -122,6 +122,10 @@ async function renderSalesReport(){
        import's moves for leads re-dated from the client's C-lost sheet
        (29 Sep 2026) */
     if(code===LOST)return isClosedLost(l)&&within(l.stage_entered_at,a,b);
+    /* Won the same way: on the win date the lead carries, as Management counts
+       it. The client's Activity Log (loaded 30 Sep 2026) logs a second
+       Closed-Won for a customer's later purchase, which would count twice. */
+    if(code===WON)return l.stage_code===WON&&within(l.stage_entered_at,a,b);
     const logged=moves.some(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b);
     if(logged)return true;
     if((loggedFor[l.id]||new Set()).has(code))return false;
