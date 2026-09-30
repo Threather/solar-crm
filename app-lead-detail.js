@@ -240,7 +240,7 @@ async function openLead(id){
       <button class="btn-line" onclick="newDealFrom('${l.id}')" title="Start a second deal for this customer — more panels, a battery — with their details and current system already filled in">New deal for this customer</button>
     </div>`:''}
 
-    ${isAdmin?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
+    ${/* the manager deletes as well as admin (Kevin, 30 Sep 2026) - a soft delete */''}${isAdmin||ME.role==='manager'?`<div class="modal-actions"><button class="btn-danger" onclick="softDelete('${l.id}')">Delete lead</button></div>`:''}
 
     </div>
 
@@ -442,6 +442,7 @@ async function unlockCustomer(id){
   toast('Customer details reopened');closeLead();go(VIEW);
 }
 async function softDelete(id){
+  if(!['admin','manager'].includes(ME.role))return;
   if(!confirm('Delete this lead? It disappears from the CRM but stays in the database.'))return;
   const {error}=await sb.from('leads').update({is_deleted:true,deleted_at:new Date().toISOString(),deleted_by:ME.id}).eq('id',id);
   if(error){toast('Delete failed');return;}
