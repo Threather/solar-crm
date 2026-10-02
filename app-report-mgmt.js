@@ -284,6 +284,14 @@ async function renderMgmtReport(){
   const [wN,wE]=split(qualSet.filter(l=>l.stage_code===WON));
   const [lN,lE]=split(qualSet.filter(l=>l.stage_code===LOST));
   const [pN,pE]=split(qualSet.filter(l=>!TERMINAL.includes(l.stage_code)));
+  /* the leads behind each bar, for the Export Excel button in the zoom */
+  const leadRow=l=>({'Ref ID':l.ref_id||'','Customer':l.customer_name||'','Phone':l.phone||'',
+    'Lead date':localDay(dayOf(l)),'Came in':isNew(l)?'This period':'Earlier',
+    'Channel':(l.lead_channel||'').replace(/_/g,' '),'Sub-channel':l.lead_sub_channel||'',
+    'Stage':(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code,
+    'Stage date':l.stage_entered_at?localDay(l.stage_entered_at):'',
+    'Salesperson':l.assigned_to?staffName(l.assigned_to):''});
+  const sheetsOf=sets=>()=>Object.fromEntries(Object.entries(sets).map(([k,v])=>[k,v.map(leadRow)]));
   const flowLabels=['Raw Lead','Qualified','Disqualified','No status','Pending contact'];
   const qualLabels=['Qualified','Closed-Won','Closed-Lost','In progress'];
 
@@ -370,11 +378,14 @@ async function renderMgmtReport(){
         [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-nostatus)','var(--c-pending)'],values:[0,qE,dE,0,0]},
          {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-nostatus)','var(--c-pending)'],values:[got.length,qN,dN,noStatus.length,pending.length]}],
         {title:'Lead stage distribution',stacked:true,compact:true,
+         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'No status':noStatus,'Pending contact':pending}),
          cap:'All five channels · dark = lead came in this period, light = came in earlier'})}
       ${groupChart(qualLabels,
         [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
          {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-active)'],values:[qN,wN,lN,pN]}],
         {title:'Qualified leads',stacked:true,compact:true,
+         sheets:sheetsOf({'Qualified':qualSet,'Closed-Won':qualSet.filter(l=>l.stage_code===WON),
+           'Closed-Lost':qualSet.filter(l=>l.stage_code===LOST),'In progress':qualSet.filter(l=>!TERMINAL.includes(l.stage_code))}),
          cap:'Qualified '+per+' · Won + Closed-Lost + In progress = Qualified'})}
     </div>
 

@@ -652,6 +652,21 @@ function zoomChart(id){
     el.onclick=e=>{if(e.target===el)zoomClose();};document.body.appendChild(el);}
   el.style.display='flex';zoomDraw();
 }
+/* o.sheets: a function giving {sheet name: [row objects]} - the leads behind
+   each bar, one sheet per bar, so whoever reads the chart can see who is in
+   it (Kevin, 2 Oct 2026). SheetJS is loaded only when somebody exports. */
+async function zoomExport(){
+  if(!ZOOM||!ZOOM.z.o.sheets)return;
+  if(!window.XLSX)await new Promise((ok,no)=>{const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s);})
+    .catch(()=>toast('Could not load the Excel writer'));
+  if(!window.XLSX)return;
+  const wb=XLSX.utils.book_new();
+  Object.entries(ZOOM.z.o.sheets()).forEach(([name,rows])=>{
+    const ws=rows.length?XLSX.utils.json_to_sheet(rows):XLSX.utils.aoa_to_sheet([['No leads']]);
+    XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));});
+  XLSX.writeFile(wb,(ZOOM.z.o.title||'Chart')+' - '+repPeriodWord()+'.xlsx');
+}
 function zoomClose(){const el=$('zoombox');if(el)el.style.display='none';ZOOM=null;}
 function zoomToggle(kind,i){if(!ZOOM)return;
   if(kind==='split')ZOOM.split=!ZOOM.split;
@@ -682,7 +697,7 @@ function zoomDraw(){
   /* a line runs along time, so its points are not ticked off one by one */
   const ticksL=z.kind==='line'?'':z.labels.map((l,i)=>`<label><input type="checkbox" ${showL.has(i)?'checked':''} onchange="zoomToggle('l',${i})"> ${esc(l)}</label>`).join('');
   $('zoombox').innerHTML=`<div class="zoompanel" role="dialog" aria-label="${esc(o.title||'Chart')}">
-    <div class="zoomhead"><h3>${esc(o.title||'')}</h3><button class="btn-line" onclick="zoomClose()">Close</button></div>
+    <div class="zoomhead"><h3>${esc(o.title||'')}</h3><span>${o.sheets?`<button class="btn-line" onclick="zoomExport()">Export Excel</button> `:''}<button class="btn-line" onclick="zoomClose()">Close</button></span></div>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
     ${ticksL?`<div class="zoomticks">${ticksL}</div>`:''}
     ${ticksS?`<div class="zoomticks">${ticksS}</div>`:''}
