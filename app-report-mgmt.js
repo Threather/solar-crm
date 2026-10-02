@@ -360,7 +360,7 @@ async function renderMgmtReport(){
           values:[0,qE,0,0,dE]},
          {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
           values:[got.length,qN,wN+wE,lN+lE,dN]}],
-        {title:'Lead stage distribution',stacked:true,compact:true,cap:'All five channels · Won and Lost split in the next chart'})}
+        {title:'Lead stage distribution',stacked:true,compact:true,legend:false,cap:'All five channels · lighter part = lead came in earlier'})}
       ${/* Won and Closed-Lost on their own scale, split by when the lead came
            in - on the 500-lead scale beside it the split could not be seen
            (client's drawing, 2 Oct 2026) */''}

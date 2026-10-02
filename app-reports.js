@@ -761,7 +761,8 @@ function groupChart(labels,series,opts){
           + (capped&&h>R*2?'</path>':'</rect>');
       if(v>0&&ST&&h>=12) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
       /* a part too thin to hold its number carries it beside the column */
-      else if(v>0&&ST) bars+=`<text class="seglabel" x="${x+w+4}" y="${yy+h/2+3}" text-anchor="start" style="fill:var(--ink-2)">${v}</text>`;
+      /* ...unless it is the only part, when the total above already says it */
+      else if(v>0&&ST&&series.filter(o=>Number(o.values[li])>0).length>1) bars+=`<text class="seglabel" x="${x+w+4}" y="${yy+h/2+3}" text-anchor="start" style="fill:var(--ink-2)">${v}</text>`;
       if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" style="fill:var(--ink-2)">${v}</text>`;
       acc+=v;
     });
