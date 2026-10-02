@@ -775,7 +775,7 @@ function groupChart(labels,series,opts){
   <div class="chartcard">
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
-    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color)]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>
+    ${o.legend===false?'':`<div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color)]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>`}
     <svg class="chartsvg" viewBox="0 0 ${W} ${H+ax.extra}" role="img" aria-label="${esc(o.title||'chart')}"${ax.extra?' style="overflow:visible"':''}>
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>

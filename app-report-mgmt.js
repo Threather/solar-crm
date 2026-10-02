@@ -345,9 +345,15 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${colChart(stageLabels,stageLabels.map((_,k)=>stageNew[k]+stageOld[k]),
-        {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
-         table:false,compact:true,cap:`All five channels · Disqualified ${dN} + ${dE} earlier`})}
+      ${/* Disqualified splits by when the lead came in, like Won and Lost beside
+           it (2 Oct 2026); Won and Lost stay whole here - their split is on
+           their own scale in the next chart */''}
+      ${groupChart(stageLabels,
+        [{name:'Disqualified, lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq-2)'],
+          values:[0,0,0,0,dE]},
+         {name:'Lead came in this period',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
+          values:[got.length,qualified.length,wN+wE,lN+lE,dN]}],
+        {title:'Lead stage distribution',stacked:true,compact:true,legend:false,cap:'All five channels'})}
       ${/* Won and Closed-Lost on their own scale, split by when the lead came
            in - on the 500-lead scale beside it the split could not be seen
            (client's drawing, 2 Oct 2026) */''}
