@@ -230,7 +230,8 @@ async function renderMgmtReport(){
   const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m);
   const qualIn=m=>madeIn(m).filter(l=>isQualLead(l));
   /* their sheet shows six months of conversion, April to September */
-  const convMonths=months.slice(-6);
+  /* ...ending at the board's month, so picking September stops at September */
+  const convMonths=months.filter(m=>m<=mStart.slice(0,7)).slice(-6);
 
   const thisM=mStart.slice(0,7);
   const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
