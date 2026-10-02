@@ -639,7 +639,9 @@ function ledger(rows){
 let ZOOMS=[], ZOOM=null;
 function zoomAttr(kind,labels,data,o){
   if(o._z)return '';
-  const id=ZOOMS.push({kind,labels,data,o})-1;
+  /* o.zoom: open a fuller drawing than the card shows - the stage totals open
+     as the same bars split by when the lead came in */
+  const id=ZOOMS.push(o.zoom?{...o.zoom,o:{...o.zoom.o,title:o.title,cap:o.zoom.o.cap||o.cap}}:{kind,labels,data,o})-1;
   return ` data-zoom="${id}" onclick="zoomChart(${id})" title="Click to enlarge"`;
 }
 function zoomChart(id){

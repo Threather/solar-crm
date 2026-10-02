@@ -352,18 +352,26 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${/* totals only: a split of a 30-lead bar cannot be read on a 500-lead
-           scale (2 Oct 2026). The split lives in the next chart. */''}
+      ${/* totals on the card; clicked open, the same bars split by when the
+           lead came in - dark this period, light earlier (2 Oct 2026). A split
+           of a 30-lead bar cannot be read on the card's 500-lead scale. */''}
       ${colChart(stageLabels,[got.length,qN+qE,wN+wE,lN+lE,dN+dE],
         {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
-         table:false,compact:true,cap:`All five channels · Disqualified ${dN} + ${dE} earlier`})}
-      ${/* Qualified, Won and Lost on their own scale, split by when the lead came
-           in, each in its own colour - light for earlier (client's drawing,
-           2 Oct 2026) */''}
-      ${groupChart(['Qualified Lead','Closed-Won','Closed-Lost'],
-        [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)'],values:[qE,wE,lE]},
-         {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)'],values:[qN,wN,lN]}],
-        {title:'Qualified, Closed-Won and Closed-Lost',stacked:true,compact:true,cap:'By when the lead came in'})}
+         table:false,compact:true,cap:'All five channels · click to see each bar split by when the lead came in',
+         zoom:{kind:'group',labels:stageLabels,
+           data:[{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-disq-2)'],values:[0,qE,wE,lE,dE]},
+                 {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],values:[got.length,qN,wN,lN,dN]}],
+           o:{stacked:true,cap:'All five channels · dark = lead came in this period, light = came in earlier'}}})}
+      <!-- asked for on 16 Sep 2026 and not on their sheet, so it follows it -->
+      ${repPanel('Closed-lost, before or after a quotation',
+        lostInWin.length
+          ?gSplit([['After a quotation',lostAfter.length,'var(--c-lost)','After'],
+                   ['Before any quotation',lostBefore.length,'var(--c-lost-2)','Before'],
+                   ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
+           +ledger([['After a quotation',lostAfter.length,''],
+                    ['Before any quotation',lostBefore.length,''],
+                    ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
+          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
 
     <div class="homegrid three mgrid">
@@ -434,16 +442,6 @@ async function renderMgmtReport(){
         ?colChart(quotRows.map(([id])=>id==='none'?'Not recorded':nameOf(id).split(' ')[0]),quotRows.map(r=>r[1]),
           {title:'# of quotation sent',colors:quotRows.map(([id])=>colOf[id]||'var(--viz-mute)'),compact:true,table:false})
         :emptyChart('# of quotation sent','None released '+per,'This fills in as quotations are released.')}
-      <!-- asked for on 16 Sep 2026 and not on their sheet, so it follows it -->
-      ${repPanel('Closed-lost, before or after a quotation',
-        lostInWin.length
-          ?gSplit([['After a quotation',lostAfter.length,'var(--c-lost)','After'],
-                   ['Before any quotation',lostBefore.length,'var(--c-lost-2)','Before'],
-                   ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
-           +ledger([['After a quotation',lostAfter.length,''],
-                    ['Before any quotation',lostBefore.length,''],
-                    ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
-          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
       ${tcvPeople.length
         ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]||0),
           {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
