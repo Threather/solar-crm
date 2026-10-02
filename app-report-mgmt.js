@@ -261,17 +261,31 @@ async function renderMgmtReport(){
     if(isQualLead(l))qualDay[k]=(qualDay[k]||0)+1;
   });
 
-  /* stage distribution, his four bars */
-  /* Won, Closed-Lost and Disqualified are split by when the lead came in: in
-     the window shown, or before it - a deal won on 2 Oct from a September
-     enquiry is "earlier" (client's drawing, 2 Oct 2026). Raw and Qualified
-     count leads that came in inside the window, so they are all "new". */
+  /* stage distribution, two charts from his drawing (2 Oct 2026).
+     Chart 1 is where the window's raw leads went: Qualified, Disqualified, No
+     status and Pending contact (defined below). No status overlaps Qualified,
+     so the four do not add up to Raw Lead. Chart 2 takes Qualified apart:
+     Won + Closed-Lost + In progress = Qualified. Qualified and Disqualified are
+     counted on when it happened, split by when the lead came in - dark in the
+     window, light earlier. */
   const isNew=l=>inWin(dayOf(l));
   const split=set=>[set.filter(isNew).length,set.filter(l=>!isNew(l)).length];
-  const stageLabels=['Raw Lead','Qualified Lead','Closed-Won','Closed-Lost','Disqualified'];
-  const [qN,qE]=split(qualified),[wN,wE]=split(wonInWin),[lN,lE]=split(lostInWin),[dN,dE]=split(disqInWin);
-  const stageNew=[got.length,qN,wN,lN,dN];
-  const stageOld=[0,qE,wE,lE,dE];
+  const everQual=l=>qualText(l)==='Qualified';
+  const qualSet=rows.filter(l=>everQual(l)&&inWin(qualOn[l.id]||localDay(dayOf(l))));
+  /* No status = a phone, still open, and no salesperson yet - qualified or
+     not, so a qualified one counts here AND under Qualified (Kevin, 2 Oct
+     2026). Pending contact = open and not qualified, with no phone, or with a
+     phone and a salesperson but still on Information Gathering. */
+  const hasPh=l=>!!(l.phone||'').trim();
+  const openGot=got.filter(l=>!TERMINAL.includes(l.stage_code));
+  const noStatus=openGot.filter(l=>hasPh(l)&&!l.assigned_to);
+  const pending=openGot.filter(l=>!everQual(l)&&(!hasPh(l)||(l.assigned_to&&l.stage_code==='info_gathering')));
+  const [qN,qE]=split(qualSet),[dN,dE]=split(disqInWin);
+  const [wN,wE]=split(qualSet.filter(l=>l.stage_code===WON));
+  const [lN,lE]=split(qualSet.filter(l=>l.stage_code===LOST));
+  const [pN,pE]=split(qualSet.filter(l=>!TERMINAL.includes(l.stage_code)));
+  const flowLabels=['Raw Lead','Qualified','Disqualified','No status','Pending contact'];
+  const qualLabels=['Qualified','Closed-Won','Closed-Lost','In progress'];
 
   /* Residential against C&I, per salesperson, two columns each */
   const typePeople=people;
@@ -352,26 +366,16 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${/* totals on the card; clicked open, the same bars split by when the
-           lead came in - dark this period, light earlier (2 Oct 2026). A split
-           of a 30-lead bar cannot be read on the card's 500-lead scale. */''}
-      ${colChart(stageLabels,[got.length,qN+qE,wN+wE,lN+lE,dN+dE],
-        {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
-         table:false,compact:true,cap:'All five channels · click to see each bar split by when the lead came in',
-         zoom:{kind:'group',labels:stageLabels,
-           data:[{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-disq-2)'],values:[0,qE,wE,lE,dE]},
-                 {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],values:[got.length,qN,wN,lN,dN]}],
-           o:{stacked:true,cap:'All five channels · dark = lead came in this period, light = came in earlier'}}})}
-      <!-- asked for on 16 Sep 2026 and not on their sheet, so it follows it -->
-      ${repPanel('Closed-lost, before or after a quotation',
-        lostInWin.length
-          ?gSplit([['After a quotation',lostAfter.length,'var(--c-lost)','After'],
-                   ['Before any quotation',lostBefore.length,'var(--c-lost-2)','Before'],
-                   ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
-           +ledger([['After a quotation',lostAfter.length,''],
-                    ['Before any quotation',lostBefore.length,''],
-                    ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
-          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
+      ${groupChart(flowLabels,
+        [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-nostatus)','var(--c-pending)'],values:[0,qE,dE,0,0]},
+         {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-nostatus)','var(--c-pending)'],values:[got.length,qN,dN,noStatus.length,pending.length]}],
+        {title:'Lead stage distribution',stacked:true,compact:true,
+         cap:'All five channels · dark = lead came in this period, light = came in earlier'})}
+      ${groupChart(qualLabels,
+        [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
+         {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-active)'],values:[qN,wN,lN,pN]}],
+        {title:'Qualified leads',stacked:true,compact:true,
+         cap:'Qualified '+per+' · Won + Closed-Lost + In progress = Qualified'})}
     </div>
 
     <div class="homegrid three mgrid">
@@ -447,6 +451,16 @@ async function renderMgmtReport(){
           {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
            compact:true,table:false,fmt:cash,axisFmt:moneyAxis,cap:'Deals won '+per})
         :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
+      <!-- asked for on 16 Sep 2026 and not on their sheet; at the foot of the board (Kevin, 2 Oct 2026) -->
+      ${repPanel('Closed-lost, before or after a quotation',
+        lostInWin.length
+          ?gSplit([['After a quotation',lostAfter.length,'var(--c-lost)','After'],
+                   ['Before any quotation',lostBefore.length,'var(--c-lost-2)','Before'],
+                   ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
+           +ledger([['After a quotation',lostAfter.length,''],
+                    ['Before any quotation',lostBefore.length,''],
+                    ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
+          :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
   `;
 }

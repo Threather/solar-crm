@@ -389,7 +389,12 @@ async function bulkDelete(){
   LV.after();
 }
 async function bulkAssign(){
-  const who=$('bulk-who').value, ids=[...SEL];
+  const who=$('bulk-who').value;
+  /* no phone, no salesperson (Kevin, 2 Oct 2026) */
+  const noPh=[...SEL].filter(id=>{const l=LEADS.find(x=>x.id===id);return l&&!(l.phone||'').trim();});
+  noPh.forEach(id=>SEL.delete(id));
+  if(noPh.length)toast(noPh.length+' with no phone left unassigned');
+  const ids=[...SEL];
   if(!who||!ids.length)return;
   if(!confirm(`Assign ${ids.length} lead${ids.length>1?'s':''} to ${staffName(who)}?`))return;
   const at=new Date().toISOString();
@@ -854,6 +859,7 @@ async function createLead(){
      is left alone by fn_assign_sales_on_phone; left on Automatic, the
      round-robin assigns as it always has */
   if($('f-who')&&$('f-who').value){
+    if(!phone){needField('f-phone','Add a phone number before picking a salesperson');return;}
     row.assigned_to=$('f-who').value;row.assigned_at=new Date().toISOString();
   }
   if($('f-chan').value==='Offline_Marketing'){

@@ -400,6 +400,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
   /* assignment: only write if actually changed (bug fix) */
   if(canAssign){
     const a=val('d-assign');
+    /* no phone, no salesperson - there is nobody for them to call (Kevin, 2 Oct 2026) */
+    if(a&&a!==(oldAssign||'')&&$('d-phone')&&!$('d-phone').value.trim()){
+      needField('d-phone','Add a phone number before assigning a salesperson');return;}
     if(a!==undefined&&a!==(oldAssign||'')){upd.assigned_to=a||null;upd.assigned_at=a?new Date().toISOString():null;}
   }
   /* the name is the one field that must never be blanked */
