@@ -344,16 +344,16 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${groupChart(stageLabels,
-        [{name:'Lead came in earlier',color:'var(--viz-mute)',values:stageOld},
-         {name:'Lead came in this period',color:'var(--viz-2)',values:stageNew}],
-        {title:'Lead stage distribution',stacked:true,compact:true,
-         /* the split on the three short bars cannot be read off a 500-lead scale */
-         cap:`Won ${wN} + ${wE} earlier · Closed-Lost ${lN} + ${lE} earlier · Disqualified ${dN} + ${dE} earlier`})}
-      ${lineChart(days.map(String),
-        [{name:'# Raw Lead',color:'var(--viz-2)',values:days.map(d=>mktDay[dayKey(d)]||0)},
-         {name:'# Qualified Lead',color:'var(--viz-1)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
-        {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
+      ${colChart(stageLabels,stageLabels.map((_,k)=>stageNew[k]+stageOld[k]),
+        {title:'Lead stage distribution',colors:['var(--ink)','var(--viz-2)','var(--viz-good)','var(--viz-1)','var(--viz-mute)'],
+         table:false,compact:true,cap:`All five channels · Disqualified ${dN} + ${dE} earlier`})}
+      ${/* Won and Closed-Lost on their own scale, split by when the lead came
+           in - on the 500-lead scale beside it the split could not be seen
+           (client's drawing, 2 Oct 2026) */''}
+      ${groupChart(['Closed-Won','Closed-Lost'],
+        [{name:'Lead came in earlier',color:'var(--viz-mute)',values:[wE,lE]},
+         {name:'Lead came in this period',color:'var(--viz-2)',values:[wN,lN]}],
+        {title:'Closed-Won and Closed-Lost',stacked:true,compact:true,cap:'By when the lead came in'})}
     </div>
 
     <div class="homegrid three mgrid">
@@ -435,6 +435,10 @@ async function renderMgmtReport(){
                     ['Before any quotation',lostBefore.length,''],
                     ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
+      ${lineChart(days.map(String),
+        [{name:'# Raw Lead',color:'var(--viz-2)',values:days.map(d=>mktDay[dayKey(d)]||0)},
+         {name:'# Qualified Lead',color:'var(--viz-1)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
+        {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
     </div>
   `;
 }
