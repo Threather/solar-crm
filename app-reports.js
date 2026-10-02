@@ -197,6 +197,7 @@ async function renderReports(){
 }
 /* the switch bar every report sits under */
 function repBar(title,extra){
+  ZOOMS=[];
   const scopes=repScopes();
   return `<h2 style="margin-bottom:4px">${esc(title)}</h2>
     <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${esc(repWindowSentence())}</div>
@@ -630,6 +631,64 @@ function ledger(rows){
    accurately at this size, and two of which we have no history to draw. The
    figure is labelled on the column rather than in a legend, and the same
    numbers are repeated as a table underneath so nothing is only in a picture. */
+/* ---- ZOOM (2 Oct 2026) ----
+   Every chart drawn by colChart, groupChart or lineChart can be clicked open
+   in a large window, where ticks choose which bars and which series to show
+   and the scale follows - so a 4 beside a 531 becomes readable by hiding the
+   531. The registry is cleared each time a report draws (repBar). */
+let ZOOMS=[], ZOOM=null;
+function zoomAttr(kind,labels,data,o){
+  if(o._z)return '';
+  const id=ZOOMS.push({kind,labels,data,o})-1;
+  return ` data-zoom="${id}" onclick="zoomChart(${id})" title="Click to enlarge"`;
+}
+function zoomChart(id){
+  const z=ZOOMS[id];if(!z)return;
+  ZOOM={z,showL:new Set(z.labels.map((_,i)=>i)),showS:new Set((z.kind==='col'?[]:z.data).map((_,i)=>i)),split:true};
+  let el=$('zoombox');
+  if(!el){el=document.createElement('div');el.id='zoombox';el.className='zoombox';
+    el.onclick=e=>{if(e.target===el)zoomClose();};document.body.appendChild(el);}
+  el.style.display='flex';zoomDraw();
+}
+function zoomClose(){const el=$('zoombox');if(el)el.style.display='none';ZOOM=null;}
+function zoomToggle(kind,i){if(!ZOOM)return;
+  if(kind==='split')ZOOM.split=!ZOOM.split;
+  else{const s=kind==='l'?ZOOM.showL:ZOOM.showS;
+    if(s.has(i)){if(s.size>1)s.delete(i);}else s.add(i);}
+  zoomDraw();}
+function zoomDraw(){
+  const {z,showL,showS,split}=ZOOM, o=z.o;
+  const keep=[...showL].sort((a,b)=>a-b);
+  const pick=arr=>Array.isArray(arr)?keep.map(i=>arr[i]):arr;
+  const opts={...o,compact:false,_z:true,title:'',cap:'',table:false};
+  let chart='', ticksS='';
+  if(z.kind==='col'){
+    chart=colChart(keep.map(i=>z.labels[i]),keep.map(i=>z.data[i]),{...opts,colors:pick(o.colors)});
+  }else{
+    let ser=z.data.map((s,si)=>({...s,si})).filter(s=>showS.has(s.si));
+    ticksS=z.data.length>1?z.data.map((s,si)=>`<label><input type="checkbox" ${showS.has(si)?'checked':''} onchange="zoomToggle('s',${si})"> ${esc(s.name)}</label>`).join(''):'';
+    if(z.kind==='group'){
+      ser=ser.map(s=>({...s,color:pick(s.color),values:keep.map(i=>s.values[i])}));
+      /* split off: one bar per label, the parts added together */
+      if(o.stacked&&!split&&ser.length>1)ser=[{name:'Total',color:ser[ser.length-1].color,
+        values:keep.map((_,k)=>ser.reduce((a,s)=>a+Number(s.values[k]||0),0))}];
+      chart=groupChart(keep.map(i=>z.labels[i]),ser,opts);
+    }else{
+      chart=lineChart(keep.map(i=>z.labels[i]),ser.map(s=>({...s,values:keep.map(i=>s.values[i])})),opts);
+    }
+  }
+  /* a line runs along time, so its points are not ticked off one by one */
+  const ticksL=z.kind==='line'?'':z.labels.map((l,i)=>`<label><input type="checkbox" ${showL.has(i)?'checked':''} onchange="zoomToggle('l',${i})"> ${esc(l)}</label>`).join('');
+  $('zoombox').innerHTML=`<div class="zoompanel" role="dialog" aria-label="${esc(o.title||'Chart')}">
+    <div class="zoomhead"><h3>${esc(o.title||'')}</h3><button class="btn-line" onclick="zoomClose()">Close</button></div>
+    ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
+    ${ticksL?`<div class="zoomticks">${ticksL}</div>`:''}
+    ${ticksS?`<div class="zoomticks">${ticksS}</div>`:''}
+    ${z.kind==='group'&&o.stacked&&z.data.length>1?`<div class="zoomticks"><label><input type="checkbox" ${split?'checked':''} onchange="zoomToggle('split')"> Split by part</label></div>`:''}
+    ${chart}</div>`;
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ZOOM)zoomClose();});
+
 function colChart(labels,values,opts){
   const o=opts||{};
   const fmt=o.fmt||(v=>String(v));
@@ -671,7 +730,7 @@ function colChart(labels,values,opts){
   const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
   xlab=ax.svg;
   return `
-  <div class="chartcard">
+  <div class="chartcard"${zoomAttr('col',labels,values,o)}>
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
     <svg class="chartsvg" viewBox="0 0 ${W} ${H+ax.extra}" role="img" aria-label="${esc(o.title||'chart')}"${ax.extra?' style="overflow:visible"':''}>
@@ -773,7 +832,7 @@ function groupChart(labels,series,opts){
   const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
   xlab=ax.svg;
   return `
-  <div class="chartcard">
+  <div class="chartcard"${zoomAttr('group',labels,series,o)}>
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
     ${o.legend===false?'':`<div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color)]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>`}
@@ -875,7 +934,7 @@ function lineChart(labels,series,opts){
     if(lab)xlab+=`<text class="tick" x="${x(i)}" y="${PT+PH+(C?15:18)}" text-anchor="middle">${esc(lab)}</text>`;
   });
   return `
-  <div class="chartcard">
+  <div class="chartcard"${zoomAttr('line',labels,series,o)}>
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
     <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color)]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>
