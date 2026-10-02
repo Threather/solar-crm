@@ -358,6 +358,10 @@ async function renderMgmtReport(){
     </div>
 
     <div class="homegrid three mgrid">
+      ${lineChart(days.map(String),
+        [{name:'# Raw Lead',color:'var(--c-raw)',values:days.map(d=>mktDay[dayKey(d)]||0)},
+         {name:'# Qualified Lead',color:'var(--c-qual)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
+        {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
       ${convMonths.length
         ?lineChart(convMonths.map(m=>monthName(m)),
           [{name:'Conversion',color:'var(--c-qual)',
@@ -371,11 +375,6 @@ async function renderMgmtReport(){
           {title:'Payment collection by each sales',colors:collCols.map(c=>c.col),
            compact:true,table:false,fmt:cash,axisFmt:moneyAxis})
         :emptyChart('Payment collection by each sales','Nothing collected '+per,'This fills in as payments are recorded.')}
-      ${tcvPeople.length
-        ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]||0),
-          {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
-           compact:true,table:false,fmt:cash,axisFmt:moneyAxis,cap:'Deals won '+per})
-        :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
     </div>
 
     <div class="homegrid three mgrid">
@@ -436,10 +435,11 @@ async function renderMgmtReport(){
                     ['Before any quotation',lostBefore.length,''],
                     ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
-      ${lineChart(days.map(String),
-        [{name:'# Raw Lead',color:'var(--c-raw)',values:days.map(d=>mktDay[dayKey(d)]||0)},
-         {name:'# Qualified Lead',color:'var(--c-qual)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
-        {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
+      ${tcvPeople.length
+        ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]||0),
+          {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
+           compact:true,table:false,fmt:cash,axisFmt:moneyAxis,cap:'Deals won '+per})
+        :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
     </div>
   `;
 }
