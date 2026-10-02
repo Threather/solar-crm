@@ -471,6 +471,11 @@ td.nowrap{white-space:nowrap}
   transition:width .3s cubic-bezier(.23,1,.32,1)}
 .grank .v{width:86px;flex:none;text-align:right;font-size:var(--t-meta);font-weight:600;
   color:var(--ink-2);font-variant-numeric:tabular-nums}
+/* a long reason reads in full on its own line, the bar and its count under it
+   (closed-lost reasons, 2 Oct 2026) */
+.grank.wrap .row{flex-wrap:wrap;row-gap:3px;margin-bottom:10px}
+.grank.wrap .k{width:100%;white-space:normal;overflow:visible;text-overflow:clip}
+.grank.wrap .v{width:40px}
 
 /* how long each step takes, laid end to end on one timeline */
 .gdur{display:flex;flex-direction:column;gap:10px}

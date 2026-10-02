@@ -393,7 +393,7 @@ async function renderMgmtReport(){
           :blank('Nothing open','Every lead is won or lost.'))}
       ${repPanel('Closed-lost status',
         lostInWin.length
-          ?gRank(Object.entries(reasons),{color:'var(--viz-2)',limit:6,
+          ?gRank(Object.entries(reasons),{color:'var(--viz-2)',limit:6,wrap:true,
              emptyWhy:'This fills in as leads are lost.'})
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>

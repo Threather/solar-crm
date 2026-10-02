@@ -332,7 +332,7 @@ async function renderSalesReport(){
       ${repPanel('MTD Closed-Lost Status',(()=>{
         const reasons={};lostMtd.forEach(l=>{const r=lostReasonOf(l);reasons[r]=(reasons[r]||0)+1;});
         return lostMtd.length
-          ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12})
+          ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,wrap:true})
           :blank('Nothing lost this month','No lead was moved to Closed-Lost in '+monthName(thisM)+'.');
       })())}
     </div>`:''}
