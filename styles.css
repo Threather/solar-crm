@@ -40,7 +40,7 @@
   --c-raw:var(--viz-2); --c-qual:var(--viz-3); --c-qual-2:#c3aee0; --c-won:var(--viz-good); --c-won-2:#8cc49f;
   --c-lost:var(--viz-1); --c-lost-2:#f4b97a; --c-disq:#7d776c; --c-disq-2:#c9c4ba; --c-target:var(--ink);
   --c-active:var(--viz-4); --c-active-2:#d6cb7a; --c-handled:#4a6fa5;
-  --c-nostatus:#b9b2a4; --c-pending:#2f8f8a;
+  --c-nostatus:#b9b2a4; --c-pending:#2f8f8a; --c-feedback:#c05a8a;
   /* the ramp was brown; moved onto the orange hue with --viz-1 (25 Sep 2026) */
   --viz-s1:#f9c98f; --viz-s2:#f4a94f; --viz-s3:#ec8c1e;
   --viz-s4:#e07000; --viz-s5:#d06800; --viz-s6:#b85c00;
