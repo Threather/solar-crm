@@ -352,22 +352,18 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${/* Disqualified splits by when the lead came in, like Won and Lost beside
-           it (2 Oct 2026); Won and Lost stay whole here - their split is on
-           their own scale in the next chart */''}
-      ${groupChart(stageLabels,
-        [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-won)','var(--c-lost)','var(--c-disq-2)'],
-          values:[0,qE,0,0,dE]},
-         {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
-          values:[got.length,qN,wN+wE,lN+lE,dN]}],
-        {title:'Lead stage distribution',stacked:true,compact:true,legend:false,cap:'All five channels · lighter part = lead came in earlier'})}
-      ${/* Won and Closed-Lost on their own scale, split by when the lead came
-           in - on the 500-lead scale beside it the split could not be seen
-           (client's drawing, 2 Oct 2026) */''}
-      ${groupChart(['Closed-Won','Closed-Lost'],
-        [{name:'Lead came in earlier (light)',color:['var(--c-won-2)','var(--c-lost-2)'],values:[wE,lE]},
-         {name:'Lead came in this period (dark)',color:['var(--c-won)','var(--c-lost)'],values:[wN,lN]}],
-        {title:'Closed-Won and Closed-Lost',stacked:true,compact:true,cap:'By when the lead came in'})}
+      ${/* totals only: a split of a 30-lead bar cannot be read on a 500-lead
+           scale (2 Oct 2026). The split lives in the next chart. */''}
+      ${colChart(stageLabels,[got.length,qN+qE,wN+wE,lN+lE,dN+dE],
+        {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
+         table:false,compact:true,cap:`All five channels · Disqualified ${dN} + ${dE} earlier`})}
+      ${/* Qualified, Won and Lost on their own scale, split by when the lead came
+           in, each in its own colour - light for earlier (client's drawing,
+           2 Oct 2026) */''}
+      ${groupChart(['Qualified Lead','Closed-Won','Closed-Lost'],
+        [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)'],values:[qE,wE,lE]},
+         {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)'],values:[qN,wN,lN]}],
+        {title:'Qualified, Closed-Won and Closed-Lost',stacked:true,compact:true,cap:'By when the lead came in'})}
     </div>
 
     <div class="homegrid three mgrid">
