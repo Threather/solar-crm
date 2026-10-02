@@ -53,8 +53,12 @@ async function openLead(id){
   /* the manager gets both teams' rules on the phone, not a wider one: they may
      capture a number that is not there, or correct one while the customer box
      is still open, exactly as marketing and sales may. */
-  const canPhone=isAdmin||(isMkt&&!l.phone)||(isSales&&!l.customer_locked)
-    ||(isMgr&&(!l.phone||!l.customer_locked));
+  /* a past month's lead lost with no number - the nightly job disqualifies
+     those - takes no number afterwards; only admin may (Kevin, 2 Oct 2026) */
+  const pastNoPhone=l.stage_code===LOST&&!l.phone
+    &&(l.lead_date||localDay(l.created_at)).slice(0,7)<localDay(new Date()).slice(0,7);
+  const canPhone=isAdmin||(!pastNoPhone&&((isMkt&&!l.phone)||(isSales&&!l.customer_locked)
+    ||(isMgr&&(!l.phone||!l.customer_locked))));
   const phoneLocked=isMkt&&!!l.phone;
   const custLocked=isSales&&l.customer_locked;
   /* matches quotations_insert: the salesperson on the lead, or admin */
