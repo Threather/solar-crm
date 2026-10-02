@@ -254,12 +254,16 @@ async function renderMgmtReport(){
   });
 
   /* stage distribution, his four bars */
-  const stageDist=[
-    ['Raw Lead',got.length,'var(--ink)'],
-    ['Qualified Lead',qualified.length,'var(--viz-2)'],
-    ['Closed-Won',wonInWin.length,'var(--viz-good)'],
-    ['Closed-Lost',lostInWin.length,'var(--viz-1)']
-  ];
+  /* Won, Closed-Lost and Disqualified are split by when the lead came in: in
+     the window shown, or before it - a deal won on 2 Oct from a September
+     enquiry is "earlier" (client's drawing, 2 Oct 2026). Raw and Qualified
+     count leads that came in inside the window, so they are all "new". */
+  const isNew=l=>inWin(dayOf(l));
+  const split=set=>[set.filter(isNew).length,set.filter(l=>!isNew(l)).length];
+  const stageLabels=['Raw Lead','Qualified Lead','Closed-Won','Closed-Lost','Disqualified'];
+  const [wN,wE]=split(wonInWin),[lN,lE]=split(lostInWin),[dN,dE]=split(disqInWin);
+  const stageNew=[got.length,qualified.length,wN,lN,dN];
+  const stageOld=[0,0,wE,lE,dE];
 
   /* Residential against C&I, per salesperson, two columns each */
   const typePeople=people;
@@ -340,9 +344,10 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${colChart(stageDist.map(r=>r[0]),stageDist.map(r=>r[1]),
-        {title:'Lead stage distribution',colors:stageDist.map(r=>r[2]),
-         table:false,compact:true,cap:'All five channels'})}
+      ${groupChart(stageLabels,
+        [{name:'Lead came in earlier',color:'var(--viz-s3)',values:stageOld},
+         {name:'Lead came in '+per,color:'var(--viz-1)',values:stageNew}],
+        {title:'Lead stage distribution',stacked:true,compact:true,cap:'All five channels'})}
       ${lineChart(days.map(String),
         [{name:'# Raw Lead',color:'var(--viz-2)',values:days.map(d=>mktDay[dayKey(d)]||0)},
          {name:'# Qualified Lead',color:'var(--viz-1)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
