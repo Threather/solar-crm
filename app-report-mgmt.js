@@ -292,7 +292,7 @@ async function renderMgmtReport(){
     'Stage date':l.stage_entered_at?localDay(l.stage_entered_at):'',
     'Salesperson':l.assigned_to?staffName(l.assigned_to):''});
   const sheetsOf=sets=>()=>Object.fromEntries(Object.entries(sets).map(([k,v])=>[k,v.map(leadRow)]));
-  const flowLabels=['Raw Lead','Qualified','Disqualified','No status','Pending contact'];
+  const flowLabels=['Raw Lead','Qualified','Disqualified','No status','Pending Phone number'];
   const qualLabels=['Qualified','Closed-Won','Closed-Lost','In progress'];
 
   /* Residential against C&I, per salesperson, two columns each */
@@ -387,7 +387,7 @@ async function renderMgmtReport(){
         [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-nostatus)','var(--c-pending)'],values:[0,qE,dE,0,0]},
          {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-nostatus)','var(--c-pending)'],values:[got.length,qN,dN,noStatus.length,pending.length]}],
         {title:'Lead stage distribution',stacked:true,compact:true,
-         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'No status':noStatus,'Pending contact':pending}),
+         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'No status':noStatus,'Pending Phone number':pending}),
          cap:'All five channels · dark = lead came in this period, light = came in earlier'})}
       ${groupChart(qualLabels,
         [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
