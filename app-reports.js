@@ -785,6 +785,14 @@ function groupChart(labels,series,opts){
     const groupW=ST?bwS:bw*n+inner*(n-1);
     const left=PL+band*li+(band-groupW)/2;
     let acc=0;
+    /* stacked labels, decided per column (2 Oct 2026): a column with one part
+       says its number once, above it; a column whose parts are all tall
+       enough labels each inside; otherwise the parts are written small above
+       the total ("29 + 3") instead of colliding beside a thin bar */
+    const partsV=ST?series.map(s=>Number(s.values[li]||0)):[];
+    const nz=partsV.filter(v=>v>0);
+    const inside=ST&&nz.length>1&&nz.every(v=>y(0)-y(v)>=16);
+    const above=ST&&nz.length>1&&!inside;
     series.forEach((sr,si)=>{
       /* a grouped column can be split in two inside itself (parts), bottom
          part first, total on top - the orange "active" bar on Management
@@ -820,16 +828,15 @@ function groupChart(labels,series,opts){
                           :`<rect x="${x}" y="${yy}" width="${w}" height="${Math.max(1,h)}" fill="${fillC}">`)
           + `<title>${esc(lab)} \u00b7 ${esc(sr.name)}: ${v}</title>`
           + (capped&&h>R*2?'</path>':'</rect>');
-      if(v>0&&ST&&h>=12) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
-      /* a part too thin to hold its number carries it beside the column */
-      /* ...unless it is the only part, when the total above already says it */
-      else if(v>0&&ST&&series.filter(o=>Number(o.values[li])>0).length>1) bars+=`<text class="seglabel" x="${x+w+4}" y="${yy+h/2+3}" text-anchor="start" style="fill:var(--ink-2)">${v}</text>`;
+      if(v>0&&inside) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
       if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" style="fill:var(--ink-2)">${v}</text>`;
       acc+=v;
     });
     /* a stacked column carries its own total above it, the way his sheet
        labels each bar - the segments inside it carry their own parts */
     if(ST&&acc>0) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-5}" text-anchor="middle" style="fill:var(--ink-2)">${acc}</text>`;
+    /* the parts, top part first, small and above the total */
+    if(above) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-(C?17:20)}" text-anchor="middle" style="fill:var(--ink-3,#8a8478);font-weight:500">${[...partsV].reverse().filter(v=>v>0).join(' + ')}</text>`;
   });
   const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
   xlab=ax.svg;
@@ -837,7 +844,7 @@ function groupChart(labels,series,opts){
   <div class="chartcard"${zoomAttr('group',labels,series,o)}>
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
-    ${o.legend===false?'':`<div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color)]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>`}
+    ${o.legend===false?'':`<div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color.filter((c,k)=>Number(sr.values[k])>0&&series.some(o=>o!==sr&&Array.isArray(o.color)&&o.color[k]!==c)))]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>`}
     <svg class="chartsvg" viewBox="0 0 ${W} ${H+ax.extra}" role="img" aria-label="${esc(o.title||'chart')}"${ax.extra?' style="overflow:visible"':''}>
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
@@ -939,7 +946,7 @@ function lineChart(labels,series,opts){
   <div class="chartcard"${zoomAttr('line',labels,series,o)}>
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
-    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color)]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>
+    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span>${(Array.isArray(sr.color)?[...new Set(sr.color.filter((c,k)=>Number(sr.values[k])>0&&series.some(o=>o!==sr&&Array.isArray(o.color)&&o.color[k]!==c)))]:[sr.color]).map(c=>`<i style="background:${c}"></i>`).join('')}${esc(sr.name)}</span>`).join('')}</div>
     <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
       ${grid}${lines}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
