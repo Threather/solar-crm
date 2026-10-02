@@ -850,8 +850,7 @@ function groupChart(labels,series,opts){
     /* a stacked column carries its own total above it, the way his sheet
        labels each bar - the segments inside it carry their own parts */
     if(ST&&acc>0) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-5}" text-anchor="middle" style="fill:var(--ink-2)">${acc}</text>`;
-    /* the parts, top part first, small and above the total */
-    if(above) bars+=`<text class="seglabel" x="${left+bwS/2}" y="${y(acc)-(C?17:20)}" text-anchor="middle" style="fill:var(--ink-3,#8a8478);font-weight:500">${[...partsV].reverse().filter(v=>v>0).join(' + ')}</text>`;
+    /* no "432 + 9" above the total - the total only (Kevin, 2 Oct 2026) */
   });
   const ax=axisLabels(labels,band,i=>PL+band*i+band/2,PT+PH+(C?15:18));
   xlab=ax.svg;

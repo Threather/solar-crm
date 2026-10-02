@@ -341,6 +341,15 @@ async function renderMgmtReport(){
   const expThisSum=expThis.reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const expected=mtdCollected+expThisSum;
   const pct2=v=>v==null?'—':v.toFixed(2)+'%';
+  /* a pie with the total under it and a ledger beside it, for the two money
+     charts per salesperson (Kevin, 2 Oct 2026); everyone stays on the ledger,
+     $0 included, only the pie drops a zero */
+  const moneyPie=(title,parts,emptyHead,emptyWhy,cap)=>{
+    const tot=parts.reduce((a,p)=>a+Number(p[1]||0),0);
+    if(!tot)return emptyChart(title,emptyHead,emptyWhy);
+    return repPanel(title,(cap?`<div class="cap" style="margin:-4px 0 10px">${esc(cap)}</div>`:'')
+      +`<div class="pieled">`+gPie(parts,'Total '+cash(tot))
+      +ledger(parts.map(([k,v,c])=>[k,cash(v),Math.round(v/tot*100)+'%',c]))+`</div>`);};
   const moneyAxis=v=>!v?'$0':v>=1000?'$'+(v/1000)+'k':'$'+v;
 
   $('main').innerHTML=repBar('Management dashboard')+`
@@ -402,11 +411,8 @@ async function renderMgmtReport(){
               const r=madeIn(m).length;return r?+(qualIn(m).length/r*100).toFixed(2):0;})}],
           {title:'Conversion % from raw lead to qualified lead',compact:true,values:true,fmt:v=>v.toFixed(2)+'%'})
         :emptyChart('Conversion % from raw lead to qualified lead','No months to show yet','This fills in as leads accumulate.')}
-      ${collPeople.length
-        ?colChart(collCols.map(c=>c.name),collCols.map(c=>c.v),
-          {title:'Payment collection by each sales',colors:collCols.map(c=>c.col),
-           compact:true,table:false,fmt:cash,axisFmt:moneyAxis})
-        :emptyChart('Payment collection by each sales','Nothing collected '+per,'This fills in as payments are recorded.')}
+      ${moneyPie('Payment collection by each sales',collCols.map(c=>[c.name,c.v,c.col]),
+        'Nothing collected '+per,'This fills in as payments are recorded.')}
     </div>
 
     <div class="homegrid three mgrid">
@@ -457,11 +463,8 @@ async function renderMgmtReport(){
         ?colChart(quotRows.map(([id])=>id==='none'?'Not recorded':nameOf(id).split(' ')[0]),quotRows.map(r=>r[1]),
           {title:'# of quotation sent',colors:quotRows.map(([id])=>colOf[id]||'var(--viz-mute)'),compact:true,table:false})
         :emptyChart('# of quotation sent','None released '+per,'This fills in as quotations are released.')}
-      ${tcvPeople.length
-        ?colChart(tcvPeople.map(first),tcvPeople.map(p=>tcvBy[p.id]||0),
-          {title:'Total contract value (USD) by each sales',colors:tcvPeople.map(p=>colOf[p.id]),
-           compact:true,table:false,fmt:cash,axisFmt:moneyAxis,cap:'Deals won '+per})
-        :emptyChart('Total contract value (USD) by each sales','Nothing won '+per,'This fills in as deals are won.')}
+      ${moneyPie('Total contract value (USD) by each sales',tcvPeople.map(p=>[first(p),tcvBy[p.id]||0,colOf[p.id]]),
+        'Nothing won '+per,'This fills in as deals are won.','Deals won '+per)}
       <!-- asked for on 16 Sep 2026 and not on their sheet; at the foot of the board (Kevin, 2 Oct 2026) -->
       ${repPanel('Closed-lost, before or after a quotation',
         lostInWin.length
