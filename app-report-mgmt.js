@@ -54,7 +54,13 @@ async function renderMgmtReport(){
   const ids=rows.map(l=>l.id);
   const range=repRange(REPPERIOD);
   const per=repPeriodWord();
-  const mStart=monthStart(), today=localDay(new Date());
+  /* THE BOARD'S MONTH FOLLOWS THE DATES PICKED (Kevin, 2 Oct 2026). Pick 1-30
+     Sep and it is the September board as it stood on 30 Sep: its boxes, its
+     target, its daily trend. Today, This month and All time keep this month.
+     `today` is the board's "as of" day - the end picked, never past today. */
+  const realToday=localDay(new Date());
+  const today=REPPERIOD==='custom'&&range[1]<realToday?range[1]:realToday;
+  const mStart=today.slice(0,7)+'-01';
 
   const [tg,acts,quots,fins,pays,finrows,expd]=await Promise.all([
     loadTargets(mStart),
@@ -106,8 +112,9 @@ async function renderMgmtReport(){
   /* Run rate is a statement about THIS MONTH and must not follow the window
      switch: projecting a year of collection across thirty-one days is not a
      forecast. */
-  const dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
-  const dayNow=new Date().getDate();
+  const [bY,bM,bD]=today.split('-').map(Number);
+  const dim=new Date(bY,bM,0).getDate();
+  const dayNow=bD;
   const mtdCollected=pays.filter(p=>localDay(p.paid_on)>=mStart&&localDay(p.paid_on)<=today)
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const runRate=dayNow?mtdCollected/dayNow*dim:null;
