@@ -341,26 +341,26 @@ async function renderMgmtReport(){
 
     <div class="homegrid three mgrid">
       ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
-        {title:'Raw lead target vs actual',colors:['var(--ink)','var(--viz-1)'],table:false,compact:true,
+        {title:'Raw lead target vs actual',colors:['var(--c-target)','var(--c-raw)'],table:false,compact:true,
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${colChart(stageLabels,stageLabels.map((_,k)=>stageNew[k]+stageOld[k]),
-        {title:'Lead stage distribution',colors:['var(--ink)','var(--viz-2)','var(--viz-good)','var(--viz-1)','var(--viz-mute)'],
+        {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
          table:false,compact:true,cap:`All five channels · Disqualified ${dN} + ${dE} earlier`})}
       ${/* Won and Closed-Lost on their own scale, split by when the lead came
            in - on the 500-lead scale beside it the split could not be seen
            (client's drawing, 2 Oct 2026) */''}
       ${groupChart(['Closed-Won','Closed-Lost'],
-        [{name:'Lead came in earlier',color:'var(--viz-mute)',values:[wE,lE]},
-         {name:'Lead came in this period',color:'var(--viz-2)',values:[wN,lN]}],
+        [{name:'Lead came in earlier (light)',color:['var(--c-won-2)','var(--c-lost-2)'],values:[wE,lE]},
+         {name:'Lead came in this period (dark)',color:['var(--c-won)','var(--c-lost)'],values:[wN,lN]}],
         {title:'Closed-Won and Closed-Lost',stacked:true,compact:true,cap:'By when the lead came in'})}
     </div>
 
     <div class="homegrid three mgrid">
       ${convMonths.length
         ?lineChart(convMonths.map(m=>monthName(m)),
-          [{name:'Conversion',color:'var(--viz-2)',
+          [{name:'Conversion',color:'var(--c-qual)',
             values:convMonths.map(m=>{
               if(CONV_HISTORY[m]){const [r,q]=CONV_HISTORY[m];return +(q/r*100).toFixed(2);}
               const r=madeIn(m).length;return r?+(qualIn(m).length/r*100).toFixed(2):0;})}],
@@ -381,20 +381,20 @@ async function renderMgmtReport(){
     <div class="homegrid three mgrid">
       ${summary.length
         ?groupChart(summary.map(r=>first(r.p)),
-          [{name:'# of Active Lead',color:'var(--ink)',values:summary.map(r=>r.active)},
-           {name:'# Closed Won',color:'var(--viz-1)',values:summary.map(r=>r.won)}],
+          [{name:'# of Active Lead',color:'var(--c-active)',values:summary.map(r=>r.active)},
+           {name:'# Closed Won',color:'var(--c-won)',values:summary.map(r=>r.won)}],
           {title:'Sales and lead summary',compact:true})
         :emptyChart('Sales and lead summary','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${repPanel('Active pipeline stage',
         open.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
               open.filter(l=>l.stage_code===code).length]),
-             {color:'var(--ink)',limit:MG_ACTIVE.length,order:true,keepZero:true,
+             {color:'var(--c-active)',limit:MG_ACTIVE.length,order:true,keepZero:true,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
       ${repPanel('Closed-lost status',
         lostInWin.length
-          ?gRank(Object.entries(reasons),{color:'var(--viz-2)',limit:6,wrap:true,
+          ?gRank(Object.entries(reasons),{color:'var(--c-lost)',limit:6,wrap:true,
              emptyWhy:'This fills in as leads are lost.'})
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
     </div>
@@ -407,10 +407,10 @@ async function renderMgmtReport(){
         :emptyChart('Avg. daily contact to customer','No contacts logged','Nothing in the contact log '+per+'.')}
       ${handled.length
         ?groupChart(handled.map(r=>r.name.split(' ')[0]),
-          [{name:'Handled '+per,color:'var(--viz-2)',values:handled.map(r=>r.handled)},
+          [{name:'Handled '+per,color:'var(--c-handled)',values:handled.map(r=>r.handled)},
            /* every lead the person still has to work on, whatever month it came
               in - Kevin, 29 Sep 2026, after trying it split by month */
-           {name:'# of Active Lead',color:'var(--viz-1)',values:handled.map(r=>r.active)}],
+           {name:'# of Active Lead',color:'var(--c-active)',values:handled.map(r=>r.active)}],
           {title:'# of leads held and # of active lead',compact:true})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
@@ -429,16 +429,16 @@ async function renderMgmtReport(){
       <!-- asked for on 16 Sep 2026 and not on their sheet, so it follows it -->
       ${repPanel('Closed-lost, before or after a quotation',
         lostInWin.length
-          ?gSplit([['After a quotation',lostAfter.length,'var(--viz-1)','After'],
-                   ['Before any quotation',lostBefore.length,'var(--viz-s2)','Before'],
+          ?gSplit([['After a quotation',lostAfter.length,'var(--c-lost)','After'],
+                   ['Before any quotation',lostBefore.length,'var(--c-lost-2)','Before'],
                    ['Unknown',lostUnknown.length,'var(--viz-mute)','Unknown']])
            +ledger([['After a quotation',lostAfter.length,''],
                     ['Before any quotation',lostBefore.length,''],
                     ...(lostUnknown.length?[['Unknown',lostUnknown.length,'imported, quotation not recorded']]:[])])
           :blank('Nothing lost '+per,'No lead was moved to Closed-Lost in this window.'))}
       ${lineChart(days.map(String),
-        [{name:'# Raw Lead',color:'var(--viz-2)',values:days.map(d=>mktDay[dayKey(d)]||0)},
-         {name:'# Qualified Lead',color:'var(--viz-1)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
+        [{name:'# Raw Lead',color:'var(--c-raw)',values:days.map(d=>mktDay[dayKey(d)]||0)},
+         {name:'# Qualified Lead',color:'var(--c-qual)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
         {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
     </div>
   `;

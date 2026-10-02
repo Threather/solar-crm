@@ -752,11 +752,16 @@ function groupChart(labels,series,opts){
       let h=ST?(y(acc)-y(acc+v)):(PT+PH-yy);
       const capped=!ST||si===series.length-1||series.slice(si+1).every(o=>!Number(o.values[li]));
       if(ST&&si>0&&h>GAP)h-=GAP;
-      if(v>0) bars+=(capped&&h>R*2?`<path d="${topPath(x,yy,w,h,R)}" fill="${sr.color}">`
-                          :`<rect x="${x}" y="${yy}" width="${w}" height="${Math.max(1,h)}" fill="${sr.color}">`)
+      /* a series may colour each column its own way - Won green, Lost orange -
+         so a word keeps one colour across every chart (2 Oct 2026) */
+      const fillC=Array.isArray(sr.color)?sr.color[li]:sr.color;
+      if(v>0) bars+=(capped&&h>R*2?`<path d="${topPath(x,yy,w,h,R)}" fill="${fillC}">`
+                          :`<rect x="${x}" y="${yy}" width="${w}" height="${Math.max(1,h)}" fill="${fillC}">`)
           + `<title>${esc(lab)} \u00b7 ${esc(sr.name)}: ${v}</title>`
           + (capped&&h>R*2?'</path>':'</rect>');
       if(v>0&&ST&&h>=12) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
+      /* a part too thin to hold its number carries it beside the column */
+      else if(v>0&&ST) bars+=`<text class="seglabel" x="${x+w+4}" y="${yy+h/2+3}" text-anchor="start" style="fill:var(--ink-2)">${v}</text>`;
       if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" style="fill:var(--ink-2)">${v}</text>`;
       acc+=v;
     });
@@ -770,7 +775,7 @@ function groupChart(labels,series,opts){
   <div class="chartcard">
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
-    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span><i style="background:${sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
+    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span><i style="background:${Array.isArray(sr.color)?sr.color[0]:sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
     <svg class="chartsvg" viewBox="0 0 ${W} ${H+ax.extra}" role="img" aria-label="${esc(o.title||'chart')}"${ax.extra?' style="overflow:visible"':''}>
       ${grid}${bars}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>
@@ -872,7 +877,7 @@ function lineChart(labels,series,opts){
   <div class="chartcard">
     <h3>${esc(o.title||'')}</h3>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}
-    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span><i style="background:${sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
+    <div class="legend">${series.flatMap(sr=>sr.parts||[sr]).map(sr=>`<span><i style="background:${Array.isArray(sr.color)?sr.color[0]:sr.color}"></i>${esc(sr.name)}</span>`).join('')}</div>
     <svg class="chartsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.title||'chart')}">
       ${grid}${lines}${xlab}
       <line x1="${PL}" y1="${PT+PH}" x2="${W-PR}" y2="${PT+PH}" stroke="var(--line)" stroke-width="1"/>

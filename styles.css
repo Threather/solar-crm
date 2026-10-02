@@ -34,6 +34,12 @@
      clears 3:1 against the card. --viz-mute is for a residual "Other" bucket
      and is deliberately recessive; it is not a category. */
   --viz-3:#7652ac; --viz-4:#a49000; --viz-mute:#9b958a;
+  /* ONE COLOUR PER WORD on every Management chart (client, 2 Oct 2026): a
+     Closed-Won bar is green wherever it appears, and its "lead came in
+     earlier" part a lighter green beside it. */
+  --c-raw:var(--viz-2); --c-qual:var(--viz-3); --c-won:var(--viz-good); --c-won-2:#8cc49f;
+  --c-lost:var(--viz-1); --c-lost-2:#f4b97a; --c-disq:var(--viz-mute); --c-target:var(--ink);
+  --c-active:var(--viz-4); --c-handled:#4a6fa5;
   /* the ramp was brown; moved onto the orange hue with --viz-1 (25 Sep 2026) */
   --viz-s1:#f9c98f; --viz-s2:#f4a94f; --viz-s3:#ec8c1e;
   --viz-s4:#e07000; --viz-s5:#d06800; --viz-s6:#b85c00;
