@@ -463,7 +463,13 @@ function gRank(items,opts){
   rows=rows.slice(0,o.limit||8);
   if(!rows.length)return blank('Nothing to rank yet',o.emptyWhy||'This fills in as deals are recorded.');
   const max=Math.max(1,...rows.map(r=>Number(r[1])));
-  return `<div class="grank${o.wrap?' wrap':''}">`+rows.map(([k,v])=>
+  /* wrap: the reason on its own line and the count inside its bar, or just
+     past the end of a bar too short to hold it (2 Oct 2026) */
+  if(o.wrap)return `<div class="grank wrap">`+rows.map(([k,v])=>{
+    const w=Math.round((v/max)*100), txt=esc(o.fmt?o.fmt(v):v), inside=w>=14;
+    return `<div class="row"><span class="k">${esc(k)}</span>
+      <span class="track"><span class="fill" style="width:${w}%;background:${o.color||'var(--viz-1)'}">${inside?`<i class="in">${txt}</i>`:''}</span>${inside?'':`<i class="out">${txt}</i>`}</span></div>`;}).join('')+`</div>`;
+  return `<div class="grank">`+rows.map(([k,v])=>
     `<div class="row"><span class="k" title="${esc(k)}">${esc(k)}</span>
       <span class="track"><span class="fill" style="width:${Math.round((v/max)*100)}%;background:${o.color||'var(--viz-1)'}"></span></span>
       <span class="v">${esc(o.fmt?o.fmt(v):v)}</span></div>`).join('')+`</div>`;
