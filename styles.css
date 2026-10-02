@@ -37,7 +37,7 @@
   /* ONE COLOUR PER WORD on every Management chart (client, 2 Oct 2026): a
      Closed-Won bar is green wherever it appears, and its "lead came in
      earlier" part a lighter green beside it. */
-  --c-raw:var(--viz-2); --c-qual:var(--viz-3); --c-won:var(--viz-good); --c-won-2:#8cc49f;
+  --c-raw:var(--viz-2); --c-qual:var(--viz-3); --c-qual-2:#c3aee0; --c-won:var(--viz-good); --c-won-2:#8cc49f;
   --c-lost:var(--viz-1); --c-lost-2:#f4b97a; --c-disq:#7d776c; --c-disq-2:#c9c4ba; --c-target:var(--ink);
   --c-active:var(--viz-4); --c-handled:#4a6fa5;
   /* the ramp was brown; moved onto the orange hue with --viz-1 (25 Sep 2026) */

@@ -135,9 +135,16 @@ async function renderMgmtReport(){
      so counting them would flatter the number the target is set against. */
   const leadTarget=Number(tg.company.leads||0);
   const MG_MARKETING=['Digital_Marketing','Offline_Marketing'];
-  /* the Qualified Lead bar counts qualified leads still open or won - the lost
-     ones are the Closed-Lost bar beside it, not counted twice (Kevin, 29 Sep 2026) */
-  const qualified=got.filter(l=>isQualLead(l));
+  /* Qualified Lead on the stage chart: qualified IN the window and still open
+     - not won, not lost, so no lead sits in two bars (Kevin, 2 Oct 2026).
+     The day it qualified is its first move to Telling Price or later in the
+     stage history; a lead with no such move is dated by its own lead date. */
+  const qualMoves=await fetchAll(()=>sb.from('lead_activities').select('lead_id,created_at')
+    .eq('activity_type','stage_change')
+    .in('to_stage',['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won']).order('id'));
+  const qualOn={};
+  qualMoves.forEach(m=>{const d=localDay(m.created_at);if(!qualOn[m.lead_id]||d<qualOn[m.lead_id])qualOn[m.lead_id]=d;});
+  const qualified=rows.filter(l=>isQualLead(l)&&l.stage_code!==WON&&inWin(qualOn[l.id]||localDay(dayOf(l))));
 
   /* ---- per person, on whoever holds the rows ---- */
   const holders=new Set(rows.filter(l=>l.assigned_to).map(l=>l.assigned_to));
@@ -262,9 +269,9 @@ async function renderMgmtReport(){
   const isNew=l=>inWin(dayOf(l));
   const split=set=>[set.filter(isNew).length,set.filter(l=>!isNew(l)).length];
   const stageLabels=['Raw Lead','Qualified Lead','Closed-Won','Closed-Lost','Disqualified'];
-  const [wN,wE]=split(wonInWin),[lN,lE]=split(lostInWin),[dN,dE]=split(disqInWin);
-  const stageNew=[got.length,qualified.length,wN,lN,dN];
-  const stageOld=[0,0,wE,lE,dE];
+  const [qN,qE]=split(qualified),[wN,wE]=split(wonInWin),[lN,lE]=split(lostInWin),[dN,dE]=split(disqInWin);
+  const stageNew=[got.length,qN,wN,lN,dN];
+  const stageOld=[0,qE,wE,lE,dE];
 
   /* Residential against C&I, per salesperson, two columns each */
   const typePeople=people;
@@ -349,11 +356,11 @@ async function renderMgmtReport(){
            it (2 Oct 2026); Won and Lost stay whole here - their split is on
            their own scale in the next chart */''}
       ${groupChart(stageLabels,
-        [{name:'Disqualified, lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq-2)'],
-          values:[0,0,0,0,dE]},
-         {name:'Lead came in this period',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
-          values:[got.length,qualified.length,wN+wE,lN+lE,dN]}],
-        {title:'Lead stage distribution',stacked:true,compact:true,legend:false,cap:'All five channels'})}
+        [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-won)','var(--c-lost)','var(--c-disq-2)'],
+          values:[0,qE,0,0,dE]},
+         {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-disq)'],
+          values:[got.length,qN,wN+wE,lN+lE,dN]}],
+        {title:'Lead stage distribution',stacked:true,compact:true,cap:'All five channels · Won and Lost split in the next chart'})}
       ${/* Won and Closed-Lost on their own scale, split by when the lead came
            in - on the 500-lead scale beside it the split could not be seen
            (client's drawing, 2 Oct 2026) */''}
