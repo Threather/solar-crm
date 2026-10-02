@@ -345,9 +345,11 @@ async function renderMgmtReport(){
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${groupChart(stageLabels,
-        [{name:'Lead came in earlier',color:'var(--viz-s3)',values:stageOld},
-         {name:'Lead came in '+per,color:'var(--viz-1)',values:stageNew}],
-        {title:'Lead stage distribution',stacked:true,compact:true,cap:'All five channels'})}
+        [{name:'Lead came in earlier',color:'var(--viz-mute)',values:stageOld},
+         {name:'Lead came in this period',color:'var(--viz-2)',values:stageNew}],
+        {title:'Lead stage distribution',stacked:true,compact:true,
+         /* the split on the three short bars cannot be read off a 500-lead scale */
+         cap:`Won ${wN} + ${wE} earlier · Closed-Lost ${lN} + ${lE} earlier · Disqualified ${dN} + ${dE} earlier`})}
       ${lineChart(days.map(String),
         [{name:'# Raw Lead',color:'var(--viz-2)',values:days.map(d=>mktDay[dayKey(d)]||0)},
          {name:'# Qualified Lead',color:'var(--viz-1)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
