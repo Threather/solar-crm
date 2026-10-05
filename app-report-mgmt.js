@@ -289,7 +289,11 @@ async function renderMgmtReport(){
      salesperson but still on Information Gathering - waiting on the customer */
   const pending=openGot.filter(l=>!everQual(l)&&!hasPh(l));
   const feedback=openGot.filter(l=>!everQual(l)&&hasPh(l)&&l.assigned_to&&l.stage_code==='info_gathering');
-  const [qN,qE]=split(qualSet),[dN,dE]=split(disqInWin);
+  /* the Qualified BAR counts only leads that came in this period - the
+     client's call (5 Oct 2026); the parts beside it still include older
+     leads, so they no longer add up to it */
+  const qualNew=qualSet.filter(isNew), qE=0;
+  const qN=qualNew.length, [dN,dE]=split(disqInWin);
   const [wN,wE]=split(wonSet),[lN,lE]=split(lostSet),[pN,pE]=split(progSet);
   /* the leads behind each bar, for the Export Excel button in the zoom */
   const leadRow=l=>({'Ref ID':l.ref_id||'','Customer':l.customer_name||'','Phone':l.phone||'',
@@ -394,14 +398,14 @@ async function renderMgmtReport(){
         [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-nostatus)','var(--c-pending)','var(--c-feedback)'],values:[0,qE,dE,0,0,0]},
          {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-nostatus)','var(--c-pending)','var(--c-feedback)'],values:[got.length,qN,dN,noStatus.length,pending.length,feedback.length]}],
         {title:'Lead stage distribution',stacked:true,compact:true,
-         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'No status':noStatus,'Pending Phone number':pending,'Pending feedback from customer':feedback}),
+         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualNew,'Disqualified':disqInWin,'No status':noStatus,'Pending Phone number':pending,'Pending feedback from customer':feedback}),
          cap:'All five channels · dark = lead came in this period, light = came in earlier'})}
       ${groupChart(qualLabels,
         [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
          {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-active)'],values:[qN,wN,lN,pN]}],
         {title:'Qualified leads',stacked:true,compact:true,
-         sheets:sheetsOf({'Qualified':qualSet,'Closed-Won':wonSet,'Closed-Lost':lostSet,'In progress':progSet}),
-         cap:'Qualified '+per+' · Won + Closed-Lost + In progress = Qualified'})}
+         sheets:sheetsOf({'Qualified':qualNew,'Closed-Won':wonSet,'Closed-Lost':lostSet,'In progress':progSet}),
+         cap:'Qualified: leads that came in '+per})}
     </div>
 
     <div class="homegrid three mgrid">
