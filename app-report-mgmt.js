@@ -237,7 +237,10 @@ async function renderMgmtReport(){
   /* ---- month by month ---- */
   const months=lastMonths(rows,dayOf,12);
   const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m);
-  const qualIn=m=>madeIn(m).filter(l=>isQualLead(l));
+  /* qualified by the end of that month, lost since or not - the same
+     Qualified the stage chart counts (5 Oct 2026; it used to drop the lost
+     ones, so September read 47 of 531 where the board says 85) */
+  const qualIn=m=>madeIn(m).filter(l=>qualText(l)==='Qualified'&&localDay(qualOn[l.id]||dayOf(l)).slice(0,7)<=m);
   /* their sheet shows six months of conversion, April to September */
   /* ...ending at the board's month, so picking September stops at September */
   const convMonths=months.filter(m=>m<=mStart.slice(0,7)).slice(-6);
@@ -279,8 +282,11 @@ async function renderMgmtReport(){
      2026). Closed-Lost and In progress are the qualified ones lost / open. */
   const qualSet=rows.filter(l=>everQual(l)&&inWin(qualOn[l.id]||localDay(dayOf(l))));
   const wonSet=wonInWin;
-  const lostSet=qualSet.filter(l=>l.stage_code===LOST);
-  const progSet=qualSet.filter(l=>!TERMINAL.includes(l.stage_code));
+  /* lost IN the range, like Closed-Won; anything not won or lost by the last
+     day shown is still in progress on that day */
+  const endOk=l=>localDay(l.stage_entered_at||dayOf(l))<=today;
+  const lostSet=qualSet.filter(l=>l.stage_code===LOST&&inWin(l.stage_entered_at)&&endOk(l));
+  const progSet=qualSet.filter(l=>!(TERMINAL.includes(l.stage_code)&&endOk(l)));
   /* No status = a phone, still open, and no salesperson yet - qualified or
      not, so a qualified one counts here AND under Qualified (Kevin, 2 Oct
      2026). Pending contact = open and not qualified, with no phone, or with a
