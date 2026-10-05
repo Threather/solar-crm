@@ -696,7 +696,7 @@ function zoomDraw(){
     }
   }
   /* a line runs along time, so its points are not ticked off one by one */
-  const ticksL=z.kind==='line'?'':z.labels.map((l,i)=>`<label><input type="checkbox" ${showL.has(i)?'checked':''} onchange="zoomToggle('l',${i})"> ${esc(l)}</label>`).join('');
+  const ticksL=z.kind==='line'||o.noTicks?'':z.labels.map((l,i)=>`<label><input type="checkbox" ${showL.has(i)?'checked':''} onchange="zoomToggle('l',${i})"> ${esc(l)}</label>`).join('');
   $('zoombox').innerHTML=`<div class="zoompanel" role="dialog" aria-label="${esc(o.title||'Chart')}">
     <div class="zoomhead"><h3>${esc(o.title||'')}</h3><span>${o.sheets?`<button class="btn-line" onclick="zoomExport()">Export Excel</button> `:''}<button class="btn-line" onclick="zoomClose()">Close</button></span></div>
     ${o.cap?`<div class="cap">${esc(o.cap)}</div>`:''}

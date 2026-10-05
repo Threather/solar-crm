@@ -402,12 +402,13 @@ async function renderMgmtReport(){
          cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
-      ${groupChart(flowLabels,
-        [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-feedback)'],values:[0,qE,dE,0]},
-         {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-feedback)'],values:[got.length,qN,dN,notYet.length]}],
-        {title:'Lead stage distribution',stacked:true,compact:true,
-         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'Not yet qualify':notYet}),
-         cap:'All five channels · dark = lead came in this period, light = came in earlier'})}
+      ${/* only the leads that came in during the range - no older leads, no
+           light parts (client, 5 Oct 2026). The chart beside it keeps both. */''}
+      ${colChart(flowLabels,[got.length,qN,dN,notYet.length],
+        {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-feedback)'],
+         table:false,compact:true,noTicks:true,
+         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet.filter(isNew),'Disqualified':disqInWin.filter(isNew),'Not yet qualify':notYet}),
+         cap:'All five channels · leads that came in '+per})}
       ${groupChart(qualLabels,
         [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
          {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-active)'],values:[qN,wN,lN,pN]}],
