@@ -139,7 +139,7 @@ async function renderMgmtReport(){
      - not won, not lost, so no lead sits in two bars (Kevin, 2 Oct 2026).
      The day it qualified is its first move to Telling Price or later in the
      stage history; a lead with no such move is dated by its own lead date. */
-  const qualMoves=await fetchAll(()=>sb.from('lead_activities').select('lead_id,created_at')
+  const qualMoves=await fetchAll(()=>sb.from('lead_activities').select('lead_id,created_at,to_stage')
     .eq('activity_type','stage_change')
     .in('to_stage',['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won']).order('id'));
   const qualOn={};
@@ -216,7 +216,8 @@ async function renderMgmtReport(){
        still open, or won or lost in it (Kevin, 29 Sep 2026). Active is the
        open ones only, whatever month they came in. */
     return {name:p.full_name,
-      handled:mine.filter(l=>isNew(l)||!TERMINAL.includes(l.stage_code)||inWin(l.stage_entered_at)).length,
+      /* "still open" means open on the last day shown, not today */
+      handled:mine.filter(l=>isNew(l)||!(TERMINAL.includes(l.stage_code)&&localDay(l.stage_entered_at||dayOf(l))<=today)||inWin(l.stage_entered_at)).length,
       active:open.length,
       openNew:open.filter(isNew).length, openOld:open.filter(l=>!isNew(l)).length,
       wonNew:wonHere.filter(isNew).length, wonOld:wonHere.filter(l=>!isNew(l)).length};
@@ -230,9 +231,12 @@ async function renderMgmtReport(){
   /* read through quoteStage, the one rule the Lost list uses too. It had an
      'unknown' group until the client's quotation history was imported;
      lostUnknown stays so the panel cannot break if one is ever needed again */
-  const lostAfter=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='after');
-  const lostBefore=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='before');
-  const lostUnknown=lostInWin.filter(l=>quoteStage(l,wasQuoted(l))==='unknown');
+  /* the range's own leads lost in it - the same 35 as the Closed-Lost bar
+     and Closed-lost status (Kevin, 5 Oct 2026) */
+  const lostOwn=lostInWin.filter(l=>inWin(dayOf(l)));
+  const lostAfter=lostOwn.filter(l=>quoteStage(l,wasQuoted(l))==='after');
+  const lostBefore=lostOwn.filter(l=>quoteStage(l,wasQuoted(l))==='before');
+  const lostUnknown=lostOwn.filter(l=>quoteStage(l,wasQuoted(l))==='unknown');
 
   /* ---- month by month ---- */
   const months=lastMonths(rows,dayOf,12);
@@ -284,6 +288,11 @@ async function renderMgmtReport(){
   const wonSet=wonInWin;
   /* lost IN the range, like Closed-Won; anything not won or lost by the last
      day shown is still in progress on that day */
+  /* the stage a lead stood on at the end of the range: its last qualifying
+     move by then, else where it is now */
+  const movesBy={};qualMoves.forEach(m=>(movesBy[m.lead_id]=movesBy[m.lead_id]||[]).push(m));
+  const stageAt=l=>{const ms=(movesBy[l.id]||[]).filter(m=>localDay(m.created_at)<=today).sort((a,b)=>a.created_at.localeCompare(b.created_at));
+    return ms.length&&TERMINAL.includes(l.stage_code)?ms[ms.length-1].to_stage:ms.length&&localDay(l.stage_entered_at||'')>today?ms[ms.length-1].to_stage:l.stage_code;};
   const endOk=l=>localDay(l.stage_entered_at||dayOf(l))<=today;
   const lostSet=qualSet.filter(l=>l.stage_code===LOST&&inWin(l.stage_entered_at)&&endOk(l));
   const progSet=qualSet.filter(l=>!(TERMINAL.includes(l.stage_code)&&endOk(l)));
@@ -349,7 +358,8 @@ async function renderMgmtReport(){
 
   /* Sales and lead summary: what each person holds open against what they won */
   const summary=people.map(p=>({p,
-    active:open.filter(l=>l.assigned_to===p.id).length,
+    /* Active Lead = the Qualified chart's In progress, per person (5 Oct 2026) */
+    active:progSet.filter(l=>l.assigned_to===p.id).length,
     won:wonInWin.filter(l=>l.assigned_to===p.id).length}));
 
   /* quotations sent, per person, coloured by that person where they hold a colour */
@@ -452,9 +462,9 @@ async function renderMgmtReport(){
           {title:'Sales and lead summary',compact:true})
         :emptyChart('Sales and lead summary','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${repPanel('Active pipeline stage',
-        open.length
+        progSet.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
-              open.filter(l=>l.stage_code===code).length]),
+              progSet.filter(l=>stageAt(l)===code).length]),
              {color:'var(--c-active)',limit:MG_ACTIVE.length,order:true,keepZero:true,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
@@ -476,7 +486,7 @@ async function renderMgmtReport(){
           [{name:'Handled '+per,color:'var(--c-handled)',values:handled.map(r=>r.handled)},
            /* every lead the person still has to work on, whatever month it came
               in - Kevin, 29 Sep 2026, after trying it split by month */
-           {name:'# of Active Lead',color:'var(--c-active)',values:handled.map(r=>r.active)}],
+           {name:'# of Active Lead',color:'var(--c-active)',values:people.map(p=>progSet.filter(l=>l.assigned_to===p.id).length)}],
           {title:'# of leads held and # of active lead',compact:true})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
