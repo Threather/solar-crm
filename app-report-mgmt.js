@@ -224,7 +224,9 @@ async function renderMgmtReport(){
 
   /* ---- closed-lost ---- */
   const reasons={};
-  lostInWin.forEach(l=>{const r=lostReasonOf(l);reasons[r]=(reasons[r]||0)+1;});
+  /* only leads that came in during the range and were lost in it (client,
+     5 Oct 2026) - an older lead lost this month is not this month's reason */
+  lostInWin.filter(l=>inWin(dayOf(l))).forEach(l=>{const r=lostReasonOf(l);reasons[r]=(reasons[r]||0)+1;});
   /* read through quoteStage, the one rule the Lost list uses too. It had an
      'unknown' group until the client's quotation history was imported;
      lostUnknown stays so the panel cannot break if one is ever needed again */
@@ -410,11 +412,11 @@ async function renderMgmtReport(){
          sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet.filter(isNew),'Disqualified':disqInWin.filter(isNew),'Not yet qualify':notYet}),
          cap:'All five channels · leads that came in '+per})}
       ${groupChart(qualLabels,
-        [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
+        [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[0,wE,0,pE]},
          {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-active)'],values:[qN,wN,lN,pN]}],
         {title:'Qualified leads',stacked:true,compact:true,
-         sheets:sheetsOf({'Qualified':qualSet,'Closed-Won':wonSet,'Closed-Lost':lostSet,'In progress':progSet}),
-         cap:'Qualified '+per+' · Closed-Won = every deal won '+per})}
+         sheets:sheetsOf({'Qualified':qualSet.filter(isNew),'Closed-Won':wonSet,'Closed-Lost':lostSet.filter(isNew),'In progress':progSet}),
+         cap:'Qualified and Closed-Lost: leads that came in '+per+' · Closed-Won and In progress include older leads'})}
     </div>
 
     <div class="homegrid three mgrid">
