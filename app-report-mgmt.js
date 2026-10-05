@@ -466,7 +466,9 @@ async function renderMgmtReport(){
       ${repPanel('Active pipeline stage',
         progSet.length
           ?gRank(MG_ACTIVE.map(code=>[(STAGES.find(s=>s.stage_code===code)||{}).stage_name||code,
-              progSet.filter(l=>stageAt(l)===code).length]),
+              /* a lead with no recorded move by then sits on the first
+                 qualified stage, so the rungs add up to In progress */
+              progSet.filter(l=>(MG_ACTIVE.includes(stageAt(l))?stageAt(l):'telling_price')===code).length]),
              {color:'var(--c-active)',limit:MG_ACTIVE.length,order:true,keepZero:true,
               emptyWhy:'This fills in as leads move through the pipeline.'})
           :blank('Nothing open','Every lead is won or lost.'))}
