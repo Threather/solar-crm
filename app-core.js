@@ -477,7 +477,9 @@ const ICON={
   aftersale:'M14.7 6.3a4 4 0 0 0-5.4 5.4l-5 5a1.5 1.5 0 0 0 2.1 2.1l5-5a4 4 0 0 0 5.4-5.4l-2.4 2.4-2.1-2.1z',
   users:'M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
   targets:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 12h.01',
-  inc:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'
+  inc:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  /* a ledger: one ruled row per won deal */
+  salesrep:'M4 4h16v16H4zM4 9h16M4 14h16M9 4v16'
 };
 const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
   +`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]||ICON.home}"/></svg>${l}</button>`;
@@ -491,7 +493,7 @@ function buildNav(){
   }
   /* finance only ever works won deals and their money */
   if(ME.role==='finance'){
-    $('nav').innerHTML=[['home','Today'],['fin','Finance']].map(navBtn).join('');
+    $('nav').innerHTML=[['home','Today'],['fin','Finance'],['salesrep','Sales Report']].map(navBtn).join('');
     return;
   }
   const work=[['home','Today'],['leads','Leads']];
@@ -505,6 +507,8 @@ function buildNav(){
      than being a wider list that happens to look harmless */
   if(['sales','manager','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
+  /* every won deal on one row, the client's Sales Report sheet (5 Oct 2026) */
+  if(['admin','manager'].includes(ME.role)) money.push(['salesrep','Sales Report']);
   /* Commissions came out on 27 Aug 2026. Sales are not paid on the value of a
      deal, they are paid by the incentive scheme, so a screen of per-deal
      commissions described a way of paying people that does not happen. The
@@ -543,7 +547,7 @@ function go(v){
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,dups:renderDups,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
-    targets:renderTargets,inc:renderIncentive,lists:renderLists}[v])();
+    targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderSalesReport}[v])();
 }
 
 /* ---------------- editable lists ---------------- */
