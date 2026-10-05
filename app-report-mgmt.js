@@ -267,7 +267,9 @@ async function renderMgmtReport(){
     const k=localDay(dayOf(l));
     if(k.slice(0,7)!==thisM)return;
     mktDay[k]=(mktDay[k]||0)+1;
-    if(isQualLead(l))qualDay[k]=(qualDay[k]||0)+1;
+    /* the same Qualified as every other chart: qualified by the last day
+       shown, lost since or not (5 Oct 2026) */
+    if(qualText(l)==='Qualified'&&localDay(qualOn[l.id]||dayOf(l))<=today)qualDay[k]=(qualDay[k]||0)+1;
   });
 
   /* stage distribution, two charts from his drawing (2 Oct 2026).
