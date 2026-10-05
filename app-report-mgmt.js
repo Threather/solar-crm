@@ -271,7 +271,13 @@ async function renderMgmtReport(){
   const isNew=l=>inWin(dayOf(l));
   const split=set=>[set.filter(isNew).length,set.filter(l=>!isNew(l)).length];
   const everQual=l=>qualText(l)==='Qualified';
-  const qualSet=rows.filter(l=>everQual(l)&&inWin(qualOn[l.id]||localDay(dayOf(l))));
+  /* qualified in the window, plus any older lead WON in the window - a
+     September win on a July lead belongs on September's board (Kevin, 5 Oct
+     2026). Older leads lost in the window are not added. */
+  const qualSet=[...new Set([...rows.filter(l=>everQual(l)&&inWin(qualOn[l.id]||localDay(dayOf(l)))),...wonInWin])];
+  const wonSet=qualSet.filter(l=>wonInWin.includes(l));
+  const lostSet=qualSet.filter(l=>l.stage_code===LOST);
+  const progSet=qualSet.filter(l=>!wonSet.includes(l)&&!lostSet.includes(l));
   /* No status = a phone, still open, and no salesperson yet - qualified or
      not, so a qualified one counts here AND under Qualified (Kevin, 2 Oct
      2026). Pending contact = open and not qualified, with no phone, or with a
@@ -284,9 +290,7 @@ async function renderMgmtReport(){
   const pending=openGot.filter(l=>!everQual(l)&&!hasPh(l));
   const feedback=openGot.filter(l=>!everQual(l)&&hasPh(l)&&l.assigned_to&&l.stage_code==='info_gathering');
   const [qN,qE]=split(qualSet),[dN,dE]=split(disqInWin);
-  const [wN,wE]=split(qualSet.filter(l=>l.stage_code===WON));
-  const [lN,lE]=split(qualSet.filter(l=>l.stage_code===LOST));
-  const [pN,pE]=split(qualSet.filter(l=>!TERMINAL.includes(l.stage_code)));
+  const [wN,wE]=split(wonSet),[lN,lE]=split(lostSet),[pN,pE]=split(progSet);
   /* the leads behind each bar, for the Export Excel button in the zoom */
   const leadRow=l=>({'Ref ID':l.ref_id||'','Customer':l.customer_name||'','Phone':l.phone||'',
     'Lead date':localDay(dayOf(l)),'Came in':isNew(l)?'This period':'Earlier',
@@ -396,8 +400,7 @@ async function renderMgmtReport(){
         [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
          {name:'Lead came in this period (dark)',color:['var(--c-qual)','var(--c-won)','var(--c-lost)','var(--c-active)'],values:[qN,wN,lN,pN]}],
         {title:'Qualified leads',stacked:true,compact:true,
-         sheets:sheetsOf({'Qualified':qualSet,'Closed-Won':qualSet.filter(l=>l.stage_code===WON),
-           'Closed-Lost':qualSet.filter(l=>l.stage_code===LOST),'In progress':qualSet.filter(l=>!TERMINAL.includes(l.stage_code))}),
+         sheets:sheetsOf({'Qualified':qualSet,'Closed-Won':wonSet,'Closed-Lost':lostSet,'In progress':progSet}),
          cap:'Qualified '+per+' · Won + Closed-Lost + In progress = Qualified'})}
     </div>
 
