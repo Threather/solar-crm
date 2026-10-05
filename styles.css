@@ -972,4 +972,10 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .cmedit select{width:auto;min-width:0;font-size:12px;padding:2px 4px;margin-right:4px;display:inline-block}
 .cmedit .lnk{font-size:12px;margin:0 8px 0 4px}
 .lnk{cursor:pointer;text-decoration:underline;color:var(--ink-soft)}
-.srtable th{white-space:nowrap}.srtable td.rem{min-width:180px;max-width:280px}
+.srtable th,.srtable td{white-space:nowrap;vertical-align:middle}
+.srtable td.sr-cut{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+/* No, ref and customer stay put while the forty columns scroll past */
+.srtable th:nth-child(-n+3),.srtable td:nth-child(-n+3){position:sticky;background:var(--card);z-index:1}
+.srtable th:nth-child(1),.srtable td:nth-child(1){left:0;min-width:40px}
+.srtable th:nth-child(2),.srtable td:nth-child(2){left:40px;min-width:90px}
+.srtable th:nth-child(3),.srtable td:nth-child(3){left:130px;box-shadow:1px 0 0 var(--line)}

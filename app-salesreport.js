@@ -110,7 +110,7 @@ function drawSalesReport(){
       if(SR_MONEY.has(h)||/^Payment \d+ \(USD\)$/.test(h))return `<td class="nowrap"><b>${fmtMoney(v)}</b></td>`;
       if(isDate(h)&&/^\d{4}-\d\d-\d\d/.test(String(v)))return `<td class="nowrap">${fmtDate(v)}</td>`;
       if(h==='Customer Name')return `<td><b class="nm">${esc(v)}</b></td>`;
-      if(h==='Remark'||h==='Location')return `<td class="rem"><span class="clamp" title="${esc(v)}">${esc(v)}</span></td>`;
+      if(h==='Remark'||h==='Location')return `<td class="sr-cut" title="${esc(v)}">${h==='Location'&&/^https?:/.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">map</a>`:esc(v)}</td>`;
       return `<td class="nowrap">${esc(String(v))}</td>`;}).join('')+'</tr>').join('')+'</tbody></table>'
     :blank('No won deal matches','Clear the search or pick another month.');
 }
