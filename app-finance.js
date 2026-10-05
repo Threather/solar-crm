@@ -307,7 +307,7 @@ function openFinance(id){
             const left=due-run;
             return `<tr>
               <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}${ME.role==='admin'
-                ?`<span class="days">reports: <input type="month" class="cm" value="${(p.count_month||'').slice(0,7)}" title="Count in month - blank counts it in the month paid" onchange="setCountMonth('${p.id}',this.value)"></span>`
+                ?`<span class="days">reports: <select class="cm" title="Count in month - blank counts it in the month paid" onchange="setCountMonth('${p.id}',this.value)">${cmOpts(p)}</select></span>`
                 :p.count_month?`<span class="days">counted in ${esc(monthName(p.count_month.slice(0,7)))}</span>`:''}</td>
               <td><b>${fmtMoney(p.amount_usd)}</b></td>
               <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
@@ -433,6 +433,15 @@ async function skipFollowUp(id){
 }
 /* which month the reports count a payment in; blank = the month it was paid.
    The paid date itself is never changed (Kevin, 5 Oct 2026). */
+/* the months around the payment, newest first, plus blank = month paid. A
+   dropdown because a month input is a plain text box in some browsers. */
+function cmOpts(p){
+  const cur=(p.count_month||'').slice(0,7), base=localDay(p.paid_on||new Date()).slice(0,7);
+  const [y,m]=base.split('-').map(Number), ms=[];
+  for(let k=2;k>=-12;k--){const d=new Date(y,m-1+k,1);ms.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}
+  if(cur&&!ms.includes(cur))ms.unshift(cur);
+  return `<option value="">Month paid</option>`+ms.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${esc(monthName(v))}</option>`).join('');
+}
 async function setCountMonth(pid,v){
   const {error}=await sb.from('lead_payments').update({count_month:v?v+'-01':null}).eq('id',pid);
   if(error){toast('Could not save. '+why(error));console.error(error);return;}
