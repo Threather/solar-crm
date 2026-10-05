@@ -412,7 +412,9 @@ async function renderMgmtReport(){
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${/* only the leads that came in during the range - no older leads, no
            light parts (client, 5 Oct 2026). The chart beside it keeps both. */''}
-      ${colChart(flowLabels,[got.length,qN,dN,notYet.length],
+      ${/* Not yet qualify is dropped when it is empty - a month that has
+           ended has none (Kevin, 5 Oct 2026) */''}
+      ${colChart(flowLabels.slice(0,notYet.length?4:3),[got.length,qN,dN,notYet.length].slice(0,notYet.length?4:3),
         {title:'Lead stage distribution',colors:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-feedback)'],
          table:false,compact:true,noTicks:true,
          sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet.filter(isNew),'Disqualified':disqInWin.filter(isNew),'Not yet qualify':notYet}),
