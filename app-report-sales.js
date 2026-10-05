@@ -70,7 +70,7 @@ async function renderSalesReport(){
     repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date,to_stage').order('id'),ids),
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
-    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').order('id'),ids),
+    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month').order('id'),ids),
     repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids)
   ]);
 
@@ -156,7 +156,7 @@ async function renderSalesReport(){
   /* ---- block 5 and 7 figures, per person and for the company ---- */
   const targetOf=id=>Number(tg.person[id]?.collection||0);
   const collectedOf=(id,a,b)=>pays.filter(p=>byId[p.lead_id]&&byId[p.lead_id].assigned_to===id
-    &&within(p.paid_on,a,b)).reduce((x,p)=>x+Number(p.amount_usd||0),0);
+    &&within(countDay(p),a,b)).reduce((x,p)=>x+Number(p.amount_usd||0),0);
   const outstandingOf=id=>mine(id).filter(l=>l.stage_code===WON).reduce((x,l)=>x+owedOf(l),0);
   const pipeOf=id=>pipelineValue(mine(id).filter(l=>!TERMINAL.includes(l.stage_code)),quotBy).value;
   /* the contract, NOT dueOf: dueOf adds the payment fees on top because it

@@ -67,7 +67,7 @@ async function renderMgmtReport(){
     repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('activity_type',['call','note']).order('id'),ids),
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
-    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on').order('id'),ids),
+    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month').order('id'),ids),
     repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids),
     /* what customers have promised to pay, keyed in by admin on Finance */
     rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd').order('expected_on').order('id')).then(r=>r.data||[])
@@ -102,7 +102,7 @@ async function renderMgmtReport(){
   /* ---- the KPI row: collection ---- */
   const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
   const owedOf=l=>Math.max(0,dueOf(l)-(paidBy[l.id]||0));
-  const collected=pays.filter(p=>inWin(p.paid_on)).reduce((a,p)=>a+Number(p.amount_usd||0),0);
+  const collected=pays.filter(p=>inWin(countDay(p))).reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const outstanding=won.reduce((a,l)=>a+owedOf(l),0);
   const owingNoDate=won.filter(l=>owedOf(l)>0.005&&!(finBy[l.id]&&finBy[l.id].follow_up_date)).length;
   /* every person's collection target added up is the company's for the month.
@@ -115,7 +115,7 @@ async function renderMgmtReport(){
   const [bY,bM,bD]=today.split('-').map(Number);
   const dim=new Date(bY,bM,0).getDate();
   const dayNow=bD;
-  const mtdCollected=pays.filter(p=>localDay(p.paid_on)>=mStart&&localDay(p.paid_on)<=today)
+  const mtdCollected=pays.filter(p=>localDay(countDay(p))>=mStart&&localDay(countDay(p))<=today)
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const runRate=dayNow?mtdCollected/dayNow*dim:null;
   /* THE TARGET IS MONTHLY, SO WHAT IT IS COMPARED WITH MUST BE. These used to
@@ -169,7 +169,7 @@ async function renderMgmtReport(){
      up to the figure they sit under. */
   const leadById={}; rows.forEach(l=>leadById[l.id]=l);
   const collByPerson={}; let collUnassigned=0;
-  pays.filter(p=>inWin(p.paid_on)).forEach(p=>{
+  pays.filter(p=>inWin(countDay(p))).forEach(p=>{
     const l=leadById[p.lead_id], amt=Number(p.amount_usd||0);
     if(!l||!l.assigned_to){collUnassigned+=amt;return;}
     collByPerson[l.assigned_to]=(collByPerson[l.assigned_to]||0)+amt;
@@ -243,7 +243,7 @@ async function renderMgmtReport(){
   const thisM=mStart.slice(0,7);
   const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
     const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
-  const paidIn=m=>pays.filter(p=>p.paid_on&&localDay(p.paid_on).slice(0,7)===m)
+  const paidIn=m=>pays.filter(p=>countDay(p)&&localDay(countDay(p)).slice(0,7)===m)
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const prevWord=monthName(prevM);
 

@@ -306,7 +306,9 @@ function openFinance(id){
             run+=Number(p.amount_usd||0);
             const left=due-run;
             return `<tr>
-              <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}</td>
+              <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}${ME.role==='admin'
+                ?`<span class="days">reports: <input type="month" class="cm" value="${(p.count_month||'').slice(0,7)}" title="Count in month - blank counts it in the month paid" onchange="setCountMonth('${p.id}',this.value)"></span>`
+                :p.count_month?`<span class="days">counted in ${esc(monthName(p.count_month.slice(0,7)))}</span>`:''}</td>
               <td><b>${fmtMoney(p.amount_usd)}</b></td>
               <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
               <td class="nowrap ${left<=0?'':'overdue'}">${left<=0?'<span class="mark mark-done">settled</span>':fmtMoney(left)}</td>
@@ -428,6 +430,13 @@ async function skipFollowUp(id){
     .upsert({lead_id:id,follow_up_date:next,updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
   if(error){toast('Could not move the follow-up');console.error(error);return;}
   toast('Follow-up moved to '+fmtDate(next));closeLead();renderFinance();
+}
+/* which month the reports count a payment in; blank = the month it was paid.
+   The paid date itself is never changed (Kevin, 5 Oct 2026). */
+async function setCountMonth(pid,v){
+  const {error}=await sb.from('lead_payments').update({count_month:v?v+'-01':null}).eq('id',pid);
+  if(error){toast('Could not save. '+why(error));console.error(error);return;}
+  toast(v?'Counted in '+monthName(v)+' in reports':'Counted in the month paid');
 }
 async function addPayment(id){
   const amt=$('p-amt').value;

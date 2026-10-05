@@ -221,6 +221,10 @@ const TERMINAL=['closed_won','closed_lost'];
    number - with no number there is nobody for sales to call yet, so it is
    still marketing's (manager, 30 Sep 2026) */
 const inPool=l=>!l.assigned_to&&!TERMINAL.includes(l.stage_code)&&!!(l.phone||'').trim();
+/* the day a payment is COUNTED on in reports: the month management asked for
+   (lead_payments.count_month) when set, otherwise the day it was paid.
+   Finance and the incentive keep the real paid_on (Kevin, 5 Oct 2026). */
+const countDay=p=>p.count_month||p.paid_on;
 const WON='closed_won';
 const LOST='closed_lost';
 /* Qualification follows the stage: a lead is qualified from Quotation sent
