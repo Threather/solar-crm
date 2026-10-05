@@ -402,7 +402,7 @@ async function renderMgmtReport(){
          /* the Raw Lead bar split by channel, biggest at the bottom */
          ...Object.entries(chanCount).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>({name:k,
            color:k==='No channel'?'var(--viz-mute)':['var(--c-raw)','var(--viz-1)','var(--viz-3)','var(--viz-good)','var(--viz-4)'][i%5],values:[0,v]}))],
-        {title:'Raw lead target vs actual',stacked:true,compact:true,
+        {title:'Raw lead target vs actual',stacked:true,compact:true,sideNames:true,
          cap:'All channels, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
