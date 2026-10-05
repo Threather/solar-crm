@@ -306,14 +306,12 @@ function openFinance(id){
             run+=Number(p.amount_usd||0);
             const left=due-run;
             return `<tr>
-              <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}${ME.role==='admin'
-                ?`<span class="days">reports: <select class="cm" title="Count in month - blank counts it in the month paid" onchange="setCountMonth('${p.id}',this.value)">${cmOpts(p)}</select></span>`
-                :p.count_month?`<span class="days">counted in ${esc(monthName(p.count_month.slice(0,7)))}</span>`:''}</td>
+              <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}${p.count_month?`<span class="days">counted in ${esc(monthName(p.count_month.slice(0,7)))}${ME.role==='admin'?` · <a class="lnk" onclick="setCountMonth('${p.id}','','${r.id}')">undo</a>`:''}</span>`:''}</td>
               <td><b>${fmtMoney(p.amount_usd)}</b></td>
               <td>${Number(p.other_fee_usd||0)?fmtMoney(p.other_fee_usd):'<span class="quiet">—</span>'}</td>
               <td class="nowrap ${left<=0?'':'overdue'}">${left<=0?'<span class="mark mark-done">settled</span>':fmtMoney(left)}</td>
               <td>${esc(p.note||'')}${p.other_fee_note?`<span class="days">fee: ${esc(p.other_fee_note)}</span>`:''}</td>
-              <td><button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
+              <td class="nowrap" style="text-align:right">${ME.role==='admin'&&!p.count_month?`<a class="lnk cmlink" onclick="cmEdit(this,'${p.id}','${r.id}')">Count in other month</a> `:''}<button class="btn-mini" onclick="deletePayment('${p.id}','${r.id}')">Remove</button></td>
             </tr>`;}).join('');
         })()+`</tbody></table></div>`
         :'<p style="font-size:13px;color:var(--ink-soft);margin:6px 0">No payments recorded.</p>'}
@@ -433,19 +431,22 @@ async function skipFollowUp(id){
 }
 /* which month the reports count a payment in; blank = the month it was paid.
    The paid date itself is never changed (Kevin, 5 Oct 2026). */
-/* the months around the payment, newest first, plus blank = month paid. A
-   dropdown because a month input is a plain text box in some browsers. */
-function cmOpts(p){
-  const cur=(p.count_month||'').slice(0,7), base=localDay(p.paid_on||new Date()).slice(0,7);
-  const [y,m]=base.split('-').map(Number), ms=[];
-  for(let k=2;k>=-12;k--){const d=new Date(y,m-1+k,1);ms.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}
-  if(cur&&!ms.includes(cur))ms.unshift(cur);
-  return `<option value="">Month paid</option>`+ms.map(v=>`<option value="${v}" ${v===cur?'selected':''}>${esc(monthName(v))}</option>`).join('');
+/* count a payment in another month's reports, for the rare payment
+   management wants moved; the paid date never changes (Kevin, 5 Oct 2026).
+   Hidden behind a link so an ordinary row looks as it always did. */
+function cmEdit(el,pid,leadId){
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth();
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  el.outerHTML=`<span class="cmedit"><select id="cm-m-${pid}">${months.map((n,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${i===(m+11)%12?'selected':''}>${n}</option>`).join('')}</select>
+    <select id="cm-y-${pid}">${[y-1,y,y+1].map(v=>`<option ${v===(m===0?y-1:y)?'selected':''}>${v}</option>`).join('')}</select>
+    <button class="btn-mini" onclick="setCountMonth('${pid}',$('cm-y-${pid}').value+'-'+$('cm-m-${pid}').value,'${leadId}')">Save</button>
+    <a class="lnk" onclick="openFinance('${leadId}')">Cancel</a></span> `;
 }
-async function setCountMonth(pid,v){
+async function setCountMonth(pid,v,leadId){
   const {error}=await sb.from('lead_payments').update({count_month:v?v+'-01':null}).eq('id',pid);
   if(error){toast('Could not save. '+why(error));console.error(error);return;}
   toast(v?'Counted in '+monthName(v)+' in reports':'Counted in the month paid');
+  if(leadId)openFinance(leadId);
 }
 async function addPayment(id){
   const amt=$('p-amt').value;
