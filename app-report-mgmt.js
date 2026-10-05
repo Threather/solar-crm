@@ -284,12 +284,18 @@ async function renderMgmtReport(){
      2026). Pending contact = open and not qualified, with no phone, or with a
      phone and a salesperson but still on Information Gathering. */
   const hasPh=l=>!!(l.phone||'').trim();
-  const openGot=got.filter(l=>!TERMINAL.includes(l.stage_code));
+  /* judged AS OF THE LAST DAY SHOWN, not today (Kevin, 5 Oct 2026): a
+     September lead that qualified on 2 Oct was still waiting on 30 Sep, and
+     belongs in September's pending bar rather than in no bar at all */
+  const asOf=today;
+  const qualBy=l=>everQual(l)&&localDay(qualOn[l.id]||dayOf(l))<=asOf;
+  const closedBy=l=>TERMINAL.includes(l.stage_code)&&localDay(l.stage_entered_at||dayOf(l))<=asOf;
+  const openGot=got.filter(l=>!closedBy(l));
   const noStatus=openGot.filter(l=>hasPh(l)&&!l.assigned_to);
   /* split in two (Kevin, 2 Oct 2026): no phone yet, and a phone with a
-     salesperson but still on Information Gathering - waiting on the customer */
-  const pending=openGot.filter(l=>!everQual(l)&&!hasPh(l));
-  const feedback=openGot.filter(l=>!everQual(l)&&hasPh(l)&&l.assigned_to&&l.stage_code==='info_gathering');
+     salesperson but not yet qualified - waiting on the customer */
+  const pending=openGot.filter(l=>!qualBy(l)&&!hasPh(l));
+  const feedback=openGot.filter(l=>!qualBy(l)&&hasPh(l)&&l.assigned_to);
   const [qN,qE]=split(qualSet),[dN,dE]=split(disqInWin);
   const [wN,wE]=split(wonSet),[lN,lE]=split(lostSet),[pN,pE]=split(progSet);
   /* the leads behind each bar, for the Export Excel button in the zoom */
