@@ -224,6 +224,8 @@ const COLSPEC={
   ltype:l=>lostType(l),
   /* the month a lead was lost in, so this month's losses are one tick away */
   lostm:l=>l.stage_entered_at?monthName(localDay(l.stage_entered_at).slice(0,7)):'—',
+  /* the month a deal was won in, the Won tab's twin of lostm (5 Oct 2026) */
+  wonm:l=>l.stage_code===WON&&l.stage_entered_at?monthName(localDay(l.stage_entered_at).slice(0,7)):'—',
   by:l=>l.created_by?staffName(l.created_by):'—',
   hasphone:l=>l.phone?'Has phone':'No phone',
   wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
@@ -533,7 +535,7 @@ function toggleRemarks(box){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}<th>Closed-Won</th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
