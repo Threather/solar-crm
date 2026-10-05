@@ -397,9 +397,13 @@ async function renderMgmtReport(){
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
     <div class="homegrid three mgrid">
-      ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
-        {title:'Raw lead target vs actual',colors:['var(--c-target)','var(--c-raw)'],table:false,compact:true,
-         cap:'All channels, '+monthName(thisM)+(chanLine?' · '+chanLine:'')})
+      ${leadTarget?groupChart(['Raw Lead Target','Raw Lead'],
+        [{name:'Target',color:'var(--c-target)',values:[leadTarget,0]},
+         /* the Raw Lead bar split by channel, biggest at the bottom */
+         ...Object.entries(chanCount).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>({name:k,
+           color:k==='No channel'?'var(--viz-mute)':['var(--c-raw)','var(--viz-1)','var(--viz-3)','var(--viz-good)','var(--viz-4)'][i%5],values:[0,v]}))],
+        {title:'Raw lead target vs actual',stacked:true,compact:true,
+         cap:'All channels, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${groupChart(flowLabels,
