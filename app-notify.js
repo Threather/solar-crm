@@ -3,10 +3,13 @@
    read is kept in their own browser, because letting a user write to their own
    profile row to store it would also let them change their own role. */
 let BELLS=[];
+/* a duplicate-customer alert is for the people who take and work leads -
+   marketing, sales, the manager and admin - not finance or site (5 Oct 2026) */
+const bellFor=b=>b.kind!=='dup'||['marketing','sales','manager','admin'].includes(ME.role);
 const bellSeen=()=>localStorage.getItem('crm-bell-seen')||'1970-01-01';
 async function loadBells(){
   const {data}=await sb.from('notifications').select('*').order('created_at',{ascending:false}).limit(40);
-  BELLS=data||[];
+  BELLS=(data||[]).filter(bellFor);
   paintBell();
 }
 function paintBell(){
@@ -36,7 +39,8 @@ function popNotice(b){
   const el=$('pop'); if(!el)return;
   el.innerHTML=`<h5>${b.kind==='won'?'Deal won':b.kind==='delivered'?'Delivered'
       :b.kind==='installed'?'Installation finished'
-      :b.kind==='boq'?'BOQ not released':'Notification'}</h5>
+      :b.kind==='boq'?'BOQ not released'
+      :b.kind==='dup'?'Duplicate customer':'Notification'}</h5>
     <p>${esc(b.message)}</p>
     <div class="row">
       ${b.lead_id?`<button class="btn-sun" onclick="hidePop();openLead('${b.lead_id}')">Open the lead</button>`:''}
@@ -61,10 +65,12 @@ function watchBells(){
       const b=payload.new;
       /* a win or a handover somewhere else means the cached lists are behind */
       DATAVER++;
+      if(!bellFor(b))return;
       BELLS=[b,...BELLS].slice(0,40);
       paintBell();
-      /* your own win should not startle you */
-      if(b.created_by!==ME.id)popNotice(b);
+      /* your own win should not startle you - but a duplicate you have just
+         keyed in is exactly what you need to be told about */
+      if(b.created_by!==ME.id||b.kind==='dup')popNotice(b);
     })
     .subscribe();
   if(window.Notification&&Notification.permission==='default')

@@ -296,6 +296,11 @@ async function renderMgmtReport(){
      salesperson but not yet qualified - waiting on the customer */
   const pending=openGot.filter(l=>!qualBy(l)&&!hasPh(l));
   const feedback=openGot.filter(l=>!qualBy(l)&&hasPh(l)&&l.assigned_to);
+  /* the three shown as one bar, "Not yet qualify" (Kevin, 5 Oct 2026):
+     still open and not qualified on the last day shown, phone or not,
+     salesperson or not. Its sheet says which of the three each lead is. */
+  const notYet=openGot.filter(l=>!qualBy(l));
+  const notYetWhy=l=>!hasPh(l)?'Pending phone number':!l.assigned_to?'No status':'Pending feedback from customer';
   const [qN,qE]=split(qualSet),[dN,dE]=split(disqInWin);
   const [wN,wE]=split(wonSet),[lN,lE]=split(lostSet),[pN,pE]=split(progSet);
   /* the leads behind each bar, for the Export Excel button in the zoom */
@@ -305,8 +310,8 @@ async function renderMgmtReport(){
     'Stage':(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code,
     'Stage date':l.stage_entered_at?localDay(l.stage_entered_at):'',
     'Salesperson':l.assigned_to?staffName(l.assigned_to):''});
-  const sheetsOf=sets=>()=>Object.fromEntries(Object.entries(sets).map(([k,v])=>[k,v.map(leadRow)]));
-  const flowLabels=['Raw Lead','Qualified','Disqualified','No status','Pending Phone number','Pending feedback from customer'];
+  const sheetsOf=sets=>()=>Object.fromEntries(Object.entries(sets).map(([k,v])=>[k,v.map(l=>k==='Not yet qualify'?{...leadRow(l),'Waiting on':notYetWhy(l)}:leadRow(l))]));
+  const flowLabels=['Raw Lead','Qualified','Disqualified','Not yet qualify'];
   const qualLabels=['Qualified','Closed-Won','Closed-Lost','In progress'];
 
   /* Residential against C&I, per salesperson, two columns each */
@@ -398,10 +403,10 @@ async function renderMgmtReport(){
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${groupChart(flowLabels,
-        [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-nostatus)','var(--c-pending)','var(--c-feedback)'],values:[0,qE,dE,0,0,0]},
-         {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-nostatus)','var(--c-pending)','var(--c-feedback)'],values:[got.length,qN,dN,noStatus.length,pending.length,feedback.length]}],
+        [{name:'Lead came in earlier (light)',color:['var(--c-raw)','var(--c-qual-2)','var(--c-disq-2)','var(--c-feedback)'],values:[0,qE,dE,0]},
+         {name:'Lead came in this period (dark)',color:['var(--c-raw)','var(--c-qual)','var(--c-disq)','var(--c-feedback)'],values:[got.length,qN,dN,notYet.length]}],
         {title:'Lead stage distribution',stacked:true,compact:true,
-         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'No status':noStatus,'Pending Phone number':pending,'Pending feedback from customer':feedback}),
+         sheets:sheetsOf({'Raw Lead':got,'Qualified':qualSet,'Disqualified':disqInWin,'Not yet qualify':notYet}),
          cap:'All five channels · dark = lead came in this period, light = came in earlier'})}
       ${groupChart(qualLabels,
         [{name:'Lead came in earlier (light)',color:['var(--c-qual-2)','var(--c-won-2)','var(--c-lost-2)','var(--c-active-2)'],values:[qE,wE,lE,pE]},
