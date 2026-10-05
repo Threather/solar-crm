@@ -315,12 +315,7 @@ async function renderMgmtReport(){
 
   /* against a MONTHLY target, so this month's leads - never the window's. On
      All time it put 2,711 leads beside a target of 50. */
-  /* every channel, the same 531 the stage chart shows, with the channels
-     spelled out under it (Kevin, 5 Oct 2026) */
-  const monLeads=rows.filter(l=>localDay(dayOf(l)).slice(0,7)===thisM);
-  const mktLeads=monLeads.length;
-  const chanCount={};monLeads.forEach(l=>{const k=l.lead_channel?l.lead_channel.replace(/_/g,' '):'No channel';chanCount[k]=(chanCount[k]||0)+1;});
-  const chanLine=Object.entries(chanCount).sort((a,b)=>b[1]-a[1]).map(([k,v])=>k+' '+v).join(' · ');
+  const mktLeads=rows.filter(l=>MG_MARKETING.includes(l.lead_channel)&&localDay(dayOf(l)).slice(0,7)===thisM).length;
 
   /* ONE COLOUR PER PERSON, THE SAME ON EVERY CHART. Their sheet gives each
      salesperson a colour and then changes it from chart to chart; here Morn is
@@ -397,13 +392,9 @@ async function renderMgmtReport(){
     ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
     <div class="homegrid three mgrid">
-      ${leadTarget?groupChart(['Raw Lead Target','Raw Lead'],
-        [{name:'Target',color:'var(--c-target)',values:[leadTarget,0]},
-         /* the Raw Lead bar split by channel, biggest at the bottom */
-         ...Object.entries(chanCount).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>({name:k,
-           color:k==='No channel'?'var(--viz-mute)':['var(--c-raw)','var(--viz-1)','var(--viz-3)','var(--viz-good)','var(--viz-4)'][i%5],values:[0,v]}))],
-        {title:'Raw lead target vs actual',stacked:true,compact:true,sideNames:true,
-         cap:'All channels, '+monthName(thisM)})
+      ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
+        {title:'Raw lead target vs actual',colors:['var(--c-target)','var(--c-raw)'],table:false,compact:true,
+         cap:'Digital and offline marketing, '+monthName(thisM)})
         :emptyChart('Raw lead target vs actual','No lead target set',
           'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
       ${groupChart(flowLabels,
