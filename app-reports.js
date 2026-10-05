@@ -800,7 +800,7 @@ function groupChart(labels,series,opts){
   labels.forEach((lab,li)=>{
     const groupW=ST?bwS:bw*n+inner*(n-1);
     const left=PL+band*li+(band-groupW)/2;
-    let acc=0;
+    let acc=0, sideY=Infinity;
     /* stacked labels, decided per column (2 Oct 2026): a column with one part
        says its number once, above it; a column whose parts are all tall
        enough labels each inside; otherwise the parts are written small above
@@ -844,7 +844,14 @@ function groupChart(labels,series,opts){
                           :`<rect x="${x}" y="${yy}" width="${w}" height="${Math.max(1,h)}" fill="${fillC}">`)
           + `<title>${esc(lab)} \u00b7 ${esc(sr.name)}: ${v}</title>`
           + (capped&&h>R*2?'</path>':'</rect>');
-      if(v>0&&inside) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
+      /* each part of a split column says its number: inside when it fits,
+         otherwise to the right of the bar, nudged up so two thin parts do
+         not print on top of each other (Kevin, 5 Oct 2026) */
+      if(v>0&&ST&&nz.length>1){
+        if(h>=16) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
+        else{let ty=Math.min(yy+h/2+3,sideY-(C?10:12));sideY=ty;
+          bars+=`<text class="seglabel" x="${x+w+4}" y="${ty}" text-anchor="start" style="fill:var(--ink-2)">${v}</text>`;}
+      }
       if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" style="fill:var(--ink-2)">${v}</text>`;
       acc+=v;
     });
