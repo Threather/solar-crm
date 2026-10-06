@@ -212,11 +212,10 @@ async function renderMgmtReport(){
     const isNew=l=>inWin(dayOf(l));
     const open=mine.filter(l=>!TERMINAL.includes(l.stage_code));
     const wonHere=wonInWin.filter(l=>l.assigned_to===p.id);
-    /* handled = every lead in their hands during the window: new in it,
-       still open, or won or lost in it (Kevin, 29 Sep 2026). Active is the
-       open ones only, whatever month they came in. */
-    /* "still open" means open on the last day shown, not today */
-    const hl=mine.filter(l=>isNew(l)||!(TERMINAL.includes(l.stage_code)&&localDay(l.stage_entered_at||dayOf(l))<=today)||inWin(l.stage_entered_at));
+    /* handled = leads RECEIVED in the range, by lead date (Kevin, 6 Oct 2026).
+       It used to add old open leads too, so Han read 2 in October on leads
+       from June nobody touched. */
+    const hl=mine.filter(isNew);
     return {name:p.full_name,id:p.id,hl,
       handled:hl.length,
       active:open.length,
