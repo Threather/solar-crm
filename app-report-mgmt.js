@@ -297,7 +297,12 @@ async function renderMgmtReport(){
     return ms.length&&TERMINAL.includes(l.stage_code)?ms[ms.length-1].to_stage:ms.length&&localDay(l.stage_entered_at||'')>today?ms[ms.length-1].to_stage:l.stage_code;};
   const endOk=l=>localDay(l.stage_entered_at||dayOf(l))<=today;
   const lostSet=qualSet.filter(l=>l.stage_code===LOST&&inWin(l.stage_entered_at)&&endOk(l));
-  const progSet=qualSet.filter(l=>!(TERMINAL.includes(l.stage_code)&&endOk(l)));
+  /* In progress = every lead qualified by the last day shown and still open
+     on it, whenever it qualified (Kevin, 6 Oct 2026). It used to take only
+     the range's own qualified, so September's 44 open leads vanished from
+     October's board. */
+  const progSet=rows.filter(l=>everQual(l)&&localDay(qualOn[l.id]||dayOf(l))<=today
+    &&!(TERMINAL.includes(l.stage_code)&&endOk(l)));
   /* No status = a phone, still open, and no salesperson yet - qualified or
      not, so a qualified one counts here AND under Qualified (Kevin, 2 Oct
      2026). Pending contact = open and not qualified, with no phone, or with a
