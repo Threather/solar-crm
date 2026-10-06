@@ -64,7 +64,7 @@ async function renderMgmtReport(){
 
   const [tg,acts,quots,fins,pays,finrows,expd]=await Promise.all([
     loadTargets(mStart),
-    repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('activity_type',['call','note']).order('id'),ids),
+    repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('activity_type',['call','note','stage_change']).order('id'),ids),
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
     repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month').order('id'),ids),
@@ -202,6 +202,12 @@ async function renderMgmtReport(){
     const days=new Set(notes).size;
     return [p.full_name,days?+(notes.length/days).toFixed(2):0,notes.length,days,p.id];
   });
+
+  /* # of customers contacted (Kevin's client, 6 Oct 2026): a remark added or
+     a stage moved in the range, on a lead the person holds. One customer
+     counts once however many times they were contacted. */
+  const touched=l=>(actsBy[l.id]||[]).some(a=>inWin(a.activity_type==='stage_change'?a.created_at:(a.note_date||a.created_at)));
+  const contactedOf=p=>rows.filter(l=>l.assigned_to===p.id&&touched(l));
 
   /* leads handled against leads still active, per person */
   /* Still-open is split by where the lead came from - this window or earlier -
@@ -495,10 +501,12 @@ async function renderMgmtReport(){
           [{name:'Handled '+per,color:'var(--c-handled)',values:handled.map(r=>r.handled)},
            /* every lead the person still has to work on, whatever month it came
               in - Kevin, 29 Sep 2026, after trying it split by month */
-           {name:'# of Active Lead',color:'var(--c-active)',values:people.map(p=>progSet.filter(l=>l.assigned_to===p.id).length)}],
+           {name:'# of Active Lead',color:'var(--c-active)',values:people.map(p=>progSet.filter(l=>l.assigned_to===p.id).length)},
+           {name:'# of Customer Contacted',color:'var(--viz-3)',values:people.map(p=>contactedOf(p).length)}],
           {title:'# of leads held and # of active lead',compact:true,
            sheets:()=>({'Handled':handled.flatMap(r=>r.hl.map(leadRow)),
-             'Active Lead':people.flatMap(p=>progSet.filter(l=>l.assigned_to===p.id).map(leadRow))})})
+             'Active Lead':people.flatMap(p=>progSet.filter(l=>l.assigned_to===p.id).map(leadRow)),
+             'Customer Contacted':people.flatMap(p=>contactedOf(p).map(leadRow))})})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
         ?groupChart(typePeople.map(first),
