@@ -215,9 +215,10 @@ async function renderMgmtReport(){
     /* handled = every lead in their hands during the window: new in it,
        still open, or won or lost in it (Kevin, 29 Sep 2026). Active is the
        open ones only, whatever month they came in. */
-    return {name:p.full_name,
-      /* "still open" means open on the last day shown, not today */
-      handled:mine.filter(l=>isNew(l)||!(TERMINAL.includes(l.stage_code)&&localDay(l.stage_entered_at||dayOf(l))<=today)||inWin(l.stage_entered_at)).length,
+    /* "still open" means open on the last day shown, not today */
+    const hl=mine.filter(l=>isNew(l)||!(TERMINAL.includes(l.stage_code)&&localDay(l.stage_entered_at||dayOf(l))<=today)||inWin(l.stage_entered_at));
+    return {name:p.full_name,id:p.id,hl,
+      handled:hl.length,
       active:open.length,
       openNew:open.filter(isNew).length, openOld:open.filter(l=>!isNew(l)).length,
       wonNew:wonHere.filter(isNew).length, wonOld:wonHere.filter(l=>!isNew(l)).length};
@@ -496,7 +497,9 @@ async function renderMgmtReport(){
            /* every lead the person still has to work on, whatever month it came
               in - Kevin, 29 Sep 2026, after trying it split by month */
            {name:'# of Active Lead',color:'var(--c-active)',values:people.map(p=>progSet.filter(l=>l.assigned_to===p.id).length)}],
-          {title:'# of leads held and # of active lead',compact:true})
+          {title:'# of leads held and # of active lead',compact:true,
+           sheets:()=>({'Handled':handled.flatMap(r=>r.hl.map(leadRow)),
+             'Active Lead':people.flatMap(p=>progSet.filter(l=>l.assigned_to===p.id).map(leadRow))})})
         :emptyChart('# of leads held and # of active lead','Nobody holds a lead yet','This fills in as leads are assigned.')}
       ${typePeople.length
         ?groupChart(typePeople.map(first),
