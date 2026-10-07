@@ -8,7 +8,7 @@ let SRROWS=[], SRF={q:'',mon:'',who:''};
 
 const canSalesReport=()=>['admin','manager','finance'].includes(ME.role);
 
-async function renderSalesReport(){
+async function renderWonSheet(){
   if(!canSalesReport()){
     $('main').innerHTML=blank('The sales report is not open to your role','Ask an admin if you need it.');return;}
   $('main').innerHTML=SKEL;

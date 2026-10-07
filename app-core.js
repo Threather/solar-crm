@@ -547,7 +547,7 @@ function go(v){
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,dups:renderDups,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
-    targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderSalesReport}[v])();
+    targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderWonSheet}[v])();
 }
 
 /* ---------------- editable lists ---------------- */
