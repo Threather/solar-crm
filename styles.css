@@ -1006,7 +1006,7 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .srfbtn.on{color:var(--sun-deep);font-weight:700}
 .srfpop{position:absolute;z-index:50;background:var(--card);border:1px solid var(--line);border-radius:10px;
   box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;max-height:320px;overflow:auto;min-width:200px;font-size:13px;text-transform:none;letter-spacing:normal;font-weight:400;color:var(--ink)}
-.srfpop label{display:flex;gap:8px;align-items:center;padding:3px 0;white-space:nowrap}
+.srfpop label{display:flex;gap:8px;align-items:center;padding:3px 0;white-space:nowrap;text-transform:none;letter-spacing:normal;font-size:13px;font-weight:500;color:var(--ink-2);margin:0}
 .srfpop .srfhead{font-weight:700;margin-bottom:6px}
 .srfpop .srfrow{display:flex;gap:8px;margin-top:8px;position:sticky;bottom:-10px;background:var(--card);padding:6px 0}
 .srtable tr.srband th.srpin0{max-width:none;min-width:0;z-index:4}
