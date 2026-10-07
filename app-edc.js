@@ -25,25 +25,17 @@ const EDCCOL={
    the small band leaves the large band, which has no such step, alone */
 const edcHasCol=(l,k)=>!k.startsWith('d:')||(edcFields(l)||[]).some(([f])=>'d:'+f===k);
 const edcPass=(l,skip)=>Object.entries(EDCF).every(([k,v])=>k===skip||!v.length||!edcHasCol(l,k)||EDCCOL[k](l).some(x=>v.includes(x)));
-const edcHead=(label,key,title)=>`<th${title?` title="${esc(title)}"`:''}><button class="srfbtn${EDCF[key]&&EDCF[key].length?' on':''}" onclick="edcFilterOpen(event,'${key}','${esc(label)}')">${label} ▾</button></th>`;
+const edcHead=(label,key,title)=>`<th${title?` title="${esc(title)}"`:''}>${hfHead(label,EDCF[key]&&EDCF[key].length,`edcFilterOpen(event,'${key}','${esc(label)}')`)}</th>`;
+const EDCLABEL={};
 function edcFilterOpen(ev,key,label){
-  ev.stopPropagation();srFilterClose();
+  EDCLABEL[key]=label;
   const cnt={};EDCSRC.filter(l=>edcHasCol(l,key)&&edcPass(l,key)).forEach(l=>[...new Set(EDCCOL[key](l))].forEach(v=>cnt[v]=(cnt[v]||0)+1));
-  /* months in date order, "Not yet" and blanks last */
+  /* months in date order, grouped by step on Progress; "Not yet" and blanks last */
   const ord=v=>{const parts=v.split(': '),tail=parts.pop(),m=/^([A-Z][a-z]+) (\d{4})$/.exec(tail);
     const mo=m?'JanFebMarAprMayJunJulAugSepOctNovDec'.indexOf(m[1].slice(0,3))/3+1:0;
     return parts.join('')+'|'+(m?m[2]+String(mo).padStart(2,'0'):'~'+tail);};
   const vals=Object.keys(cnt).sort((a,b)=>ord(a).localeCompare(ord(b),undefined,{numeric:true}));
-  const cur=EDCF[key]||[];
-  const box=document.createElement('div');box.className='srfpop';box.id='srfpop';box.onclick=e=>e.stopPropagation();
-  box.innerHTML=`<div class="srfhead">${esc(label)}</div>`
-    +vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${cur.includes(v)?'checked':''}> ${esc(v)} <span class="quiet">${cnt[v]}</span></label>`).join('')
-    +`<div class="srfrow"><button class="btn-mini" onclick="EDCF['${key}']=[...document.querySelectorAll('#srfpop input:checked')].map(i=>i.value);srFilterClose();renderEdc()">Apply</button>
-      <button class="btn-mini" onclick="EDCF['${key}']=[];srFilterClose();renderEdc()">Clear</button></div>`;
-  document.body.appendChild(box);
-  const r=ev.currentTarget.getBoundingClientRect();
-  box.style.left=Math.max(12,Math.min(r.left,window.innerWidth-box.offsetWidth-12))+'px';box.style.top=(r.bottom+4+window.scrollY)+'px';
-  setTimeout(()=>document.addEventListener('click',srFilterClose,{once:true}),0);
+  hfOpen(ev,{title:label,values:vals.map(v=>[v,cnt[v]]),selected:EDCF[key]||[],apply:sel=>{EDCF[key]=sel;renderEdc();}});
 }
 
 async function renderEdc(){
@@ -70,9 +62,8 @@ async function renderEdc(){
   const fSmall=smallOpen.filter(l=>edcPass(l)),fLarge=largeOpen.filter(l=>edcPass(l));
   const fStarted=started.filter(l=>edcPass(l)),fPending=pending.filter(l=>edcPass(l));
   const nOn=Object.values(EDCF).filter(v=>v.length).length;
-  const fNote=nOn&&EDCSCOPE!=='edit'?`<p class="hint">${nOn} filter${nOn===1?'':'s'} on · showing ${
-    EDCSCOPE==='work'?fSmall.length+fLarge.length:EDCSCOPE==='sent'?fStarted.length:fPending.length} of ${EDCSRC.length} ·
-    <a class="lnk" onclick="EDCF={};renderEdc()">Clear filters</a></p>`:'';
+  const fNote=nOn&&EDCSCOPE!=='edit'?hfChips(Object.entries(EDCF).map(([k,v])=>[EDCLABEL[k]||k,v,`EDCF['${k}']=[];renderEdc()`]),
+    'EDCF={};renderEdc()',`Showing ${EDCSCOPE==='work'?fSmall.length+fLarge.length:EDCSCOPE==='sent'?fStarted.length:fPending.length} of ${EDCSRC.length}`):'';
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">EDC / EAC Submissions</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">On-Grid and Hybrid won deals, split by inverter kWac. Dates save when you pick them.</p>

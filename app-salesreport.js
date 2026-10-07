@@ -44,10 +44,10 @@ async function renderWonSheet(){
     <div class="toolbar">
       <input placeholder="Search name, phone or ref ID…" value="${esc(SRF.q)}" oninput="SRF.q=this.value;drawSalesReport()">
       <div class="scope srgroups" id="srgroups" role="group" aria-label="Column groups"></div>
-      <button class="btn-line" onclick="SRCF={};SRF.q='';renderWonSheet()">Clear filters</button>
       <button class="btn-line" onclick="exportSalesReport()">Export Excel</button>
     </div>
     <div id="srsum" class="hint"></div>
+    <div id="srchips"></div>
     <div class="srtop" id="srtop" onscroll="srSync(this)"><div></div></div>
     <div class="tablewrap srwrap" id="srwrap" onscroll="srSync(this)"></div>`;
   drawSalesReport();
@@ -134,7 +134,9 @@ function drawSalesReport(){
   const total=rows.reduce((a,r)=>a+finDue(r),0), left=rows.reduce((a,r)=>a+srLeft(r),0);
   const on=Object.values(SRCF).filter(v=>v.length).length;
   $('srsum').textContent=`${rows.length} won deal${rows.length===1?'':'s'} · ${fmtMoney(total)} · ${fmtMoney(left)} remaining`
-    +(on?` · ${on} filter${on===1?'':'s'} on`:'');
+    ;
+  $('srchips').innerHTML=hfChips(Object.entries(SRCF).map(([h,v])=>[h,v,`SRCF['${esc(h)}']=[];drawSalesReport()`]),
+    'SRCF={};drawSalesReport()');
   $('srgroups').innerHTML=SR_GROUPS.map(([k,l])=>
     `<button class="${SRHIDE.has(k)?'':'on'} srg-${k}" aria-pressed="${!SRHIDE.has(k)}" onclick="srToggle('${k}')">${l}</button>`).join('');
   if(!rows.length){$('srwrap').innerHTML=blank('No won deal matches','Clear the filters or the search.');srSizeTop();return;}
@@ -143,7 +145,7 @@ function drawSalesReport(){
   const gname=g=>g==='pin'?'':(SR_GROUPS.find(x=>x[0]===g)||[])[1]||'';
   const head=`<tr class="srband">${runs.map(x=>`<th colspan="${x.n}" class="srg-${x.g}${x.g==='pin'?' srpin srpin0':''}">${esc(gname(x.g))}</th>`).join('')}</tr>
     <tr>${cols.map((c,k)=>`<th class="srg-${c.g}${k<3?' srpin srpin'+k:''}">${c.f
-      ?`<button class="srfbtn${SRCF[c.h]&&SRCF[c.h].length?' on':''}" onclick="srFilterOpen(event,'${esc(c.h)}')">${esc(c.h)} ▾</button>`
+      ?hfHead(c.h,SRCF[c.h]&&SRCF[c.h].length,`srFilterOpen(event,'${esc(c.h)}')`)
       :esc(c.h)}</th>`).join('')}</tr>`;
   const cell=(c,r,i,k)=>{
     const v=c.v(r,i), pin=k<3?` class="srpin srpin${k}"`:'';
@@ -172,28 +174,13 @@ function srSync(el){const o=el.id==='srtop'?$('srwrap'):$('srtop');
   if(o&&o.scrollLeft!==el.scrollLeft)o.scrollLeft=el.scrollLeft;}
 
 /* the heading filter: that column's values, counted from the rows the other
-   filters leave, ticked to filter - as on the Leads screen */
+   filters leave (app-filter.js draws it) */
 function srFilterOpen(ev,h){
-  ev.stopPropagation();srFilterClose();
   const c=srCols(5).find(o=>o.h===h);if(!c)return;
   const cnt={};srRows(h).forEach((r,i)=>{const v=srFv(c,r,i);cnt[v]=(cnt[v]||0)+1;});
   const vals=Object.keys(cnt).sort((a,b)=>a==='(blank)'?1:b==='(blank)'?-1:a.localeCompare(b,undefined,{numeric:true}));
-  const cur=SRCF[h]||[];
-  const box=document.createElement('div');box.className='srfpop';box.id='srfpop';box.onclick=e=>e.stopPropagation();
-  box.innerHTML=`<div class="srfhead">${esc(h)}</div>`
-    +vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${cur.includes(v)?'checked':''}> ${esc(v)} <span class="quiet">${cnt[v]}</span></label>`).join('')
-    +`<div class="srfrow"><button class="btn-mini" onclick="srFilterApply('${esc(h)}')">Apply</button>
-      <button class="btn-mini" onclick="SRCF['${esc(h)}']=[];srFilterClose();drawSalesReport()">Clear</button></div>`;
-  document.body.appendChild(box);
-  const r=ev.currentTarget.getBoundingClientRect();
-  box.style.left=Math.max(12,Math.min(r.left,window.innerWidth-box.offsetWidth-12))+'px';box.style.top=(r.bottom+4+window.scrollY)+'px';
-  setTimeout(()=>document.addEventListener('click',srFilterClose,{once:true}),0);
+  hfOpen(ev,{title:h,values:vals.map(v=>[v,cnt[v]]),selected:SRCF[h]||[],apply:sel=>{SRCF[h]=sel;drawSalesReport();}});
 }
-function srFilterApply(h){
-  SRCF[h]=[...document.querySelectorAll('#srfpop input:checked')].map(i=>i.value);
-  srFilterClose();drawSalesReport();
-}
-function srFilterClose(){const b=$('srfpop');if(b)b.remove();}
 
 /* every column in the client's order, whatever is hidden on screen */
 async function exportSalesReport(){
