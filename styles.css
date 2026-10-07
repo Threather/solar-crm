@@ -974,8 +974,39 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .lnk{cursor:pointer;text-decoration:underline;color:var(--ink-soft)}
 .srtable th,.srtable td{white-space:nowrap;vertical-align:middle}
 .srtable td.sr-cut{max-width:260px;overflow:hidden;text-overflow:ellipsis}
-/* No, ref and customer stay put while the forty columns scroll past */
-.srtable th:nth-child(-n+3),.srtable td:nth-child(-n+3){position:sticky;background:var(--card);z-index:1}
-.srtable th:nth-child(1),.srtable td:nth-child(1){left:0;min-width:40px}
-.srtable th:nth-child(2),.srtable td:nth-child(2){left:40px;min-width:90px}
-.srtable th:nth-child(3),.srtable td:nth-child(3){left:130px;box-shadow:1px 0 0 var(--line)}
+/* Sales Report (7 Oct 2026): the table scrolls inside its own box so the
+   headings can stay on top and Ref ID + Customer stay on the left */
+.srwrap{max-height:calc(100vh - 250px);overflow:auto}
+.srtop{overflow-x:auto;overflow-y:hidden;height:14px;margin:0 0 4px}
+.srtop>div{height:1px}
+.srtable thead th{position:sticky;top:0;z-index:2;background:var(--card)}
+.srtable thead tr+tr th{top:26px}
+.srtable tr.srband th{height:26px;padding:4px 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2,#3a372f)}
+.srtable .srpin{position:sticky;background:var(--card);z-index:1}
+.srtable thead .srpin{z-index:3}
+.srtable .srpin0{left:0;min-width:44px;max-width:44px}
+.srtable .srpin1{left:44px;min-width:120px;max-width:120px}
+.srtable .srpin2{left:164px;min-width:190px;max-width:230px;overflow:hidden;text-overflow:ellipsis;box-shadow:1px 0 0 var(--line)}
+/* one tint per group, on the band and as a stripe under each heading */
+.srtable .srband .srg-deal,.srgroups .srg-deal.on{background:#f4e6de}
+.srtable .srband .srg-cust,.srgroups .srg-cust.on{background:#e2ecef}
+.srtable .srband .srg-sys,.srgroups .srg-sys.on{background:#ece4f1}
+.srtable .srband .srg-inst,.srgroups .srg-inst.on{background:#e2efe5}
+.srtable .srband .srg-edc,.srgroups .srg-edc.on{background:#f3ebd8}
+.srtable .srband .srg-money,.srgroups .srg-money.on{background:#e4e8f3}
+.srtable .srband .srg-pay,.srgroups .srg-pay.on{background:#e3f0ea}
+.srgroups button.on{color:var(--ink,#1c1a17)}
+.srgroups button:not(.on){text-decoration:line-through;opacity:.6}
+.srtable tbody tr:nth-child(even) td{background:var(--card-alt)}
+.srtable tbody tr:hover td{background:var(--sunk)}
+.sr-owe{color:var(--bad)}
+.srtable tfoot td{position:sticky;bottom:0;background:var(--sunk);border-top:2px solid var(--line);z-index:1}
+.srtable tfoot td.srpin{z-index:3}
+.srfbtn{all:unset;cursor:pointer;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
+.srfbtn.on{color:var(--sun-deep);font-weight:700}
+.srfpop{position:absolute;z-index:50;background:var(--card);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);padding:10px 12px;max-height:320px;overflow:auto;min-width:200px;font-size:13px;text-transform:none;letter-spacing:normal;font-weight:400;color:var(--ink)}
+.srfpop label{display:flex;gap:8px;align-items:center;padding:3px 0;white-space:nowrap}
+.srfpop .srfhead{font-weight:700;margin-bottom:6px}
+.srfpop .srfrow{display:flex;gap:8px;margin-top:8px;position:sticky;bottom:-10px;background:var(--card);padding:6px 0}
+.srtable tr.srband th.srpin0{max-width:none;min-width:0;z-index:4}

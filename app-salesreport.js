@@ -3,8 +3,15 @@
    column for column, so they can read a won customer's whole history - sale,
    system, installation, EDC and each payment - without opening the lead.
    Admin, the manager and finance; read only. Payment method is blank until
-   lead_payments has somewhere to keep it. */
-let SRROWS=[], SRF={q:'',mon:'',who:''};
+   lead_payments has somewhere to keep it.
+
+   Made easier to read on 7 Oct 2026, when the client found forty columns hard
+   going: a filter in each heading that has a short list of values, a
+   scrollbar on top as well as underneath, coloured column groups that can be
+   hidden, Ref ID and Customer pinned on the left, the headings pinned on top,
+   Remaining read as Paid or owed, and a total row. The export keeps every
+   column in the client's own order, whatever is hidden on screen. */
+let SRROWS=[], SRF={q:''}, SRCF={}, SRHIDE=new Set(), SROPEN='';
 
 const canSalesReport=()=>['admin','manager','finance'].includes(ME.role);
 
@@ -32,34 +39,21 @@ async function renderWonSheet(){
     contacts:contacts[l.id]||0}))
     .sort((a,b)=>String(a.stage_entered_at||'').localeCompare(String(b.stage_entered_at||'')));
 
-  const months=[...new Set(SRROWS.map(srMonth).filter(Boolean))].sort().reverse();
-  const people=[...new Set(SRROWS.map(r=>r.assigned_to).filter(Boolean))]
-    .map(id=>[id,staffName(id)]).sort((a,b)=>a[1].localeCompare(b[1]));
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Sales Report</h2>
     <div class="toolbar">
       <input placeholder="Search name, phone or ref ID…" value="${esc(SRF.q)}" oninput="SRF.q=this.value;drawSalesReport()">
-      <select onchange="SRF.mon=this.value;drawSalesReport()" title="Month won">
-        <option value="">Every month</option>${months.map(m=>`<option value="${m}" ${SRF.mon===m?'selected':''}>${esc(monthName(m))}</option>`).join('')}</select>
-      <select onchange="SRF.who=this.value;drawSalesReport()" title="Salesperson">
-        <option value="">Every salesperson</option>${people.map(([id,n])=>`<option value="${id}" ${SRF.who===id?'selected':''}>${esc(n)}</option>`).join('')}</select>
+      <div class="scope srgroups" id="srgroups" role="group" aria-label="Column groups"></div>
+      <button class="btn-line" onclick="SRCF={};SRF.q='';renderWonSheet()">Clear filters</button>
       <button class="btn-line" onclick="exportSalesReport()">Export Excel</button>
     </div>
     <div id="srsum" class="hint"></div>
-    <div class="tablewrap" id="srwrap"></div>`;
+    <div class="srtop" id="srtop" onscroll="srSync(this)"><div></div></div>
+    <div class="tablewrap srwrap" id="srwrap" onscroll="srSync(this)"></div>`;
   drawSalesReport();
 }
 
 const srMonth=r=>r.stage_entered_at?localDay(r.stage_entered_at).slice(0,7):'';
-function srRows(){
-  const q=SRF.q.trim().toLowerCase();
-  return SRROWS.filter(r=>{
-    if(q&&![r.customer_name,r.phone,r.ref_id].some(v=>String(v||'').toLowerCase().includes(q)))return false;
-    if(SRF.mon&&srMonth(r)!==SRF.mon)return false;
-    if(SRF.who&&r.assigned_to!==SRF.who)return false;
-    return true;
-  });
-}
 /* at least five payment columns, as on their sheet, more if a deal has more */
 const srPayCols=rows=>Math.max(5,...rows.map(r=>r.payments.length));
 const srDays=(a,b)=>a&&b?Math.round((new Date(localDay(b))-new Date(localDay(a)))/864e5):null;
@@ -70,58 +64,146 @@ const srInspect=r=>r.edc_inspection_date||r.edc_provincial_date||r.edc_pp_date||
 const srEstimate=r=>{const n=r.expected.find(p=>p.expected_on>=localDay(new Date()))||r.expected[r.expected.length-1];
   return n?monthName(n.expected_on.slice(0,7)):'';};
 const srBattery=r=>r.battery_kwh||(r.battery_kwh_each&&r.battery_pcs?r.battery_kwh_each*r.battery_pcs:null);
+const srLeft=r=>Math.max(0,finDue(r)-finPaid(r));
 
-/* one reader for the screen and the export, so the two cannot disagree */
-function srCells(r,i,n){
-  const pays=[];for(let k=0;k<n;k++){const p=r.payments[k];pays.push(p?Number(p.amount_usd||0):null,p?localDay(p.paid_on):null);}
-  return [i+1,srMonth(r)?monthName(srMonth(r)):'',r.ref_id||'',
-    r.stage_entered_at?localDay(r.stage_entered_at):'',r.lead_date||localDay(r.created_at),
-    r.assigned_to?staffName(r.assigned_to):'',r.referrer_name||'',(r.lead_channel||'').replace(/_/g,' '),
-    r.customer_name||'',r.phone||'',
-    r.panel_pcs??'',[r.panel_brand,r.panel_watt?r.panel_watt+'W':''].filter(Boolean).join(' '),
-    r.inverter_kw_total??r.inverter_kw??'',r.inverter_brand||'',srBattery(r)??'',r.battery_brand||'',
-    r.site_engineer_id?staffName(r.site_engineer_id):'',
-    srDays(r.lead_date||r.created_at,r.stage_entered_at)??'',r.contacts,
-    r.boq_date||'',r.delivery_date||'',r.installation_start||'',r.installation_end||'',
-    srEdcInform(r)||'',srInspect(r)||'',r.edc_approval_date||'',r.installation_team||'',
-    finDue(r),'',Math.max(0,finDue(r)-finPaid(r)),srEstimate(r),
-    ...pays,
-    r.site_link||r.site_address||'',r.fin?.finance_remark||''];
+/* THE COLUMNS, once. h = the client's heading, g = group, v = the value,
+   t = how it is drawn (money, date, name, cut, n), f = has a heading filter.
+   `x` is the position in the client's sheet, which the export keeps. */
+const SR_GROUPS=[['deal','Deal'],['cust','Customer'],['sys','System'],['inst','Installation'],['edc','EDC'],['money','Money'],['pay','Payments']];
+function srCols(n){
+  const c=[
+    {x:0,h:'No',g:'pin',v:(r,i)=>i+1,t:'n'},
+    {x:2,h:'Lead Reference ID',g:'pin',v:r=>r.ref_id||''},
+    {x:8,h:'Customer Name',g:'pin',v:r=>r.customer_name||'',t:'name'},
+    {x:1,h:'Month won',g:'deal',v:r=>srMonth(r)?monthName(srMonth(r)):'',f:1},
+    {x:3,h:'Agreement Sign Off Date',g:'deal',v:r=>r.stage_entered_at?localDay(r.stage_entered_at):'',t:'date'},
+    {x:4,h:'Lead Received Date',g:'deal',v:r=>r.lead_date||localDay(r.created_at),t:'date'},
+    {x:5,h:'Sales Person',g:'deal',v:r=>r.assigned_to?staffName(r.assigned_to):'',f:1},
+    {x:6,h:'Referral By',g:'deal',v:r=>r.referrer_name||'',f:1},
+    {x:7,h:'Lead Channel',g:'deal',v:r=>(r.lead_channel||'').replace(/_/g,' '),f:1},
+    {x:17,h:'#Days to Closed',g:'deal',v:r=>srDays(r.lead_date||r.created_at,r.stage_entered_at)??'',t:'n'},
+    {x:18,h:'#Times Contacted',g:'deal',v:r=>r.contacts,t:'n'},
+    {x:9,h:'Contact Number',g:'cust',v:r=>r.phone||''},
+    {x:999,h:'Location',g:'cust',v:r=>r.site_link||r.site_address||'',t:'cut'},
+    {x:10,h:'System Size (Pcs)',g:'sys',v:r=>r.panel_pcs??'',t:'n'},
+    {x:11,h:'Panel brand',g:'sys',v:r=>[r.panel_brand,r.panel_watt?r.panel_watt+'W':''].filter(Boolean).join(' '),f:1},
+    {x:12,h:'Inverter Size (kW)',g:'sys',v:r=>r.inverter_kw_total??r.inverter_kw??'',t:'n'},
+    {x:13,h:'Inverter brand',g:'sys',v:r=>r.inverter_brand||'',f:1},
+    {x:14,h:'Battery Size (kWh)',g:'sys',v:r=>srBattery(r)??'',t:'n'},
+    {x:15,h:'Battery brand',g:'sys',v:r=>r.battery_brand||'',f:1},
+    {x:16,h:'Engineering Name',g:'inst',v:r=>r.site_engineer_id?staffName(r.site_engineer_id):'',f:1},
+    {x:19,h:'BOQ Released Date',g:'inst',v:r=>r.boq_date||'',t:'date'},
+    {x:20,h:'Delivery Date',g:'inst',v:r=>r.delivery_date||'',t:'date'},
+    {x:21,h:'Installation Start Date',g:'inst',v:r=>r.installation_start||'',t:'date'},
+    {x:22,h:'Installation End Date',g:'inst',v:r=>r.installation_end||'',t:'date'},
+    {x:26,h:'Installer Team',g:'inst',v:r=>r.installation_team||'',f:1},
+    {x:23,h:'EDC Inform',g:'edc',v:r=>srEdcInform(r)||'',t:'date'},
+    {x:24,h:'Inspection Date',g:'edc',v:r=>srInspect(r)||'',t:'date'},
+    {x:25,h:'EAC Inform',g:'edc',v:r=>r.edc_approval_date||'',t:'date'},
+    {x:27,h:'Amount (USD)',g:'money',v:r=>finDue(r),t:'money',sum:1},
+    {x:28,h:'Payment Method',g:'money',v:()=>''},
+    {x:29,h:'Remaining Amount',g:'money',v:r=>srLeft(r),t:'left',sum:1,
+      fv:r=>srLeft(r)>0.005?'Still owing':'Paid in full',f:1},
+    {x:30,h:'Estimate Received Month',g:'money',v:r=>srEstimate(r),f:1},
+    {x:1000,h:'Remark',g:'money',v:r=>r.fin?.finance_remark||'',t:'cut'}];
+  for(let k=0;k<n;k++){
+    c.push({x:31+k*2,h:`Payment ${k+1} (USD)`,g:'pay',v:r=>r.payments[k]?Number(r.payments[k].amount_usd||0):'',t:'money',sum:1});
+    c.push({x:32+k*2,h:`Payment ${k+1} date`,g:'pay',v:r=>r.payments[k]?localDay(r.payments[k].paid_on):'',t:'date'});
+  }
+  /* Location and Remark close the client's sheet, after the payments */
+  c.forEach(o=>{if(o.x===999)o.x=31+n*2;if(o.x===1000)o.x=32+n*2;});
+  return c;
 }
-function srHead(n){
-  const pays=[];for(let k=1;k<=n;k++)pays.push(`Payment ${k} (USD)`,`Payment ${k} date`);
-  return ['No','Month won','Lead Reference ID','Agreement Sign Off Date','Lead Received Date','Sales Person',
-    'Referral By','Lead Channel','Customer Name','Contact Number','System Size (Pcs)','Panel brand',
-    'Inverter Size (kW)','Inverter brand','Battery Size (kWh)','Battery brand','Engineering Name',
-    '#Days to Closed','#Times Contacted','BOQ Released Date','Delivery Date','Installation Start Date',
-    'Installation End Date','EDC Inform','Inspection Date','EAC Inform','Installer Team','Amount (USD)',
-    'Payment Method','Remaining Amount','Estimate Received Month',...pays,'Location','Remark'];
+/* the value a heading filter ticks: the cell's own text, or its word */
+const srFv=(c,r,i)=>{const v=c.fv?c.fv(r):c.v(r,i);return v===''||v==null?'(blank)':String(v);};
+
+function srRows(skip){
+  const q=SRF.q.trim().toLowerCase(), cols=srCols(5);
+  return SRROWS.filter(r=>{
+    if(q&&![r.customer_name,r.phone,r.ref_id].some(v=>String(v||'').toLowerCase().includes(q)))return false;
+    for(const h in SRCF){
+      if(h===skip||!SRCF[h].length)continue;
+      const c=cols.find(o=>o.h===h); if(c&&!SRCF[h].includes(srFv(c,r)))return false;
+    }
+    return true;
+  });
 }
-const SR_MONEY=new Set(['Amount (USD)','Remaining Amount']);
+
 function drawSalesReport(){
-  const rows=srRows(), n=srPayCols(rows), head=srHead(n);
-  const total=rows.reduce((a,r)=>a+finDue(r),0), left=rows.reduce((a,r)=>a+Math.max(0,finDue(r)-finPaid(r)),0);
-  $('srsum').textContent=`${rows.length} won deal${rows.length===1?'':'s'} · ${fmtMoney(total)} · ${fmtMoney(left)} remaining`;
-  const isDate=h=>/Date$|date$|Inform$/.test(h);
-  $('srwrap').innerHTML=rows.length?`<table class="table-compact srtable"><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>`
-    +rows.map((r,i)=>'<tr>'+srCells(r,i,n).map((v,k)=>{
-      const h=head[k];
-      if(v===''||v==null)return '<td><span class="quiet">—</span></td>';
-      if(SR_MONEY.has(h)||/^Payment \d+ \(USD\)$/.test(h))return `<td class="nowrap"><b>${fmtMoney(v)}</b></td>`;
-      if(isDate(h)&&/^\d{4}-\d\d-\d\d/.test(String(v)))return `<td class="nowrap">${fmtDate(v)}</td>`;
-      if(h==='Customer Name')return `<td><b class="nm">${esc(v)}</b></td>`;
-      if(h==='Remark'||h==='Location')return `<td class="sr-cut" title="${esc(v)}">${h==='Location'&&/^https?:/.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">map</a>`:esc(v)}</td>`;
-      return `<td class="nowrap">${esc(String(v))}</td>`;}).join('')+'</tr>').join('')+'</tbody></table>'
-    :blank('No won deal matches','Clear the search or pick another month.');
+  const rows=srRows(), n=srPayCols(rows), cols=srCols(n).filter(c=>c.g==='pin'||!SRHIDE.has(c.g));
+  const total=rows.reduce((a,r)=>a+finDue(r),0), left=rows.reduce((a,r)=>a+srLeft(r),0);
+  const on=Object.values(SRCF).filter(v=>v.length).length;
+  $('srsum').textContent=`${rows.length} won deal${rows.length===1?'':'s'} · ${fmtMoney(total)} · ${fmtMoney(left)} remaining`
+    +(on?` · ${on} filter${on===1?'':'s'} on`:'');
+  $('srgroups').innerHTML=SR_GROUPS.map(([k,l])=>
+    `<button class="${SRHIDE.has(k)?'':'on'} srg-${k}" aria-pressed="${!SRHIDE.has(k)}" onclick="srToggle('${k}')">${l}</button>`).join('');
+  if(!rows.length){$('srwrap').innerHTML=blank('No won deal matches','Clear the filters or the search.');srSizeTop();return;}
+  /* the band above the headings: one cell per run of a group */
+  const runs=[];cols.forEach(c=>{const L=runs[runs.length-1];if(L&&L.g===c.g)L.n++;else runs.push({g:c.g,n:1});});
+  const gname=g=>g==='pin'?'':(SR_GROUPS.find(x=>x[0]===g)||[])[1]||'';
+  const head=`<tr class="srband">${runs.map(x=>`<th colspan="${x.n}" class="srg-${x.g}${x.g==='pin'?' srpin srpin0':''}">${esc(gname(x.g))}</th>`).join('')}</tr>
+    <tr>${cols.map((c,k)=>`<th class="srg-${c.g}${k<3?' srpin srpin'+k:''}">${c.f
+      ?`<button class="srfbtn${SRCF[c.h]&&SRCF[c.h].length?' on':''}" onclick="srFilterOpen(event,'${esc(c.h)}')">${esc(c.h)} ▾</button>`
+      :esc(c.h)}</th>`).join('')}</tr>`;
+  const cell=(c,r,i,k)=>{
+    const v=c.v(r,i), pin=k<3?` class="srpin srpin${k}"`:'';
+    if(c.t==='left')return `<td${pin} class="nowrap">${v>0.005?`<b class="sr-owe">${fmtMoney(v)}</b>`:'<span class="mark mark-done">Paid</span>'}</td>`;
+    if(v===''||v==null)return `<td${pin}><span class="quiet">—</span></td>`;
+    if(c.t==='money')return `<td${pin} class="nowrap"><b>${fmtMoney(v)}</b></td>`;
+    if(c.t==='date')return `<td${pin} class="nowrap">${fmtDate(v)}</td>`;
+    if(c.t==='name')return `<td class="srpin srpin${k}"><b class="nm">${esc(v)}</b></td>`;
+    if(c.t==='cut')return `<td class="sr-cut" title="${esc(v)}">${c.h==='Location'&&/^https?:/.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener">map</a>`:esc(v)}</td>`;
+    return `<td${pin} class="nowrap">${esc(String(v))}</td>`;};
+  const foot=`<tr class="srtotal">${cols.map((c,k)=>k===2?'<td class="srpin srpin2"><b>Total</b></td>'
+    :c.sum?`<td class="nowrap"><b>${fmtMoney(rows.reduce((a,r,i)=>a+Number(c.v(r,i)||0),0))}</b></td>`
+    :`<td${k<3?` class="srpin srpin${k}"`:''}></td>`).join('')}</tr>`;
+  $('srwrap').innerHTML=`<table class="table-compact srtable"><thead>${head}</thead><tbody>`
+    +rows.map((r,i)=>'<tr>'+cols.map((c,k)=>cell(c,r,i,k)).join('')+'</tr>').join('')
+    +`</tbody><tfoot>${foot}</tfoot></table>`;
+  srSizeTop();
 }
+function srToggle(g){SRHIDE.has(g)?SRHIDE.delete(g):SRHIDE.add(g);drawSalesReport();}
 
+/* the scrollbar on top is an empty strip as wide as the table, scrolled in
+   step with the table itself */
+function srSizeTop(){const t=$('srtop'),w=$('srwrap');if(!t||!w)return;
+  t.firstElementChild.style.width=w.scrollWidth+'px';t.style.display=w.scrollWidth>w.clientWidth?'':'none';}
+let SRSYNC=false;
+function srSync(el){if(SRSYNC){SRSYNC=false;return;}
+  const o=el.id==='srtop'?$('srwrap'):$('srtop');if(!o)return;SRSYNC=true;o.scrollLeft=el.scrollLeft;}
+
+/* the heading filter: that column's values, counted from the rows the other
+   filters leave, ticked to filter - as on the Leads screen */
+function srFilterOpen(ev,h){
+  ev.stopPropagation();srFilterClose();
+  const c=srCols(5).find(o=>o.h===h);if(!c)return;
+  const cnt={};srRows(h).forEach((r,i)=>{const v=srFv(c,r,i);cnt[v]=(cnt[v]||0)+1;});
+  const vals=Object.keys(cnt).sort((a,b)=>a==='(blank)'?1:b==='(blank)'?-1:a.localeCompare(b,undefined,{numeric:true}));
+  const cur=SRCF[h]||[];
+  const box=document.createElement('div');box.className='srfpop';box.id='srfpop';box.onclick=e=>e.stopPropagation();
+  box.innerHTML=`<div class="srfhead">${esc(h)}</div>`
+    +vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${cur.includes(v)?'checked':''}> ${esc(v)} <span class="quiet">${cnt[v]}</span></label>`).join('')
+    +`<div class="srfrow"><button class="btn-mini" onclick="srFilterApply('${esc(h)}')">Apply</button>
+      <button class="btn-mini" onclick="SRCF['${esc(h)}']=[];srFilterClose();drawSalesReport()">Clear</button></div>`;
+  document.body.appendChild(box);
+  const r=ev.currentTarget.getBoundingClientRect();
+  box.style.left=Math.max(12,Math.min(r.left,window.innerWidth-box.offsetWidth-12))+'px';box.style.top=(r.bottom+4+window.scrollY)+'px';
+  setTimeout(()=>document.addEventListener('click',srFilterClose,{once:true}),0);
+}
+function srFilterApply(h){
+  SRCF[h]=[...document.querySelectorAll('#srfpop input:checked')].map(i=>i.value);
+  srFilterClose();drawSalesReport();
+}
+function srFilterClose(){const b=$('srfpop');if(b)b.remove();}
+
+/* every column in the client's order, whatever is hidden on screen */
 async function exportSalesReport(){
-  const rows=srRows(), n=srPayCols(rows);
+  const rows=srRows(), n=srPayCols(rows), cols=srCols(n).slice().sort((a,b)=>a.x-b.x);
   if(!window.XLSX)await new Promise((ok,no)=>{const s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s);})
     .catch(()=>toast('Could not load the Excel writer'));
   if(!window.XLSX)return;
-  const ws=XLSX.utils.aoa_to_sheet([srHead(n),...rows.map((r,i)=>srCells(r,i,n))]);
+  const ws=XLSX.utils.aoa_to_sheet([cols.map(c=>c.h),...rows.map((r,i)=>cols.map(c=>{const v=c.v(r,i);return v===''?null:v;}))]);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sales Report');
-  XLSX.writeFile(wb,'Sales Report'+(SRF.mon?' - '+monthName(SRF.mon):'')+'.xlsx');
+  XLSX.writeFile(wb,'Sales Report.xlsx');
 }
