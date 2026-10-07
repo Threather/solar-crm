@@ -59,11 +59,29 @@ async function renderMgmtReport(){
      target, its daily trend. Today, This month and All time keep this month.
      `today` is the board's "as of" day - the end picked, never past today. */
   const realToday=localDay(new Date());
-  const today=REPPERIOD==='custom'&&range[1]<realToday?range[1]:realToday;
+  const today=REPPERIOD!=='all'&&range[1]<realToday?range[1]:realToday;
   const mStart=today.slice(0,7)+'-01';
+  /* THE BOARD FOLLOWS THE EXACT DATES (client, 7 Oct 2026): pick 1-15 Sep and
+     the boxes, the raw lead target, the trend and the conversion are 1-15 Sep,
+     with each month's target pro-rated by the days of it the range covers.
+     bA..bB is what has happened; bEnd is where the period ends (a month or a
+     week still running ends in the future - the run rate projects to it). */
+  const addD=(d,n)=>{const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return localDay(x);};
+  const lastOfMonth=m=>{const [y,mo]=m.split('-').map(Number);return localDay(new Date(y,mo,0));};
+  const spanDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)+1;
+  const firstDay=REPPERIOD==='all'
+    ?rows.reduce((m,l)=>{const d=localDay(l.lead_date||l.created_at);return d&&d<m?d:m;},realToday):range[0];
+  const bA=firstDay>today?today:firstDay, bB=today;
+  const bEnd=REPPERIOD==='month'?lastOfMonth(today.slice(0,7))
+    :REPPERIOD==='week'?addD(range[0],6):REPPERIOD==='all'?bB:(range[1]>bB?range[1]:bB);
+  const rangeMonths=[];for(let m=bA.slice(0,7);m<=bEnd.slice(0,7);){rangeMonths.push(m);
+    const [y,mo]=m.split('-').map(Number);const n=new Date(y,mo,1);m=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');}
+  /* one calendar month, whole - then it reads as "September 2026" with its
+     month-on-month chip, exactly as before */
+  const oneMonth=rangeMonths.length===1&&bA.slice(8)==='01'&&bEnd===lastOfMonth(bA.slice(0,7));
 
   const [tg,acts,quots,fins,pays,finrows,expd]=await Promise.all([
-    loadTargets(mStart),
+    Promise.all(rangeMonths.map(m=>loadTargets(m+'-01'))),
     repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('activity_type',['call','note','stage_change']).order('id'),ids),
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
@@ -108,14 +126,17 @@ async function renderMgmtReport(){
   /* every person's collection target added up is the company's for the month.
      `targets` carries collection per person, so the team figure is derived
      rather than typed twice. */
-  const target=Object.values(tg.person).reduce((a,v)=>a+Number(v.collection||0),0);
+  /* each month's target times the share of that month the range covers */
+  const share=m=>{const a=bA>m+'-01'?bA:m+'-01',b=bEnd<lastOfMonth(m)?bEnd:lastOfMonth(m);
+    return b<a?0:spanDays(a,b)/spanDays(m+'-01',lastOfMonth(m));};
+  const tgSum=f=>Math.round(rangeMonths.reduce((s,m,i)=>s+f(tg[i])*share(m),0));
+  const target=tgSum(t=>Object.values(t.person).reduce((a,v)=>a+Number(v.collection||0),0));
   /* Run rate is a statement about THIS MONTH and must not follow the window
      switch: projecting a year of collection across thirty-one days is not a
      forecast. */
-  const [bY,bM,bD]=today.split('-').map(Number);
-  const dim=new Date(bY,bM,0).getDate();
-  const dayNow=bD;
-  const mtdCollected=pays.filter(p=>localDay(countDay(p))>=mStart&&localDay(countDay(p))<=today)
+  const dim=spanDays(bA,bEnd);
+  const dayNow=spanDays(bA,bB);
+  const mtdCollected=pays.filter(p=>localDay(countDay(p))>=bA&&localDay(countDay(p))<=bB)
     .reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const runRate=dayNow?mtdCollected/dayNow*dim:null;
   /* THE TARGET IS MONTHLY, SO WHAT IT IS COMPARED WITH MUST BE. These used to
@@ -133,7 +154,7 @@ async function renderMgmtReport(){
      offline - which is what his sheet writes under the axis. Third party,
      direct sales and a customer coming back are not leads marketing generated,
      so counting them would flatter the number the target is set against. */
-  const leadTarget=Number(tg.company.leads||0);
+  const leadTarget=tgSum(t=>Number(t.company.leads||0));
   const MG_MARKETING=['Digital_Marketing','Offline_Marketing'];
   /* Qualified Lead on the stage chart: qualified IN the window and still open
      - not won, not lost, so no lead sits in two bars (Kevin, 2 Oct 2026).
@@ -253,7 +274,10 @@ async function renderMgmtReport(){
   const qualIn=m=>madeIn(m).filter(l=>qualText(l)==='Qualified'&&localDay(qualOn[l.id]||dayOf(l)).slice(0,7)<=m);
   /* their sheet shows six months of conversion, April to September */
   /* ...ending at the board's month, so picking September stops at September */
-  const convMonths=months.filter(m=>m<=mStart.slice(0,7)).slice(-6);
+  /* the months the range covers; a range inside one month shows the six
+     ending there, as their sheet does */
+  const convMonths=rangeMonths.length>1?rangeMonths.filter(m=>m<=bB.slice(0,7)).slice(-12)
+    :months.filter(m=>m<=mStart.slice(0,7)).slice(-6);
 
   const thisM=mStart.slice(0,7);
   const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
@@ -265,13 +289,19 @@ async function renderMgmtReport(){
   /* Lead trend from marketing, day by day through this month, the way their
      sheet draws it: 1 to today along the bottom, raw and qualified. Headed
      "from marketing", so marketing's own two channels only. */
-  const days=Array.from({length:dayNow},(_,i)=>i+1);
-  const dayKey=d=>thisM+'-'+String(d).padStart(2,'0');
+  /* each day of the range, or each month once it is longer than two */
+  const byMonth=dayNow>62;
+  const days=byMonth?rangeMonths.filter(m=>m<=bB.slice(0,7))
+    :Array.from({length:dayNow},(_,i)=>addD(bA,i));
+  const dayKey=d=>d;
+  const dayLabel=d=>byMonth?monthName(d)
+    :String(+d.slice(8))+(rangeMonths.length>1&&(d.slice(8)==='01'||d===bA)?' '+monthName(d.slice(0,7)).split(' ')[0]:'');
   const mktDay={},qualDay={};
   rows.forEach(l=>{
     if(!MG_MARKETING.includes(l.lead_channel))return;
-    const k=localDay(dayOf(l));
-    if(k.slice(0,7)!==thisM)return;
+    const d=localDay(dayOf(l));
+    if(d<bA||d>bB)return;
+    const k=byMonth?d.slice(0,7):d;
     mktDay[k]=(mktDay[k]||0)+1;
     /* the same Qualified as every other chart: qualified by the last day
        shown, lost since or not (5 Oct 2026) */
@@ -350,7 +380,7 @@ async function renderMgmtReport(){
 
   /* against a MONTHLY target, so this month's leads - never the window's. On
      All time it put 2,711 leads beside a target of 50. */
-  const mktLeads=rows.filter(l=>MG_MARKETING.includes(l.lead_channel)&&localDay(dayOf(l)).slice(0,7)===thisM).length;
+  const mktLeads=rows.filter(l=>MG_MARKETING.includes(l.lead_channel)&&localDay(dayOf(l))>=bA&&localDay(dayOf(l))<=bB).length;
 
   /* ONE COLOUR PER PERSON, THE SAME ON EVERY CHART. Their sheet gives each
      salesperson a colour and then changes it from chart to chart; here Morn is
@@ -381,13 +411,15 @@ async function renderMgmtReport(){
     .sort((a,b)=>{const i=id=>{const k=people.findIndex(p=>p.id===id);return k<0?people.filter(p=>p.is_active).length-0.5:k;};return i(a[0])-i(b[0]);});
 
   /* the facts block at the top right of their sheet */
-  const monthLong=new Date(mStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
   const fmtDay=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const monthLong=(oneMonth?new Date(bA+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})
+    :fmtDay(bA)+' - '+fmtDay(bEnd)).toUpperCase();
+  const rangeWord=oneMonth?monthName(bA.slice(0,7)):fmtDay(bA)+' - '+fmtDay(bB);
   /* Outstanding Payment is what customers have promised to pay THIS calendar
      month, as admin keys it on the Finance card - not every balance still owed
      (Kevin, 28 Sep 2026). Total Payment Expected is that plus what has come in. */
-  const mEnd=thisM+'-'+String(dim).padStart(2,'0');
-  const expThis=expd.filter(p=>p.expected_on>=mStart&&p.expected_on<=mEnd);
+  /* promised payments falling inside the period, to its end */
+  const expThis=expd.filter(p=>p.expected_on>=bA&&p.expected_on<=bEnd);
   const expThisSum=expThis.reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const expected=mtdCollected+expThisSum;
   const pct2=v=>v==null?'—':v.toFixed(2)+'%';
@@ -406,8 +438,8 @@ async function renderMgmtReport(){
     <div class="mg-head">
       <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">
       <div class="mg-facts">
-        <span>Days in month</span><b>${dim}</b>
-        <span>Start date</span><b>${esc(fmtDay(mStart))}</b>
+        <span>${oneMonth?'Days in month':'Days in range'}</span><b>${dim}</b>
+        <span>Start date</span><b>${esc(fmtDay(bA))}</b>
         <span>Today</span><b>${esc(fmtDay(today))}</b>
         <span>Days passed</span><b>${dayNow}</b>
       </div>
@@ -416,23 +448,24 @@ async function renderMgmtReport(){
     <div class="kpis seven">
       <!-- their seven boxes, in their order and their wording. The row is this
            month's, as the band above it says, whatever window is picked. -->
-      ${kpi({label:'Monthly Target',value:cash(target||null)})}
+      ${kpi({label:oneMonth?'Monthly Target':'Target',value:cash(target||null)})}
       ${kpi({label:'Payment Collected',value:cash(mtdCollected),lead:true,
-        delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord})}
+        ...(oneMonth?{delta:momPct(paidIn(thisM),paidIn(prevM)),deltaOf:prevWord}:{})})}
       ${kpi({label:'Outstanding Payment',value:cash(expThisSum)})}
       ${kpi({label:'Total Payment Expected',value:cash(expected)})}
       ${kpi({label:'Achievement %',value:target?pct2(mtdCollected/target*100):'—'})}
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
       ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—'})}
     </div>
-    ${!target?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
+    ${!target?`<div class="hint">No collection target set for ${esc(rangeWord)}.</div>`
+      :!oneMonth?`<div class="hint">Target is each month's target for the days of it in range.</div>`:''}
 
     <div class="homegrid three mgrid">
       ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
         {title:'Raw lead target vs actual',colors:['var(--c-target)','var(--c-raw)'],table:false,compact:true,
-         cap:'Digital and offline marketing, '+monthName(thisM)})
+         cap:'Digital and offline marketing, '+rangeWord})
         :emptyChart('Raw lead target vs actual','No lead target set',
-          'Set one for '+monthName(thisM)+' under Targets. '+mktLeads+' received so far.')}
+          'Set one under Targets. '+mktLeads+' received '+per+'.')}
       ${/* only the leads that came in during the range - no older leads, no
            light parts (client, 5 Oct 2026). The chart beside it keeps both. */''}
       ${/* Not yet qualify is dropped when it is empty - a month that has
@@ -451,10 +484,10 @@ async function renderMgmtReport(){
     </div>
 
     <div class="homegrid three mgrid">
-      ${lineChart(days.map(String),
+      ${lineChart(days.map(dayLabel),
         [{name:'# Raw Lead',color:'var(--c-raw)',values:days.map(d=>mktDay[dayKey(d)]||0)},
          {name:'# Qualified Lead',color:'var(--c-qual)',values:days.map(d=>qualDay[dayKey(d)]||0)}],
-        {title:'Lead trend from marketing',compact:true,values:true,cap:'Each day of '+monthName(thisM)})}
+        {title:'Lead trend from marketing',compact:true,values:true,cap:(byMonth?'Each month, ':'Each day, ')+rangeWord})}
       ${convMonths.length
         ?lineChart(convMonths.map(m=>monthName(m)),
           [{name:'Conversion',color:'var(--c-qual)',

@@ -133,13 +133,18 @@ function repScopes(){
 /* Two presets and a pair of dates. A week and a month were guesses at which
    window somebody wants; picking the dates answers it exactly, and the two
    that are worth a single click stay as buttons. */
-const REP_PERIODS=[['today','Today'],['month','This month'],['all','All time']];
+/* This week and Last month added 7 Oct 2026: the client found typing both
+   dates for the commonest windows too slow */
+const REP_PERIODS=[['today','Today'],['week','This week'],['month','This month'],['lastmonth','Last month'],['all','All time']];
 let REPFROM='', REPTO='';
 /* every report reads the same window, so the switch means one thing everywhere */
 function repRange(p){
   const now=new Date(), d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
   if(p==='today')return [localDay(d),localDay(d)];
   if(p==='month')return [localDay(new Date(d.getFullYear(),d.getMonth(),1)),localDay(d)];
+  /* the week starts on Monday */
+  if(p==='week')return [localDay(new Date(d.getFullYear(),d.getMonth(),d.getDate()-((d.getDay()+6)%7))),localDay(d)];
+  if(p==='lastmonth')return [localDay(new Date(d.getFullYear(),d.getMonth()-1,1)),localDay(new Date(d.getFullYear(),d.getMonth(),0))];
   if(p==='custom')return [REPFROM||'1970-01-01', REPTO||localDay(d)];
   return ['1970-01-01',localDay(d)];
 }
@@ -150,6 +155,8 @@ function repPeriodWord(){
   if(REPPERIOD==='today')return 'today';
   if(REPPERIOD==='all')return 'ever';
   if(REPPERIOD==='month')return 'this month';
+  if(REPPERIOD==='week')return 'this week';
+  if(REPPERIOD==='lastmonth')return 'last month';
   return 'in range';
 }
 function repWindowSentence(){
@@ -157,6 +164,8 @@ function repWindowSentence(){
   if(REPPERIOD==='today')return 'For today.';
   if(REPPERIOD==='month'){const d=new Date();
     return 'This month, '+fmtDate(localDay(new Date(d.getFullYear(),d.getMonth(),1)))+' to '+fmtDate(localDay(d))+'.';}
+  if(REPPERIOD==='week'||REPPERIOD==='lastmonth'){const r=repRange(REPPERIOD);
+    return (REPPERIOD==='week'?'This week, ':'Last month, ')+fmtDate(r[0])+' to '+fmtDate(r[1])+'.';}
   if(REPFROM&&REPTO)return 'From '+fmtDate(REPFROM)+' to '+fmtDate(REPTO)+'.';
   if(REPFROM)return 'Since '+fmtDate(REPFROM)+'.';
   if(REPTO)return 'Up to '+fmtDate(REPTO)+'.';
