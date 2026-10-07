@@ -168,9 +168,8 @@ function srToggle(g){SRHIDE.has(g)?SRHIDE.delete(g):SRHIDE.add(g);drawSalesRepor
    step with the table itself */
 function srSizeTop(){const t=$('srtop'),w=$('srwrap');if(!t||!w)return;
   t.firstElementChild.style.width=w.scrollWidth+'px';t.style.display=w.scrollWidth>w.clientWidth?'':'none';}
-let SRSYNC=false;
-function srSync(el){if(SRSYNC){SRSYNC=false;return;}
-  const o=el.id==='srtop'?$('srwrap'):$('srtop');if(!o)return;SRSYNC=true;o.scrollLeft=el.scrollLeft;}
+function srSync(el){const o=el.id==='srtop'?$('srwrap'):$('srtop');
+  if(o&&o.scrollLeft!==el.scrollLeft)o.scrollLeft=el.scrollLeft;}
 
 /* the heading filter: that column's values, counted from the rows the other
    filters leave, ticked to filter - as on the Leads screen */
