@@ -50,7 +50,7 @@ let FILTER={stage:'',q:'',qual:''};
 let LEADPAGE=0;
 const PAGE_SIZE=50;
 /* finance has its own working filters, kept apart from the leads ones */
-let FINFILTER={status:'',acct:'',eng:'',due:'',from:'',to:''};
+let FINFILTER={status:'',acct:'',eng:'',due:'',exp:'',from:'',to:''};
 let QFILTER={q:'',month:'',date:''};
 /* local YYYY-MM-DD, so a late-evening lead in Cambodia isn't filed under tomorrow */
 const localDay=d=>d?new Date(d).toLocaleDateString('sv'):'';

@@ -110,6 +110,13 @@ async function renderFinance(){
         <option value="">Any follow-up</option>
         <option value="over" ${FINFILTER.due==='over'?'selected':''}>Follow-up due now</option>
         <option value="none" ${FINFILTER.due==='none'?'selected':''}>No date set</option>
+      </select>
+      <select onchange="setFinFilter('exp',this.value)" title="Expected payment">
+        <option value="">Any expected</option>
+        <option value="this" ${FINFILTER.exp==='this'?'selected':''}>This month</option>
+        <option value="next" ${FINFILTER.exp==='next'?'selected':''}>Next month</option>
+        <option value="passed" ${FINFILTER.exp==='passed'?'selected':''}>Date passed</option>
+        <option value="none" ${FINFILTER.exp==='none'?'selected':''}>Nothing promised</option>
       </select>`}
       <button class="btn-line" onclick="clearFinFilters()">Clear</button>
       <span class="spacer"></span>
@@ -128,7 +135,7 @@ const finInScope=r=>FINSCOPE==='paid'?finSettled(r):finOwing(r);
 /* finance works its list by contract, by account type, by whose customer it is
    and by what is due — so those are the filters, not a second search box */
 function setFinFilter(k,v){FINFILTER[k]=v;drawFinance();}
-function clearFinFilters(){FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:'',from:'',to:''};renderFinance();}
+function clearFinFilters(){FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:'',exp:'',from:'',to:''};renderFinance();}
 /* the two questions finance actually asks of a payment list */
 function setFinMonth(back){
   const n=new Date(), d=new Date(n.getFullYear(),n.getMonth()-back,1);
@@ -187,6 +194,20 @@ function exportPayments(){
       p.amount_usd,p.other_fee_usd,p.other_fee_note,
       staffName(p.lead.assigned_to),p.note,p.lead.fin?.finance_remark]));
 }
+/* the next promised payment: the earliest one dated this month or later, so a
+   date already passed this month still shows, in amber (8 Oct 2026) */
+function finNextExp(r){
+  const m0=localDay(new Date()).slice(0,7)+'-01';
+  return (r.expected||[]).filter(p=>(p.expected_on||'')>=m0)
+    .sort((a,b)=>a.expected_on.localeCompare(b.expected_on))[0]||null;
+}
+function finExpWord(r){
+  const e=finNextExp(r), t=localDay(new Date()), m=t.slice(0,7);
+  const d=new Date();const nm=localDay(new Date(d.getFullYear(),d.getMonth()+1,1)).slice(0,7);
+  if(!e)return finDue(r)-finPaid(r)>0.005?'none':'';
+  if(e.expected_on<t&&finDue(r)-finPaid(r)>0.005)return 'passed';
+  return e.expected_on.slice(0,7)===m?'this':e.expected_on.slice(0,7)===nm?'next':'later';
+}
 function filteredFin(){
   let rows=FINROWS.filter(finInScope);
   if(FILTER.q){const s=FILTER.q.toLowerCase();
@@ -198,16 +219,18 @@ function filteredFin(){
   if(FINFILTER.eng)rows=rows.filter(r=>r.assigned_to===FINFILTER.eng);
   if(FINFILTER.due==='over')rows=rows.filter(r=>finFollowDue(r));
   if(FINFILTER.due==='none')rows=rows.filter(r=>!r.fin?.follow_up_date&&finDue(r)-finPaid(r)>0);
+  if(FINFILTER.exp==='this')rows=rows.filter(r=>['this','passed'].includes(finExpWord(r))&&finNextExp(r).expected_on.slice(0,7)===localDay(new Date()).slice(0,7));
+  else if(FINFILTER.exp)rows=rows.filter(r=>finExpWord(r)===FINFILTER.exp);
   return rows;
 }
 /* switching scope clears the filters, since a contract filter means nothing on
    a payment list and a date range means nothing on a deal list */
 function setFinScope(v){
   if(FINSCOPE===v)return;
-  FINSCOPE=v;FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:'',from:'',to:''};
+  FINSCOPE=v;FILTER.q='';FINFILTER={status:'',acct:'',eng:'',due:'',exp:'',from:'',to:''};
   renderFinance();
 }
-const finFiltered=()=>!!(FILTER.q||FINFILTER.status||FINFILTER.acct||FINFILTER.eng||FINFILTER.due);
+const finFiltered=()=>!!(FILTER.q||FINFILTER.status||FINFILTER.acct||FINFILTER.eng||FINFILTER.due||FINFILTER.exp);
 function drawFinance(){
   if(FINSCOPE==='pay')return drawPayments();
   const rows=filteredFin();
@@ -229,7 +252,7 @@ function drawFinance(){
      sideways to reach them. */
   $('finwrap').innerHTML=note+`<table class="table-compact fintable"><thead><tr>
     <th>Ref ID</th><th>Customer</th><th style="width:64px">Type of account</th><th>Phone</th>
-    <th>Balance</th><th>Paid</th>
+    <th>Balance</th><th>Expected</th><th>Paid</th>
     <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th><th>Remark</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
@@ -239,6 +262,7 @@ function drawFinance(){
       <td>${r.fin?.account_type?esc(r.fin.account_type):'<span class="quiet">—</span>'}</td>
       <td class="phone">${r.phone?(/[a-z@]/i.test(r.phone)?`<span class="handle">${esc(r.phone)}</span>`:phoneCell(r.phone)):'<span class="quiet">—</span>'}</td>
       <td><b class="${bal>0.005?'overdue':''}">${fmtMoney(bal)}</b></td>
+      <td class="nowrap">${(()=>{const e=finNextExp(r);return e?`<b class="${finExpWord(r)==='passed'?'amber':''}">${fmtDate(e.expected_on)}</b><span class="days">${fmtMoney(Number(e.amount_usd||0))}</span>`:'<span class="quiet">—</span>';})()}</td>
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
       <td>${fmtMoney(due)}</td>
       <td>${esc(r.fin?.contract_status||'—')}<span class="days nm">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
@@ -491,7 +515,7 @@ function exportFinance(){
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed',
     'Type of account','Payment term','Remark','Next follow-up',
     'Other fees (USD)','What the fees were for',
-    'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)'],
+    'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)','Next expected date','Next expected (USD)'],
     filteredFin().map(r=>[r.ref_id,r.customer_name,
       r.stage_entered_at?localDay(r.stage_entered_at).slice(0,7):'',
       localDay(r.created_at),staffName(r.assigned_to),
@@ -500,5 +524,6 @@ function exportFinance(){
       r.fin?.account_type,r.fin?.payment_term,r.fin?.finance_remark,
       r.fin?.follow_up_date,finFees(r)||'',
       (r.payments||[]).map(p=>p.other_fee_note).filter(Boolean).join('; '),
-      r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r)]));
+      r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r),
+      finNextExp(r)?.expected_on||'',finNextExp(r)?Number(finNextExp(r).amount_usd||0):'']));
 }
