@@ -131,7 +131,26 @@ async function renderOpsReport(){
      takes the recessive tone and the ledger below carries every name. */
   const TEAM_HUE=['var(--viz-1)','var(--viz-2)','var(--viz-good)','var(--viz-3)','var(--viz-4)','var(--viz-mute)'];
 
-  $('main').innerHTML=repBar('Operations report',teamFilter)+`
+  /* laid out like the Management dashboard (client, 8 Oct 2026): the same
+     title form, logo and facts, dark band and big panel headings, so the two
+     read as one set */
+  const opEnd=range[1]<localDay(new Date())?range[1]:localDay(new Date());
+  const opStart=REPPERIOD==='all'?(f.map(l=>localDay(l.stage_entered_at)).filter(Boolean).sort()[0]||opEnd):range[0];
+  const opDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)+1;
+  const opFmt=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const opOneMonth=opStart.slice(8)==='01'&&opStart.slice(0,7)===opEnd.slice(0,7);
+  const opBand=(opOneMonth?new Date(opStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})
+    :opFmt(opStart)+' - '+opFmt(opEnd)).toUpperCase();
+  $('main').innerHTML=repBar('Operations dashboard',teamFilter)+`
+    <div class="mg-head">
+      <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">
+      <div class="mg-facts">
+        <span>Start date</span><b>${esc(opFmt(opStart))}</b>
+        <span>Today</span><b>${esc(opFmt(opEnd))}</b>
+        <span>Days passed</span><b>${opDays(opStart,opEnd)}</b>
+      </div>
+    </div>
+    <div class="mg-band">${esc(opBand)} PROJECT EXECUTION DASHBOARD</div>
     <!-- his five boxes, in his order and his wording -->
     <div class="kpis six">
       ${kpi({label:'Active Projects',value:active.length,lead:true,
@@ -146,13 +165,8 @@ async function renderOpsReport(){
       ${kpi({label:'EDC Pending',value:edcPending.length,
         note:'awaiting inspection'})}
     </div>
-    ${noDate.length?`<div class="hint" style="border-left-color:var(--warn);color:var(--warn)">
-      <b>${noDate.length} active project${noDate.length>1?'s have':' has'} no installation date.</b>
-      ${noDate.slice(0,4).map(l=>`<span class="rowlink" style="cursor:pointer;text-decoration:underline" onclick="openLead('${l.id}')">${esc(l.customer_name)}</span>`).join(' \u00b7 ')}
-      ${noDate.length>4?` and ${noDate.length-4} more`:''}
-    </div>`:''}
 
-    <div class="homegrid level">
+    <div class="homegrid level mgrid">
       ${repPanel('I. Project status pipeline',`<div class="cap" style="margin:-4px 0 10px">All won deals, as of today</div><div class="pipe">
         ${bar('BOQ released',boqDone.length,f.length)}
         ${bar('Installation scheduled',scheduled.length,f.length)}
@@ -173,7 +187,7 @@ async function renderOpsReport(){
           :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
     </div>
 
-    <div class="homegrid level">
+    <div class="homegrid level mgrid">
       ${repPanel('II. Turnaround vs target',gPair([
         ['BOQ to delivery',tatDeliv.avg,sla.deliv||null,tatDeliv.n],
         ['BOQ to installation',tatBoq.avg,sla.boq||null,tatBoq.n],
@@ -197,6 +211,7 @@ async function renderOpsReport(){
       })()}
     </div>
 
+    <div class="homegrid mgrid opwide">
     ${repPanel('Execution health',ledger([
       ['Total in flight',active.length,'project'+(active.length===1?'':'s')],
       ['Avg end-to-end',endToEnd.avg==='\u2014'?'\u2014':endToEnd.avg+' days',
@@ -205,9 +220,9 @@ async function renderOpsReport(){
         behind?behind.step
           :!Object.values(sla).some(Boolean)?'no targets set'
           :endToEnd.n?'nothing is behind':'nothing measured yet']]))}
+    </div>
 
-    ${f.length?`<h3 style="font-size:15px;margin:22px 0 8px">Projects</h3>
-    <div class="tablewrap"><table class="table-compact"><thead><tr>
+    ${f.length?`<div class="homegrid mgrid opwide">${repPanel('Projects',`<div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Ref ID</th><th>Customer</th><th>Team</th><th>BOQ</th><th>Install start</th>
       <th>Finished</th><th>EDC sent</th><th>EDC inspected</th>
     </tr></thead><tbody>`+f.map(l=>`
@@ -220,6 +235,6 @@ async function renderOpsReport(){
         <td class="nowrap">${instDoneOn(l)?`<span class="mark mark-done">${fmtDate(instDoneOn(l))}</span>`:'<span class="mark mark-open">not yet</span>'}</td>
         <td class="nowrap">${edcApplies(l)?fmtDate(edcSentOn(l)):'<span class="quiet">exempt</span>'}</td>
         <td class="nowrap">${edcApplies(l)?fmtDate(edcSeenOn(l)):'<span class="quiet">—</span>'}</td>
-      </tr>`).join('')+`</tbody></table></div>`
+      </tr>`).join('')+`</tbody></table></div>`)}</div>`
     :blank('No won deals yet','A project appears here once a deal is marked Closed-Won.')}`;
 }

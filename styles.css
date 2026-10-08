@@ -1057,3 +1057,9 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .chtable tr.chsub td{font-size:12.5px}
 .chtable tr.chsub td:first-child{padding-left:26px;color:var(--ink-2)}
 .chtable tr.chsub .chbar{height:4px}
+
+/* Operations on the Management grid (8 Oct 2026): two-up rows, and the wide
+   blocks (Execution health, Projects) take the full row */
+.homegrid.mgrid.level{grid-template-columns:1fr 1fr}
+.homegrid.mgrid.opwide{grid-template-columns:1fr}
+@media(max-width:900px){.homegrid.mgrid.level{grid-template-columns:1fr}}

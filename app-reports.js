@@ -285,8 +285,13 @@ async function repExportPdf(){
       for(const el of units){
         const c=await window.html2canvas(el,{scale:2,backgroundColor:bg,useCORS:true,logging:false});
         const r=el.getBoundingClientRect();
+        /* where each table row ends, so a block taller than a page is cut
+           between rows rather than through one (8 Oct 2026, the Operations
+           project list printed rows split across pages) */
+        const k=c.height/Math.max(1,r.height);
+        const cuts=[...el.querySelectorAll('tr')].map(tr=>Math.round((tr.getBoundingClientRect().bottom-r.top)*k));
         /* a heading stays on the page with whatever follows it */
-        shots.push({c,wmm:r.width*mmPerPx,hmm:r.height*mmPerPx,
+        shots.push({c,cuts,wmm:r.width*mmPerPx,hmm:r.height*mmPerPx,
           glue:el.matches('h3,.mg-head,.mg-band,.person,.sechead,p')});
       }
     }finally{main.classList.remove('exporting');
@@ -300,12 +305,16 @@ async function repExportPdf(){
       let need=s.hmm;
       for(let j=i;shots[j]&&shots[j].glue&&shots[j+1];j++)need+=GAP+shots[j+1].hmm;
       if(started&&y+Math.min(need,room)>PH-BOT)newPage();
+      /* a block that rendered at nothing (off screen) has nothing to print */
+      if(!s.c.width||!s.c.height)continue;
       if(s.hmm<=room){place(s.c.toDataURL('image/jpeg',0.92),M+(w-s.wmm)/2,s.wmm,s.hmm);continue;}
       /* taller than a page: slice it, one page at a time */
       const pxPerMm=s.c.height/s.hmm;
       let sy=0;
       while(sy<s.c.height-2){
-        const avail=(PH-BOT-y), hpx=Math.min(s.c.height-sy,Math.floor(avail*pxPerMm));
+        if(PH-BOT-y<10){newPage();}
+        const avail=(PH-BOT-y);let hpx=Math.min(s.c.height-sy,Math.floor(avail*pxPerMm));
+        if(sy+hpx<s.c.height-2){const cut=s.cuts.filter(v=>v>sy+40&&v<=sy+hpx).pop();if(cut)hpx=cut-sy;}
         const part=document.createElement('canvas');part.width=s.c.width;part.height=hpx;
         part.getContext('2d').drawImage(s.c,0,sy,s.c.width,hpx,0,0,s.c.width,hpx);
         place(part.toDataURL('image/jpeg',0.92),M,s.wmm,hpx/pxPerMm);
