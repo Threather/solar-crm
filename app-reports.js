@@ -202,8 +202,11 @@ async function renderReports(quiet){
   /* a new scope, period or date range is a new screen: whatever the last one
      was still loading must not land on top of it */
   NAVGEN++;
-  if(!quiet)$('main').innerHTML=SKEL;
-  return window[REP_RENDER[REPSCOPE]]();
+  /* the screen being left stays up while the next one is drawn; the loading
+     shape only shows if that takes longer than a blink (8 Oct 2026) */
+  const gen=NAVGEN, was=$('main').firstElementChild;
+  const t=quiet?null:setTimeout(()=>{if(gen===NAVGEN&&$('main').firstElementChild===was)$('main').innerHTML=SKEL;},300);
+  try{return await window[REP_RENDER[REPSCOPE]]();}finally{clearTimeout(t);}
 }
 /* the switch bar every report sits under */
 function repBar(title,extra){
@@ -355,7 +358,7 @@ function repFigs(pairs){
    to the month is read, oldest first, and a later month overwrites an earlier
    one metric by metric. The Targets screen opens pre-filled the same way. */
 async function loadTargets(monthISO){
-  const {data,error}=await sb.from('targets').select('*').lte('month',monthISO).order('month');
+  const {data,error}=await rowsOf(()=>sb.from('targets').select('*').lte('month',monthISO).order('month').order('id'));
   if(error){console.error(error);return {company:{},person:{}};}
   const company={},person={};
   (data||[]).forEach(t=>{
