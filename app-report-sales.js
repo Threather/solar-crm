@@ -149,7 +149,20 @@ async function renderSalesReport(){
     if((loggedFor[l.id]||new Set()).has(code))return false;
     return l.stage_code===code&&within(l.stage_entered_at||l.created_at,a,b);
   };
-  const stageRow=(set,a,b)=>SALE_STAGES.map(([code])=>set.filter(l=>enteredIn(l,code,a,b)).length);
+  /* ONE CUSTOMER, ONE COLUMN (Kevin, 8 Oct 2026): a lead that moved twice in
+     the window counts once, in the last stage it reached there - Information
+     Gathering then Telling Price is 1 under Telling Price, not 1 under each. */
+  const dayIn=(l,code,a,b)=>{
+    if(code===WON||code===LOST)return localDay(l.stage_entered_at);
+    const ds=moves.filter(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b).map(m=>m.day).sort();
+    return ds.length?ds[ds.length-1]:localDay(l.stage_entered_at||l.created_at);
+  };
+  const lastIn=(l,a,b)=>{let best=null,bd='';
+    SALE_STAGES.forEach(([code],i)=>{if(!enteredIn(l,code,a,b))return;
+      const d=dayIn(l,code,a,b)||'';if(best==null||d>=bd){best=i;bd=d;}});
+    return best;};
+  const stageRow=(set,a,b)=>{const r=SALE_STAGES.map(()=>0);
+    set.forEach(l=>{const i=lastIn(l,a,b);if(i!=null)r[i]++;});return r;};
   const contactedIn=(id,a,b)=>new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
     &&c.day>=a&&c.day<=b).map(c=>c.lead)).size;
 
@@ -298,8 +311,7 @@ async function renderSalesReport(){
       const r=stageRow(mine(p.id),a,b);
       return `<tr><td><b>${esc(p.full_name)}</b></td><td>${contactedIn(p.id,a,b)}</td>`
         +r.map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')+`</tr>`;}).join('');
-    const totals=SALE_STAGES.map(([code])=>
-      shown.reduce((x,p)=>x+mine(p.id).filter(l=>enteredIn(l,code,a,b)).length,0));
+    const totals=SALE_STAGES.map((_,i)=>shown.reduce((x,p)=>x+stageRow(mine(p.id),a,b)[i],0));
     const totContact=shown.reduce((x,p)=>x+contactedIn(p.id,a,b),0);
     return `<div class="tablewrap"><table class="table-compact"><thead>${head}</thead>
       <tbody>${body}</tbody>
