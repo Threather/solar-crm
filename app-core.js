@@ -59,7 +59,7 @@ const monthName=m=>{const[y,mo]=m.split('-');return new Date(y,mo-1,1).toLocaleD
 /* Vocabularies from the client's Excel (Drop Down List sheet) */
 const CHANNELS = {
   'Digital_Marketing': ['Facebook','Instagram','Telegram','Tik Tok','Call','Walk-In'],
-  'Third_Party':       ['Staff','Non-Staff'],
+  'Third_Party':       ['Staff','Non-Staff','Agent'],
   'Direct_Sales':      [],   /* filled from the active sales staff at render time */
   'Offline_Marketing': ['Ground Activation'],
   /* a customer coming back for more is not a lead Facebook bought; giving it
