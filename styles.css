@@ -990,15 +990,13 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .srtable .srpin1{left:44px;min-width:120px;max-width:120px}
 .srtable .srpin2{left:164px;min-width:190px;max-width:230px;overflow:hidden;text-overflow:ellipsis;box-shadow:1px 0 0 var(--line)}
 /* one tint per group, on the band and as a stripe under each heading */
-.srtable .srband .srg-deal,.srgroups .srg-deal.on{background:#f4e6de}
-.srtable .srband .srg-cust,.srgroups .srg-cust.on{background:#e2ecef}
-.srtable .srband .srg-sys,.srgroups .srg-sys.on{background:#ece4f1}
-.srtable .srband .srg-inst,.srgroups .srg-inst.on{background:#e2efe5}
-.srtable .srband .srg-edc,.srgroups .srg-edc.on{background:#f3ebd8}
-.srtable .srband .srg-money,.srgroups .srg-money.on{background:#e4e8f3}
-.srtable .srband .srg-pay,.srgroups .srg-pay.on{background:#e3f0ea}
-.srgroups button.on{color:var(--ink,#1c1a17)}
-.srgroups button:not(.on){text-decoration:line-through;opacity:.6}
+.srtable .srband .srg-deal,.srgroups .srg-deal i{background:#f4e6de}
+.srtable .srband .srg-cust,.srgroups .srg-cust i{background:#e2ecef}
+.srtable .srband .srg-sys,.srgroups .srg-sys i{background:#ece4f1}
+.srtable .srband .srg-inst,.srgroups .srg-inst i{background:#e2efe5}
+.srtable .srband .srg-edc,.srgroups .srg-edc i{background:#f3ebd8}
+.srtable .srband .srg-money,.srgroups .srg-money i{background:#e4e8f3}
+.srtable .srband .srg-pay,.srgroups .srg-pay i{background:#e3f0ea}
 .srtable tbody tr:nth-child(even) td{background:var(--card-alt)}
 .srtable tbody tr:hover td{background:var(--sunk)}
 .sr-owe{color:var(--bad)}
@@ -1094,3 +1092,18 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .calteam span{display:block;color:var(--ink-soft);font-size:12px}
 .calsw{display:inline-block;width:10px;height:10px;border-radius:3px}
 tr.calrow{cursor:pointer}
+
+/* Sales Report toolbar, cleaned 8 Oct 2026 */
+.srbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:6px 0 10px}
+.srbar .srq{width:220px}
+.srbar .btn-line{margin-left:auto}
+.srgroups{display:flex;flex-wrap:wrap;gap:6px}
+.srgroups button{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--line);border-radius:99px;
+  background:var(--card,#fff);font-size:13px;font-weight:600;color:var(--ink);cursor:pointer}
+.srgroups button i{width:9px;height:9px;border-radius:99px}
+.srgroups .srg-deal i{background:#c46a3c}.srgroups .srg-cust i{background:#3f7f96}.srgroups .srg-sys i{background:#8a5bb0}
+.srgroups .srg-inst i{background:#3f8f57}.srgroups .srg-edc i{background:#b58a1f}.srgroups .srg-money i{background:#4a63a8}.srgroups .srg-pay i{background:#2f8f7a}
+.srgroups button:not(.on){color:var(--ink-soft);background:transparent;border-style:dashed}
+.srgroups button:not(.on) i{opacity:.35}
+.srsum{display:flex;gap:22px;font-size:13px;color:var(--ink-soft);margin:0 0 10px}
+.srsum b{color:var(--ink);font-variant-numeric:tabular-nums;margin-right:3px}

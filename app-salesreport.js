@@ -41,12 +41,12 @@ async function renderWonSheet(){
 
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Sales Report</h2>
-    <div class="toolbar">
-      <input placeholder="Search name, phone or ref ID…" value="${esc(SRF.q)}" oninput="SRF.q=this.value;drawSalesReport()">
-      <div class="scope srgroups" id="srgroups" role="group" aria-label="Column groups"></div>
+    <div class="srbar">
+      <input class="srq" placeholder="Search name, phone or ref ID" value="${esc(SRF.q)}" oninput="SRF.q=this.value;drawSalesReport()">
+      <div class="srgroups" id="srgroups" role="group" aria-label="Columns"></div>
       <button class="btn-line" onclick="exportSalesReport()">Export Excel</button>
     </div>
-    <div id="srsum" class="hint"></div>
+    <div id="srsum" class="srsum"></div>
     <div id="srchips"></div>
     <div class="srtop" id="srtop" onscroll="srSync(this)"><div></div></div>
     <div class="tablewrap srwrap" id="srwrap" onscroll="srSync(this)"></div>`;
@@ -135,12 +135,11 @@ function drawSalesReport(){
   const rows=srRows(), n=srPayCols(rows), cols=srCols(n).filter(c=>c.g==='pin'||!SRHIDE.has(c.g));
   const total=rows.reduce((a,r)=>a+finDue(r),0), left=rows.reduce((a,r)=>a+srLeft(r),0);
   const on=Object.values(SRCF).filter(v=>v.length).length;
-  $('srsum').textContent=`${rows.length} won deal${rows.length===1?'':'s'} · ${fmtMoney(total)} · ${fmtMoney(left)} remaining`
-    ;
+  $('srsum').innerHTML=`<span><b>${rows.length}</b> won deal${rows.length===1?'':'s'}</span><span><b>${fmtMoney(total)}</b> amount</span><span><b>${fmtMoney(left)}</b> remaining</span>`;
   $('srchips').innerHTML=hfChips(Object.entries(SRCF).map(([h,v])=>[h,v,`SRCF['${esc(h)}']=[];drawSalesReport()`]),
     'SRCF={};drawSalesReport()');
   $('srgroups').innerHTML=SR_GROUPS.map(([k,l])=>
-    `<button class="${SRHIDE.has(k)?'':'on'} srg-${k}" aria-pressed="${!SRHIDE.has(k)}" onclick="srToggle('${k}')">${l}</button>`).join('');
+    `<button class="${SRHIDE.has(k)?'':'on'} srg-${k}" aria-pressed="${!SRHIDE.has(k)}" onclick="srToggle('${k}')"><i></i>${l}</button>`).join('');
   if(!rows.length){$('srwrap').innerHTML=blank('No won deal matches','Clear the filters or the search.');srSizeTop();return;}
   /* the band above the headings: one cell per run of a group */
   const runs=[];cols.forEach(c=>{const L=runs[runs.length-1];if(L&&L.g===c.g)L.n++;else runs.push({g:c.g,n:1});});
