@@ -173,11 +173,12 @@ async function renderSalesReport(){
     set.forEach(l=>{const i=lastIn(l,a,b);if(i!=null)r[i]++;});return r;};
   /* #Lead Contact: customers with a call or note in the window, OR who moved
      stage in it - a move means she dealt with them (Kevin, 8 Oct 2026). One
-     customer once, so it is never less than the stage columns' total. */
+     customer once. */
   const contactedIn=(id,a,b)=>{
     const s=new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
       &&c.day>=a&&c.day<=b).map(c=>c.lead));
-    mine(id).forEach(l=>{if(lastIn(l,a,b)!=null)s.add(l.id);});
+    /* landing on Information Gathering is not a contact (Kevin, 8 Oct) */
+    mine(id).forEach(l=>{const i=lastIn(l,a,b);if(i!=null&&i>0)s.add(l.id);});
     return s.size;};
 
   const pct=repPct, cash=repCash;
