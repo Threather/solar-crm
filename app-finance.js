@@ -63,9 +63,8 @@ async function renderFinance(){
      month, as admin keys it on each card - the same figure as Management's box
      (28 Sep 2026). The balance still owed overall is the Still owing list. */
   const thisMonth=localDay(new Date()).slice(0,7);
-  const promisedThisMonth=FINROWS.reduce((a,r)=>a+r.expected
-    .filter(p=>(p.expected_on||'').slice(0,7)===thisMonth)
-    .reduce((b,p)=>b+Number(p.amount_usd||0),0),0);
+  /* less what has already come in this month (expStill, 8 Oct 2026) */
+  const promisedThisMonth=FINROWS.reduce((a,r)=>a+finExpLeft(r),0);
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Finance</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Won deals. Open a row to record the contract and its payments.</p>
@@ -196,6 +195,17 @@ function exportPayments(){
 }
 /* the next promised payment: the earliest one dated this month or later, so a
    date already passed this month still shows, in amber (8 Oct 2026) */
+/* this month's promises still to come for one deal */
+function finExpLeft(r){
+  const d=new Date(),a=localDay(new Date(d.getFullYear(),d.getMonth(),1)),b=localDay(new Date(d.getFullYear(),d.getMonth()+1,0));
+  return expStill(r.expected||[],r.payments||[],a,b).by[r.id]||0;
+}
+/* the amount shown beside the next promise: this month's still to come, or a
+   later month's as promised */
+function finNextAmt(r){
+  const e=finNextExp(r);if(!e)return 0;
+  return e.expected_on.slice(0,7)===localDay(new Date()).slice(0,7)?finExpLeft(r):Number(e.amount_usd||0);
+}
 function finNextExp(r){
   const m0=localDay(new Date()).slice(0,7)+'-01';
   return (r.expected||[]).filter(p=>(p.expected_on||'')>=m0)
@@ -205,7 +215,7 @@ function finExpWord(r){
   const e=finNextExp(r), t=localDay(new Date()), m=t.slice(0,7);
   const d=new Date();const nm=localDay(new Date(d.getFullYear(),d.getMonth()+1,1)).slice(0,7);
   if(!e)return finDue(r)-finPaid(r)>0.005?'none':'';
-  if(e.expected_on<t&&finDue(r)-finPaid(r)>0.005)return 'passed';
+  if(e.expected_on<t&&finDue(r)-finPaid(r)>0.005&&finNextAmt(r)>0.005)return 'passed';
   return e.expected_on.slice(0,7)===m?'this':e.expected_on.slice(0,7)===nm?'next':'later';
 }
 function filteredFin(){
@@ -262,7 +272,7 @@ function drawFinance(){
       <td>${r.fin?.account_type?esc(r.fin.account_type):'<span class="quiet">—</span>'}</td>
       <td class="phone">${r.phone?(/[a-z@]/i.test(r.phone)?`<span class="handle">${esc(r.phone)}</span>`:phoneCell(r.phone)):'<span class="quiet">—</span>'}</td>
       <td><b class="${bal>0.005?'overdue':''}">${fmtMoney(bal)}</b></td>
-      ${(()=>{const e=finNextExp(r);return e?`<td class="nowrap"><b class="${finExpWord(r)==='passed'?'amber':''}">${fmtDate(e.expected_on)}</b></td><td class="nowrap"><b>${fmtMoney(Number(e.amount_usd||0))}</b></td>`:'<td><span class="quiet">—</span></td><td><span class="quiet">—</span></td>';})()}
+      ${(()=>{const e=finNextExp(r);return e?`<td class="nowrap"><b class="${finExpWord(r)==='passed'?'amber':''}">${fmtDate(e.expected_on)}</b></td><td class="nowrap"><b>${fmtMoney(finNextAmt(r))}</b></td>`:'<td><span class="quiet">—</span></td><td><span class="quiet">—</span></td>';})()}
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
       <td>${fmtMoney(due)}</td>
       <td>${esc(r.fin?.contract_status||'—')}<span class="days nm">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
@@ -525,5 +535,5 @@ function exportFinance(){
       r.fin?.follow_up_date,finFees(r)||'',
       (r.payments||[]).map(p=>p.other_fee_note).filter(Boolean).join('; '),
       r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r),
-      finNextExp(r)?.expected_on||'',finNextExp(r)?Number(finNextExp(r).amount_usd||0):'']));
+      finNextExp(r)?.expected_on||'',finNextExp(r)?finNextAmt(r):'']));
 }

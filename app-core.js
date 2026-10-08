@@ -225,6 +225,19 @@ const inPool=l=>!l.assigned_to&&!TERMINAL.includes(l.stage_code)&&!!(l.phone||''
    (lead_payments.count_month) when set, otherwise the day it was paid.
    Finance and the incentive keep the real paid_on (Kevin, 5 Oct 2026). */
 const countDay=p=>p.count_month||p.paid_on;
+/* What is still to come of the payments promised between a and b, per lead:
+   promised there minus paid there, never below nothing (Kevin, 8 Oct 2026). A
+   customer who promised $5,850 for 31 Oct and paid $4,550 on 5 Oct has $1,300
+   still to come; the saved promise stays $5,850. Without this a payment made
+   early was counted twice - collected, and still promised. */
+function expStill(exps,pays,a,b){
+  const prom={},paid={};
+  exps.forEach(e=>{if(e.expected_on>=a&&e.expected_on<=b)prom[e.lead_id]=(prom[e.lead_id]||0)+Number(e.amount_usd||0);});
+  pays.forEach(p=>{const d=localDay(countDay(p));if(d>=a&&d<=b&&p.lead_id in prom)paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0);});
+  const by={};let total=0;
+  for(const id in prom){by[id]=Math.max(0,prom[id]-(paid[id]||0));total+=by[id];}
+  return {by,total};
+}
 const WON='closed_won';
 const LOST='closed_lost';
 /* Qualification follows the stage: a lead is qualified from Quotation sent

@@ -419,8 +419,8 @@ async function renderMgmtReport(){
      month, as admin keys it on the Finance card - not every balance still owed
      (Kevin, 28 Sep 2026). Total Payment Expected is that plus what has come in. */
   /* promised payments falling inside the period, to its end */
-  const expThis=expd.filter(p=>p.expected_on>=bA&&p.expected_on<=bEnd);
-  const expThisSum=expThis.reduce((a,p)=>a+Number(p.amount_usd||0),0);
+  /* less what those customers have already paid in the period (expStill) */
+  const expThisSum=expStill(expd,pays,bA,bEnd).total;
   const expected=mtdCollected+expThisSum;
   const pct2=v=>v==null?'—':v.toFixed(2)+'%';
   /* a pie with the total under it and a ledger beside it, for the two money
