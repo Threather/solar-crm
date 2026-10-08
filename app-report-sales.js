@@ -171,8 +171,14 @@ async function renderSalesReport(){
     return best;};
   const stageRow=(set,a,b)=>{const r=STAGE_COLS.map(()=>0);
     set.forEach(l=>{const i=lastIn(l,a,b);if(i!=null)r[i]++;});return r;};
-  const contactedIn=(id,a,b)=>new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
-    &&c.day>=a&&c.day<=b).map(c=>c.lead)).size;
+  /* #Lead Contact: customers with a call or note in the window, OR who moved
+     stage in it - a move means she dealt with them (Kevin, 8 Oct 2026). One
+     customer once, so it is never less than the stage columns' total. */
+  const contactedIn=(id,a,b)=>{
+    const s=new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
+      &&c.day>=a&&c.day<=b).map(c=>c.lead));
+    mine(id).forEach(l=>{if(lastIn(l,a,b)!=null)s.add(l.id);});
+    return s.size;};
 
   const pct=repPct, cash=repCash;
   const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
@@ -393,7 +399,7 @@ async function renderSalesReport(){
       const lo=mine(p.id).filter(l=>isClosedLost(l)&&within(l.stage_entered_at,mStart,today)).length;
       return `<tr><td><b>${esc(p.full_name)}</b></td>
         <td>${p.joined_date?esc(fmtDate(p.joined_date)):'<span class="quiet">—</span>'}</td>
-        <td>${leadsTouched}</td>
+        <td>${contactedIn(p.id,mStart,today)}</td>
         <td>${daysWorked?(leadsTouched/daysWorked).toFixed(1):'—'}</td>
         <td>${esc(cycle.avg)}${cycle.n?`<span class="days">${cycle.n} won</span>`:''}</td>
         <td>${leadsTouched?(cs.length/leadsTouched).toFixed(1):'—'}</td>
