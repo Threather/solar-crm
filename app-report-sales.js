@@ -354,13 +354,17 @@ async function renderSalesReport(){
     <h3 class="sechead">MoM — Monthly Sales Performance</h3>
     ${months.length?`<div class="homegrid three">${shown.map(p=>`
       ${repPanel(p.full_name,`<div class="tablewrap"><table class="table-compact"><thead>
-        <tr><th>Month</th><th>#Closed-Won</th><th>Contract Value</th><th>Collection</th></tr>
+        <tr><th>Month</th><th>Lead Received</th><th>#Closed-Won</th><th>Contract Value</th><th>Collection</th></tr>
       </thead><tbody>${months.map(m=>{const [a,b]=monthWin(m);
         const w=mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b)).length;
-        return `<tr><td>${esc(monthName(m))}</td><td>${w}</td>
+        /* leads this person holds that came in that month, by lead date
+           (Kevin, 8 Oct 2026) */
+        const rcv=mine(p.id).filter(l=>within(dayOf(l),a,b)).length;
+        return `<tr><td>${esc(monthName(m))}</td><td>${rcv}</td><td>${w}</td>
           <td>${esc(cash(contractOf(p.id,a,b)))}</td>
           <td>${esc(cash(collectedOf(p.id,a,b)))}</td></tr>`;}).join('')}
       </tbody><tfoot><tr><td><b>Total</b></td>
+        <td><b>${months.reduce((x,m)=>{const [a,b]=monthWin(m);return x+mine(p.id).filter(l=>within(dayOf(l),a,b)).length;},0)}</b></td>
         <td><b>${months.reduce((x,m)=>{const [a,b]=monthWin(m);return x+mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b)).length;},0)}</b></td>
         <td><b>${esc(cash(months.reduce((x,m)=>x+contractOf(p.id,...monthWin(m)),0)))}</b></td>
         <td><b>${esc(cash(months.reduce((x,m)=>x+collectedOf(p.id,...monthWin(m)),0)))}</b></td></tr></tfoot></table></div>`)}`).join('')}</div>`
