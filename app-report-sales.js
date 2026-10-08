@@ -32,6 +32,9 @@ const SALE_STAGES=[
   ['closed_won','Closed-Won'],
   ['closed_lost','Closed-Lost']
 ];
+/* the stage tables add Disqualified after Closed-Lost (Kevin, 8 Oct 2026), so
+   every customer who moved in the window lands in exactly one column */
+const STAGE_COLS=[...SALE_STAGES,['disq','Disqualified']];
 
 /* the value of an open lead is the last thing quoted for it. A lead with no
    quotation contributes nothing, so the pipeline understates rather than
@@ -140,6 +143,9 @@ async function renderSalesReport(){
        import's moves for leads re-dated from the client's C-lost sheet
        (29 Sep 2026) */
     if(code===LOST)return isClosedLost(l)&&within(l.stage_entered_at,a,b);
+    /* lost without qualifying: on its lost date, or a logged move to lost */
+    if(code==='disq')return isDisqualified(l)&&(within(l.stage_entered_at,a,b)
+      ||moves.some(m=>m.lead===l.id&&m.to===LOST&&m.day>=a&&m.day<=b));
     /* Won the same way: on the win date the lead carries, as Management counts
        it. The client's Activity Log (loaded 30 Sep 2026) logs a second
        Closed-Won for a customer's later purchase, which would count twice. */
@@ -154,14 +160,16 @@ async function renderSalesReport(){
      Gathering then Telling Price is 1 under Telling Price, not 1 under each. */
   const dayIn=(l,code,a,b)=>{
     if(code===WON||code===LOST)return localDay(l.stage_entered_at);
+    if(code==='disq'){const ds=moves.filter(m=>m.lead===l.id&&m.to===LOST&&m.day>=a&&m.day<=b).map(m=>m.day)
+      .concat(within(l.stage_entered_at,a,b)?[localDay(l.stage_entered_at)]:[]).sort();return ds[ds.length-1];}
     const ds=moves.filter(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b).map(m=>m.day).sort();
     return ds.length?ds[ds.length-1]:localDay(l.stage_entered_at||l.created_at);
   };
   const lastIn=(l,a,b)=>{let best=null,bd='';
-    SALE_STAGES.forEach(([code],i)=>{if(!enteredIn(l,code,a,b))return;
+    STAGE_COLS.forEach(([code],i)=>{if(!enteredIn(l,code,a,b))return;
       const d=dayIn(l,code,a,b)||'';if(best==null||d>=bd){best=i;bd=d;}});
     return best;};
-  const stageRow=(set,a,b)=>{const r=SALE_STAGES.map(()=>0);
+  const stageRow=(set,a,b)=>{const r=STAGE_COLS.map(()=>0);
     set.forEach(l=>{const i=lastIn(l,a,b);if(i!=null)r[i]++;});return r;};
   const contactedIn=(id,a,b)=>new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
     &&c.day>=a&&c.day<=b).map(c=>c.lead)).size;
@@ -305,13 +313,13 @@ async function renderSalesReport(){
       ${people.map(p=>`<option value="${p.id}" ${REPFILTER.person===p.id?'selected':''}>${esc(p.full_name)}</option>`).join('')}
     </select>`;
 
-  const head=`<tr><th>Sale engineer</th><th>#Lead Contact</th>${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>`;
+  const head=`<tr><th>Sale engineer</th><th>#Lead Contact</th>${STAGE_COLS.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>`;
   const stageTable=(a,b)=>{
     const body=shown.map(p=>{
       const r=stageRow(mine(p.id),a,b);
       return `<tr><td><b>${esc(p.full_name)}</b></td><td>${contactedIn(p.id,a,b)}</td>`
-        +r.map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')+`</tr>`;}).join('');
-    const totals=SALE_STAGES.map((_,i)=>shown.reduce((x,p)=>x+stageRow(mine(p.id),a,b)[i],0));
+        +r.map((v,i)=>`<td class="st-${STAGE_COLS[i][0]}${v?' nz':''}">${v}</td>`).join('')+`</tr>`;}).join('');
+    const totals=STAGE_COLS.map((_,i)=>shown.reduce((x,p)=>x+stageRow(mine(p.id),a,b)[i],0));
     const totContact=shown.reduce((x,p)=>x+contactedIn(p.id,a,b),0);
     return `<div class="tablewrap"><table class="table-compact"><thead>${head}</thead>
       <tbody>${body}</tbody>
@@ -329,17 +337,17 @@ async function renderSalesReport(){
     `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;
   const show=v=>SALEVIEW===v;
   /* one stage table body shared by the daily, weekly and monthly breakdowns */
-  const brkHead=first=>`<tr><th>${first}</th><th>#Lead Contact</th>${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>`;
+  const brkHead=first=>`<tr><th>${first}</th><th>#Lead Contact</th>${STAGE_COLS.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>`;
   const brkRow=(p,label,a,b)=>{const r=stageRow(mine(p.id),a,b), c=contactedIn(p.id,a,b);
     const empty=!c&&!r.some(Boolean);
-    return `<tr class="${empty?'quietrow':''}"><td><b>${label}</b></td><td>${c}</td>${r.map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`;};
+    return `<tr class="${empty?'quietrow':''}"><td><b>${label}</b></td><td>${c}</td>${r.map((v,i)=>`<td class="st-${STAGE_COLS[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`;};
 
   /* the Total row under a breakdown adds up the rows above it, so the total and
      the rows can never disagree. extra is the blank cells a weekly table has
      for From and To. */
   const brkTotal=(p,wins,extra)=>{
     const c=wins.reduce((x,[a,b])=>x+contactedIn(p.id,a,b),0);
-    const r=SALE_STAGES.map((_,i)=>wins.reduce((x,[a,b])=>x+stageRow(mine(p.id),a,b)[i],0));
+    const r=STAGE_COLS.map((_,i)=>wins.reduce((x,[a,b])=>x+stageRow(mine(p.id),a,b)[i],0));
     return `<tfoot><tr><td><b>Total</b></td>${'<td></td>'.repeat(extra||0)}<td><b>${c}</b></td>${r.map(v=>`<td><b>${v}</b></td>`).join('')}</tr></tfoot>`;};
 
   $('main').innerHTML=repBar('Sales report',personFilter)+tabs+`
@@ -356,11 +364,11 @@ async function renderSalesReport(){
         <div class="person">${esc(p.full_name)}</div>
         <div class="tablewrap"><table class="table-compact"><thead>
           <tr><th>Week</th><th>From</th><th>To</th><th>#Lead Contact</th>
-            ${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr></thead>
+            ${STAGE_COLS.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr></thead>
           <tbody>${saleWeeks(thisM).map(([n,a,b])=>`<tr>
             <td><b>${n}</b></td><td>${esc(fmtDate(a))}</td><td>${esc(fmtDate(b))}</td>
             <td>${contactedIn(p.id,a,b)}</td>
-            ${stageRow(mine(p.id),a,b).map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')}
+            ${stageRow(mine(p.id),a,b).map((v,i)=>`<td class="st-${STAGE_COLS[i][0]}${v?' nz':''}">${v}</td>`).join('')}
           </tr>`).join('')}</tbody>${brkTotal(p,saleWeeks(thisM).map(([,a,b])=>[a,b]),2)}</table></div>
       </div>`).join('')}`:''}
 
@@ -463,10 +471,10 @@ async function renderSalesReport(){
       <div style="margin-bottom:14px">
         <div class="person">${esc(p.full_name)}</div>
         <div class="tablewrap"><table class="table-compact"><thead>
-          <tr><th>Month</th><th>#Lead Contact</th>${SALE_STAGES.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>
+          <tr><th>Month</th><th>#Lead Contact</th>${STAGE_COLS.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>
         </thead><tbody>${months.map(m=>{const [a,b]=monthWin(m);
           return `<tr><td><b>${esc(monthName(m))}</b></td><td>${contactedIn(p.id,a,b)}</td>
-            ${stageRow(mine(p.id),a,b).map((v,i)=>`<td class="st-${SALE_STAGES[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`;}).join('')}
+            ${stageRow(mine(p.id),a,b).map((v,i)=>`<td class="st-${STAGE_COLS[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`;}).join('')}
         </tbody>${brkTotal(p,months.map(monthWin))}</table></div>
       </div>`).join('')
       :blank('No months to show yet','This fills in as leads accumulate.')}

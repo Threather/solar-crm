@@ -660,6 +660,8 @@ td.numcell b{font-weight:600}
 .salerep .st-agreement_signoff{--st:#5b4a8a}
 .salerep .st-closed_won{--st:var(--viz-good)}
 .salerep .st-closed_lost{--st:var(--viz-1)}
+.salerep .st-disq{--st:var(--c-disq)}
+.salerep td.nz.st-disq{color:var(--c-disq);background:color-mix(in srgb,var(--c-disq) 9%,transparent)}
 .salerep td.nz.st-closed_won{color:var(--viz-good);background:color-mix(in srgb,var(--viz-good) 9%,transparent)}
 .salerep td.nz.st-closed_lost{color:var(--viz-1);background:color-mix(in srgb,var(--viz-1) 8%,transparent)}
 .salerep td.nz.st-quotation_sent{color:var(--viz-2)}
