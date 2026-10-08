@@ -401,7 +401,7 @@ async function renderSalesReport(){
       <td><b>${esc(cash(tot.pipe))}</b></td>
       <td><b>${!tot.t?'—':!tot.short?'target met':esc(pct(tot.pipe,tot.short))}</b></td>
       <td><b>${totRun==null?'—':totRun+'%'}</b></td></tr></tfoot></table></div>
-    ${!tot.t?`<div class="hint">No collection target set for ${esc(monthName(thisM))}. Target, shortfall, achievement and run rate stay blank until one is set under Targets.</div>`:''}
+    ${!tot.t?`<div class="hint">No collection target set for ${esc(monthName(thisM))}.</div>`:''}
 
     <div class="homegrid">
       ${repPanel('6. MTD Sales Conversion Rate %',
@@ -440,11 +440,9 @@ async function renderSalesReport(){
 
     <div class="chhead"><h3 class="sechead">Performance by Channel</h3>
       <button class="btn-line" onclick="exportChannels()">Export Excel</button></div>
-    <p class="hint" style="margin-top:-4px">${esc(repWindowSentence())} Qualified in brackets = share of the raw leads. Payment collected = money received in the dates, under the lead's channel.</p>
     ${chTable}
 
     <h3 class="sechead">Leads by Sub-channel</h3>
-    <p class="hint" style="margin-top:-4px">Leads that came in during the dates. In brackets: share of that row's raw leads.</p>
     ${sbTable}`:''}
 
    ${show('mom')?`

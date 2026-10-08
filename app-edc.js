@@ -181,11 +181,7 @@ function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
     <div class="empty" style="margin-bottom:22px"><b>${Object.values(EDCF).some(v=>v.length)?'Nothing matches the filters':'Nothing pending here'}</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
   rows=rows.slice().sort((a,b)=>edcWaitDays(b)-edcWaitDays(a));
-  /* a step filter set on the other table does not touch this one - say so */
-  const skipped=Object.entries(EDCF).filter(([k,v])=>v.length&&k.startsWith('d:')&&!fields.some(([f])=>'d:'+f===k))
-    .map(([k])=>EDCLABEL[k]||k);
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
-    ${skipped.length?`<p class="hint" style="margin:-2px 0 8px">${esc(skipped.join(', '))} filter not applied here: this size has no such step.</p>`:''}
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
       <th>Ref ID</th>${edcHead('Customer','eng','Filter by site engineer')}${edcHead('Waiting on','wait','The next step and how long it has waited')}${edcHead('Branch','branch')}${edcHead('EDC price','price','What EDC charges for this submission')}${fields.map(([k,short,full])=>edcHead(short,'d:'+k,full)).join('')}${edcHead('Done','done')}
     </tr></thead><tbody>`+rows.map(l=>{

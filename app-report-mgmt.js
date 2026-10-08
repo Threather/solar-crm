@@ -457,8 +457,7 @@ async function renderMgmtReport(){
       ${kpi({label:'Target Remaining',value:remaining==null?'—':cash(remaining)})}
       ${kpi({label:'Run Rate %',value:(target&&runRate!=null)?pct2(runRate/target*100):'—'})}
     </div>
-    ${!target?`<div class="hint">No collection target set for ${esc(rangeWord)}.</div>`
-      :!oneMonth?`<div class="hint">Target is each month's target for the days of it in range.</div>`:''}
+    ${!target?`<div class="hint">No collection target set for ${esc(rangeWord)}.</div>`:''}
 
     <div class="homegrid three mgrid">
       ${leadTarget?colChart(['Raw Lead Target','Raw Lead'],[leadTarget,mktLeads],
