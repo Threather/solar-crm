@@ -88,7 +88,7 @@ async function renderMgmtReport(){
     repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month').order('id'),ids),
     repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids),
     /* what customers have promised to pay, keyed in by admin on Finance */
-    rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd').order('expected_on').order('id')).then(r=>r.data||[])
+    rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd,created_at').order('expected_on').order('id')).then(r=>r.data||[])
   ]);
 
   /* Quotation Sent in the stage history counts as after a quotation too */
