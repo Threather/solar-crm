@@ -57,6 +57,23 @@ function saleWeeks(monthISO){
 let SALEVIEW='daily';
 function setSaleView(v){SALEVIEW=v;renderReports();}
 
+let CHSHEETS=null;
+async function exportChannels(){
+  const D=CHSHEETS;if(!D)return;
+  if(!window.XLSX)await new Promise((ok,no)=>{const x=document.createElement('script');
+    x.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';x.onload=ok;x.onerror=no;document.head.appendChild(x);})
+    .catch(()=>toast('Could not load the Excel writer'));
+  if(!window.XLSX)return;
+  const lead=l=>({'Channel':D.name(D.chOf(l)),'Ref ID':l.ref_id||'','Customer':l.customer_name||'','Lead date':localDay(l.lead_date||l.created_at),
+    'Stage':(STAGES.find(x=>x.stage_code===l.stage_code)||{}).stage_name||l.stage_code,'Salesperson':l.assigned_to?staffName(l.assigned_to):''});
+  const wb=XLSX.utils.book_new();
+  const add=(n,rows)=>XLSX.utils.book_append_sheet(wb,rows.length?XLSX.utils.json_to_sheet(rows):XLSX.utils.aoa_to_sheet([['None']]),n);
+  add('Raw Lead',D.raw.map(lead));add('Qualified',D.qual.map(lead));
+  add('Closed-Won',D.won.map(l=>({...lead(l),'Won on':localDay(l.stage_entered_at),'Contract value':D.contractOf(l)})));
+  add('Payments',D.pays.map(p=>{const l=D.byId[p.lead_id];return {'Channel':D.name(D.chOf(l)),'Ref ID':l.ref_id||'','Customer':l.customer_name||'',
+    'Paid on':localDay(p.paid_on),'Counted in':localDay(p.count_month||p.paid_on),'Amount':Number(p.amount_usd||0)};}));
+  XLSX.writeFile(wb,'Performance by Channel.xlsx');
+}
 async function renderSalesReport(){
   const rows=await fetchLeads(q=>q);
   const ids=rows.map(l=>l.id);
@@ -163,6 +180,47 @@ async function renderSalesReport(){
      answers "how much is owed". Total Contract Value is what was signed. */
   const contractOf=(id,a,b)=>mine(id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b))
     .reduce((x,l)=>x+Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0),0);
+
+  /* ---- by channel (council, 8 Oct 2026): one row per channel, five columns
+     each on its own scale, for the dates picked. Raw = leads that came in;
+     Qualified = those of them qualified by the last day (the share in
+     brackets is the only honest rate - the other columns are dated
+     differently, so Won / Raw would compare different customers); Won,
+     Contract $ = deals won in the dates; Collected $ = payments received in
+     the dates, under the channel of the lead they belong to. Everyone, or
+     only the person picked, as the rest of the tab. */
+  const chWin=win, chEnd=win[1]<today?win[1]:today;
+  const qualOnS={};moves.forEach(m=>{if(QUALIFIED_STAGES.includes(m.to)&&(!qualOnS[m.lead]||m.day<qualOnS[m.lead]))qualOnS[m.lead]=m.day;});
+  const chScope=l=>ME.role==='sales'?l.assigned_to===ME.id:!REPFILTER.person||l.assigned_to===REPFILTER.person;
+  const CH_ORDER=['Digital_Marketing','Offline_Marketing','Direct_Sales','Third_Party','Existing_Customer'];
+  const chOf=l=>l.lead_channel||'none';
+  const chName=c=>c==='none'?'No channel':c.replace(/_/g,' ');
+  const chRaw=rows.filter(l=>chScope(l)&&within(dayOf(l),chWin[0],chWin[1]));
+  const chQual=chRaw.filter(l=>qualText(l)==='Qualified'&&localDay(qualOnS[l.id]||dayOf(l))<=chEnd);
+  const chWon=rows.filter(l=>chScope(l)&&l.stage_code===WON&&within(l.stage_entered_at,chWin[0],chWin[1]));
+  const chPays=pays.filter(p=>byId[p.lead_id]&&chScope(byId[p.lead_id])&&within(countDay(p),chWin[0],chWin[1]));
+  const chContractOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0);
+  const chKeys=[...new Set([...CH_ORDER,...[...chRaw,...chWon,...chPays.map(p=>byId[p.lead_id])].map(chOf)])]
+    .sort((a,b)=>(a==='none')-(b==='none')||((CH_ORDER.indexOf(a)+1||99)-(CH_ORDER.indexOf(b)+1||99))||a.localeCompare(b));
+  const chRows=chKeys.map(c=>({c,raw:chRaw.filter(l=>chOf(l)===c).length,qual:chQual.filter(l=>chOf(l)===c).length,
+    won:chWon.filter(l=>chOf(l)===c).length,contract:chWon.filter(l=>chOf(l)===c).reduce((a,l)=>a+chContractOf(l),0),
+    coll:chPays.filter(p=>chOf(byId[p.lead_id])===c).reduce((a,p)=>a+Number(p.amount_usd||0),0)}))
+    .filter(r=>r.raw||r.won||r.coll||CH_ORDER.includes(r.c));
+  CHSHEETS={raw:chRaw,qual:chQual,won:chWon,pays:chPays,byId,contractOf:chContractOf,name:chName,chOf};
+  const chTot=chRows.reduce((a,r)=>({raw:a.raw+r.raw,qual:a.qual+r.qual,won:a.won+r.won,contract:a.contract+r.contract,coll:a.coll+r.coll}),{raw:0,qual:0,won:0,contract:0,coll:0});
+  const chMax=k=>Math.max(1,...chRows.map(r=>r[k]));
+  const chCell=(r,k,fmt,col,extra)=>`<td class="chcell"><div class="chbar"><i style="width:${r[k]?Math.max(2,r[k]/chMax(k)*100):0}%;background:${col}"></i></div><span>${fmt(r[k])}${extra||''}</span></td>`;
+  const chTable=`<div class="tablewrap"><table class="table-compact chtable"><thead><tr>
+      <th>Channel</th><th>Raw Lead</th><th>Qualified</th><th>Closed-Won</th><th>Contract Value</th><th>Payment Collected</th></tr></thead><tbody>`
+    +chRows.map(r=>`<tr><td><b class="nm">${esc(chName(r.c))}</b></td>
+      ${chCell(r,'raw',String,'var(--c-raw)')}
+      ${chCell(r,'qual',String,'var(--c-qual)',r.raw?` <span class="quiet">(${Math.round(r.qual/r.raw*100)}%)</span>`:'')}
+      ${chCell(r,'won',String,'var(--c-won)')}
+      ${chCell(r,'contract',cash,'var(--viz-2)')}
+      ${chCell(r,'coll',cash,'var(--viz-4)')}</tr>`).join('')
+    +`</tbody><tfoot><tr><td><b>Total</b></td><td><b>${chTot.raw}</b></td>
+      <td><b>${chTot.qual}</b>${chTot.raw?` <span class="quiet">(${Math.round(chTot.qual/chTot.raw*100)}%)</span>`:''}</td>
+      <td><b>${chTot.won}</b></td><td><b>${esc(cash(chTot.contract))}</b></td><td><b>${esc(cash(chTot.coll))}</b></td></tr></tfoot></table></div>`;
 
   const dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
   const dayNow=new Date().getDate();
@@ -335,7 +393,12 @@ async function renderSalesReport(){
           ?gRank(Object.entries(reasons),{color:'var(--bad)',limit:12,wrap:true})
           :blank('Nothing lost this month','No lead was moved to Closed-Lost in '+monthName(thisM)+'.');
       })())}
-    </div>`:''}
+    </div>
+
+    <div class="chhead"><h3 class="sechead">Performance by Channel</h3>
+      <button class="btn-line" onclick="exportChannels()">Export Excel</button></div>
+    <p class="hint" style="margin-top:-4px">${esc(repWindowSentence())} Qualified in brackets = share of the raw leads. Payment collected = money received in the dates, under the lead's channel.</p>
+    ${chTable}`:''}
 
    ${show('mom')?`
     <h3 class="sechead">MoM — Sale stage by month</h3>

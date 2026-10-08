@@ -1043,3 +1043,11 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .hf-clear{all:unset;cursor:pointer;font-size:12.5px;color:var(--ink-soft);text-decoration:underline;text-underline-offset:2px}
 .hf-clear:hover{color:var(--ink)}
 .hf-note{font-size:12.5px;color:var(--ink-mute);margin-left:auto}
+
+/* Sales report, Performance by Channel (8 Oct 2026): a table whose cells
+   carry their own bar, each column on its own scale */
+.chhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.chtable td.chcell{min-width:120px}
+.chtable .chbar{height:6px;background:var(--line-soft);border-radius:3px;overflow:hidden;margin:2px 0 4px}
+.chtable .chbar i{display:block;height:100%;border-radius:3px}
+.chtable td.chcell span{font-variant-numeric:tabular-nums}
