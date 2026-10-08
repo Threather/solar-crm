@@ -118,7 +118,7 @@ let REPSCOPE='', REPPERIOD='month', REPFILTER={person:'',team:'',channel:''};
 /* Which report a role may see, and which one exists yet. The reports land one
    at a time, so a scope whose renderer has not shipped is left out rather than
    offered as a button that opens a blank page. */
-const REP_RENDER={mgmt:'renderMgmtReport',sales:'renderSalesReport',ops:'renderOpsReport',mkt:'renderMktReport'};
+const REP_RENDER={mgmt:'renderMgmtReport',sales:'renderSalesReport',ops:'renderOpsReport',mkt:'renderMktReport',agents:'renderAgentReport'};
 function repScopes(){
   const s=[];
   /* the management board leads, and only for the two roles it is drawn for */
@@ -128,6 +128,8 @@ function repScopes(){
   /* the sales manager runs marketing as well as sales, so they get both
      dashboards; operations is a different team and stays out */
   if(['marketing','manager','admin'].includes(ME.role))s.push(['mkt','Marketing']);
+  /* Third Party agents (8 Oct 2026) */
+  if(['manager','admin'].includes(ME.role))s.push(['agents','Agents']);
   return s.filter(([k])=>typeof window[REP_RENDER[k]]==='function');
 }
 /* Two presets and a pair of dates. A week and a month were guesses at which

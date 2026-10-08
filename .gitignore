@@ -4,3 +4,5 @@ graphify-out/
 _tmpx/
 dup-alert.sql
 exports/
+speed-rls.sql
+agents.sql

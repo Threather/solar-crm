@@ -140,8 +140,10 @@ async function openLead(id){
         ${isMkt?'':`<div><label>Qualification</label><input value="${qualText(l)}" disabled title="Follows the stage. Qualified from Telling Price onwards."></div>`}
         <div><label>Assigned sale engineer</label><select id="d-assign" ${canAssign?'':'disabled'}>${salesOpts}</select></div>
         ${canChan?`<div><label>Channel</label><select id="d-chan" onchange="dSubChan()">${optList(Object.keys(CHANNELS),l.lead_channel,false)}</select></div>
-        <div><label>Sub-channel</label><select id="d-sub">${optList(subChanOf(l.lead_channel),l.lead_sub_channel)}</select></div>`
-        :`<div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>`}
+        <div><label>Sub-channel</label><select id="d-sub" onchange="dSubAgent()">${optList(subChanOf(l.lead_channel),l.lead_sub_channel)}</select></div>
+        <div id="d-agentwrap" ${l.lead_sub_channel==='Agent'?'':'style="display:none"'}><label>Agent</label><select id="d-agent">${optList(AGENTS,l.agent_name||'')}</select></div>`
+        :`<div><label>Channel</label><input value="${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?' / '+esc(l.lead_sub_channel):''}" disabled></div>
+        ${l.agent_name?`<div><label>Agent</label><input value="${esc(l.agent_name)}" disabled></div>`:''}`}
         ${isAdmin&&(l.referrer_name||l.referrer_phone||l.lead_channel==='Third_Party')
           /* admin corrects the referrer - it decides who the third-party
              incentive is paid to (30 Sep 2026) */
@@ -356,7 +358,9 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
      the permission rules live in one place instead of being restated here. */
   /* a channel changed here needs its sub-channel, as on New lead */
   if(val('d-chan')!==undefined&&!$('d-sub').value){needField('d-sub','Pick a sub-channel');return;}
-  const m={referrer_name:'d-refname',referrer_phone:'d-refphone',lead_channel:'d-chan',lead_sub_channel:'d-sub',customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
+  if($('d-sub')&&!$('d-sub').disabled&&$('d-sub').value==='Agent'&&!$('d-agent').value){needField('d-agent','Pick the agent');return;}
+  if($('d-sub')&&$('d-sub').value!=='Agent'&&$('d-agent'))$('d-agent').value='';
+  const m={agent_name:'d-agent',referrer_name:'d-refname',referrer_phone:'d-refphone',lead_channel:'d-chan',lead_sub_channel:'d-sub',customer_name:'d-name',customer_type:'d-ctype',phone:'d-phone',
            stage_code:'d-stage',next_follow_up:'d-follow',
            site_address:'d-addr',commune:'d-commune',district:'d-district',site_type:'d-sitetype',
            monthly_bill_usd:'d-bill',
@@ -468,7 +472,9 @@ function subChanOf(ch){
 function dSubChan(){
   const s=$('d-sub');if(!s)return;
   s.innerHTML=optList(subChanOf($('d-chan').value),'');
+  dSubAgent();
 }
+function dSubAgent(){const w=$('d-agentwrap'),s=$('d-sub');if(w&&s)w.style.display=s.value==='Agent'?'':'none';}
 async function softDelete(id){
   if(!['admin','manager'].includes(ME.role))return;
   if(!confirm('Delete this lead? It disappears from the CRM but stays in the database.'))return;

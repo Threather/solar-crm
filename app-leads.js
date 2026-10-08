@@ -707,7 +707,8 @@ function renderNew(){
         <div><label>Customer type *</label><select id="f-ctype">${optList(CUSTOMER_TYPES,'Residential',false)}</select></div>
         <div><label>Monthly electricity bill (USD)</label>${numBox('f-bill','')}</div>
         <div><label>Lead channel *</label><select id="f-chan" onchange="subChan()">${optList(Object.keys(CHANNELS),'Digital_Marketing',false)}</select></div>
-        <div><label>Sub-channel *</label><select id="f-sub"></select></div>
+        <div><label>Sub-channel *</label><select id="f-sub" onchange="subAgent()"></select></div>
+        <div id="f-agentwrap" style="display:none"><label>Agent *</label><select id="f-agent">${optList(AGENTS,'')}</select></div>
         ${['manager','admin'].includes(ME.role)?`<div><label>Sale engineer</label><select id="f-who">
           <option value="">Automatic</option>
           ${assignable().map(s=>`<option value="${s.id}">${esc(assignLabel(s))}</option>`).join('')}</select></div>`:''}
@@ -791,7 +792,9 @@ function subChan(){
   $('f-sub').innerHTML=optList(subs,'');
   $('f-refwrap').style.display  = ch==='Third_Party'      ? 'grid' : 'none';
   $('f-eventwrap').style.display= ch==='Offline_Marketing'? 'grid' : 'none';
+  subAgent();
 }
+function subAgent(){const w=$('f-agentwrap');if(w)w.style.display=$('f-sub').value==='Agent'?'':'none';}
 function geoProv(){
   const d=GEO[$('f-prov').value]||{};
   $('f-district').innerHTML=optList(Object.keys(d),'');
@@ -805,6 +808,7 @@ async function createLead(){
   const name=$('f-name').value.trim(),phone=$('f-phone').value.trim();
   if(!name){needField('f-name','Customer name is required');return;}
   if(!$('f-sub').value){needField('f-sub','Pick a sub-channel before creating the lead');return;}
+  if($('f-sub').value==='Agent'&&!$('f-agent').value){needField('f-agent','Pick the agent');return;}
   /* the same number turning up twice is usually a customer who called back,
      not a mistake — so this says so and lets it through. It only sees leads
      the person is allowed to see, so a silent no would be worse than this. */
@@ -828,6 +832,7 @@ async function createLead(){
     monthly_bill_usd:$('f-bill').value||null,
     lead_channel:$('f-chan').value,
     lead_sub_channel:$('f-sub').value||null,
+    agent_name:$('f-sub').value==='Agent'?$('f-agent').value:null,
     referrer_name:$('f-refname')?($('f-refname').value.trim()||null):null,
     referrer_phone:$('f-refphone')?($('f-refphone').value.trim()||null):null,
     site_address:$('f-addr').value.trim()||null,

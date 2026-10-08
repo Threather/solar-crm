@@ -18,6 +18,9 @@ async function renderLists(){
   if(error){
     $('main').innerHTML=blank('Could not load the lists',why(error));return;}
   LISTROWS=data||[];
+  /* an agent's phone, bank account and contract date: agent_details, admin only */
+  let AD={};
+  if(LISTKEY==='agent'){const r=await sb.from('agent_details').select('*');(r.data||[]).forEach(x=>AD[x.name]=x);}
   const meta=VOCAB_LISTS.find(l=>l[0]===LISTKEY)||[];
   const note=meta[4]||'';
   const live=LISTROWS.filter(r=>r.is_active).length;
@@ -34,11 +37,12 @@ async function renderLists(){
         <div style="align-self:end"><button class="btn-sun" onclick="listAdd()">Add</button></div>
       </div>
       <div class="tablewrap" style="margin-top:14px"><table><thead><tr>
-        <th>Value</th>${LISTKEY==='install_team'?'<th>Team members</th>':''}<th>Order</th><th>Status</th><th></th>
+        <th>Value</th>${LISTKEY==='install_team'?'<th>Team members</th>':''}${LISTKEY==='agent'?'<th>Phone</th><th>Bank account</th><th>Contract signed</th>':''}<th>Order</th><th>Status</th><th></th>
       </tr></thead><tbody>`+(LISTROWS.length?LISTROWS.map((r,i)=>`
         <tr${r.is_active?'':' style="opacity:.55"'}>
           <td><b>${esc(r.value)}</b></td>
           ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="e.g. Dina, Sok, Vanna" onchange="listDetail('${r.id}',this.value)"></td>`:''}
+          ${LISTKEY==='agent'?['phone','bank_account','contract_date'].map(f=>`<td><input ${f==='contract_date'?'type="date"':''} value="${esc((AD[r.value]||{})[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)"></td>`).join(''):''}
           <td class="nowrap">
             <button class="btn-line" ${i===0?'disabled':''} onclick="listMove('${r.id}',-1)">↑</button>
             <button class="btn-line" ${i===LISTROWS.length-1?'disabled':''} onclick="listMove('${r.id}',1)">↓</button>
@@ -49,7 +53,7 @@ async function renderLists(){
             <button class="btn-line" onclick="listDelete('${r.id}')">Delete</button>
           </td>
         </tr>`).join('')
-      :`<tr><td colspan="5">Nothing in this list yet.</td></tr>`)+`</tbody></table></div>
+      :`<tr><td colspan="8">Nothing in this list yet.</td></tr>`)+`</tbody></table></div>
     </div>`;
 }
 function listGo(k){LISTKEY=k;renderLists();}
@@ -96,4 +100,11 @@ async function listDetail(id,v){
   const {error}=await sb.from('vocabularies').update({detail:v.trim()||null}).eq('id',id);
   if(error){toast('Could not save. '+why(error));return;}
   toast('Saved');await loadVocab();
+}
+/* one agent's private details, saved on change */
+async function agentSave(id,f,v){
+  const row=LISTROWS.find(r=>r.id===id);if(!row)return;
+  const {error}=await sb.from('agent_details').upsert({name:row.value,[f]:v.trim()||null,updated_at:new Date().toISOString()},{onConflict:'name'});
+  if(error){toast('Could not save. '+why(error));return;}
+  toast('Saved');
 }

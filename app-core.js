@@ -235,6 +235,9 @@ const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','fo
 let INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 /* who is in each team, typed on Lists (vocabularies.detail, 8 Oct 2026) */
 let INSTALL_TEAM_DETAIL={};
+/* Third Party > Agent: the agents admin keeps on Lists (8 Oct 2026); their
+   phone, bank account and contract date sit in agent_details, admin only */
+let AGENTS=[];
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
 let ACCOUNT_TYPES=['SWN','SWT'];
 const BOQ_STATUS=['Pending','Done'];
@@ -570,7 +573,8 @@ const VOCAB_LISTS=[
   ['lost_reason','Closed-lost reason',()=>LOST_REASONS,v=>LOST_REASONS=v,'Offered as a numbered list when a lead is moved to Closed-Lost.'],
   ['as_cause','After-sale cause',()=>AS_CAUSES,v=>AS_CAUSES=v,''],
   ['account_type','Type of account',()=>ACCOUNT_TYPES,v=>ACCOUNT_TYPES=v,''],
-  ['edc_branch','EDC branch',()=>EDC_BRANCHES,v=>EDC_BRANCHES=v,'']
+  ['edc_branch','EDC branch',()=>EDC_BRANCHES,v=>EDC_BRANCHES=v,''],
+  ['agent','Agent',()=>AGENTS,v=>AGENTS=v,'Picked on a lead when the sub-channel is Agent.']
 ];
 /* Loaded once at login. A value hidden on the Lists screen leaves the
    dropdowns, but a lead already carrying it still shows it - see optList. */
