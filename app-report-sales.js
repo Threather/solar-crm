@@ -208,6 +208,33 @@ async function renderSalesReport(){
     coll:chPays.filter(p=>chOf(byId[p.lead_id])===c).reduce((a,p)=>a+Number(p.amount_usd||0),0)}))
     .filter(r=>r.raw||r.won||r.coll||CH_ORDER.includes(r.c));
   CHSHEETS={raw:chRaw,qual:chQual,won:chWon,pays:chPays,byId,contractOf:chContractOf,name:chName,chOf};
+
+  /* BY SUB-CHANNEL (Kevin, 8 Oct 2026): of the leads that came in during the
+     dates, how many gave a phone, qualified and were disqualified - by the
+     last day picked, as the Management board counts them. Grouped under the
+     channel, with a blank sub-channel kept as its own row so the rows add up
+     to the channel. */
+  const subOf=l=>(l.lead_sub_channel||'').trim()||'(no sub-channel)';
+  const sbStat=set=>({raw:set.length,phone:set.filter(l=>(l.phone||'').trim()).length,
+    qual:set.filter(l=>chQual.includes(l)).length,
+    disq:set.filter(l=>isDisqualified(l)&&localDay(l.stage_entered_at||dayOf(l))<=chEnd).length});
+  const sbGroups=chKeys.map(c=>{const inC=chRaw.filter(l=>chOf(l)===c);
+    const subs=[...new Set(inC.map(subOf))].map(sb=>({sb,...sbStat(inC.filter(l=>subOf(l)===sb))}))
+      .sort((a,b)=>(a.sb==='(no sub-channel)')-(b.sb==='(no sub-channel)')||b.raw-a.raw);
+    return {c,tot:sbStat(inC),subs};}).filter(g=>g.tot.raw);
+  const sbTot=sbStat(chRaw);
+  const sbMax=k=>Math.max(1,...sbGroups.flatMap(g=>g.subs.map(x=>x[k])));
+  const sbPct=(n,d)=>d?` <span class="quiet">(${Math.round(n/d*100)}%)</span>`:'';
+  const sbCell=(x,k,col)=>`<td class="chcell"><div class="chbar"><i style="width:${x[k]?Math.max(2,x[k]/sbMax(k)*100):0}%;background:${col}"></i></div><span>${x[k]}${k==='raw'?'':sbPct(x[k],x.raw)}</span></td>`;
+  const sbRow=(x,label,cls)=>`<tr class="${cls}"><td>${label}</td>${sbCell(x,'raw','var(--c-raw)')}${sbCell(x,'phone','var(--viz-4)')}${sbCell(x,'qual','var(--c-qual)')}${sbCell(x,'disq','var(--c-disq)')}</tr>`;
+  const sbTable=sbGroups.length?`<div class="tablewrap"><table class="table-compact chtable sbtable"><thead><tr>
+      <th>Channel / Sub-channel</th><th>Raw Lead</th><th>Phone received</th><th>Qualified</th><th>Disqualified</th></tr></thead><tbody>`
+    +sbGroups.map(g=>`<tr class="sbch"><td><b>${esc(chName(g.c))}</b></td><td><b>${g.tot.raw}</b></td>
+        <td><b>${g.tot.phone}</b>${sbPct(g.tot.phone,g.tot.raw)}</td><td><b>${g.tot.qual}</b>${sbPct(g.tot.qual,g.tot.raw)}</td><td><b>${g.tot.disq}</b>${sbPct(g.tot.disq,g.tot.raw)}</td></tr>`
+      +g.subs.map(x=>sbRow(x,`<span class="nm">${esc(x.sb)}</span>`,'chsub')).join('')).join('')
+    +`</tbody><tfoot><tr><td><b>Total</b></td><td><b>${sbTot.raw}</b></td><td><b>${sbTot.phone}</b>${sbPct(sbTot.phone,sbTot.raw)}</td>
+      <td><b>${sbTot.qual}</b>${sbPct(sbTot.qual,sbTot.raw)}</td><td><b>${sbTot.disq}</b>${sbPct(sbTot.disq,sbTot.raw)}</td></tr></tfoot></table></div>`
+    :blank('No leads in these dates','Pick other dates.');
   const chTot=chRows.reduce((a,r)=>({raw:a.raw+r.raw,qual:a.qual+r.qual,won:a.won+r.won,contract:a.contract+r.contract,coll:a.coll+r.coll}),{raw:0,qual:0,won:0,contract:0,coll:0});
   const chMax=k=>Math.max(1,...chRows.map(r=>r[k]));
   const chCell=(r,k,fmt,col,extra)=>`<td class="chcell"><div class="chbar"><i style="width:${r[k]?Math.max(2,r[k]/chMax(k)*100):0}%;background:${col}"></i></div><span>${fmt(r[k])}${extra||''}</span></td>`;
@@ -414,7 +441,11 @@ async function renderSalesReport(){
     <div class="chhead"><h3 class="sechead">Performance by Channel</h3>
       <button class="btn-line" onclick="exportChannels()">Export Excel</button></div>
     <p class="hint" style="margin-top:-4px">${esc(repWindowSentence())} Qualified in brackets = share of the raw leads. Payment collected = money received in the dates, under the lead's channel.</p>
-    ${chTable}`:''}
+    ${chTable}
+
+    <h3 class="sechead">Leads by Sub-channel</h3>
+    <p class="hint" style="margin-top:-4px">Leads that came in during the dates. In brackets: share of that row's raw leads.</p>
+    ${sbTable}`:''}
 
    ${show('mom')?`
     <h3 class="sechead">MoM — Sale stage by month</h3>
