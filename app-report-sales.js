@@ -132,54 +132,34 @@ async function renderSalesReport(){
   rows.forEach(l=>{if(l.assigned_to)(byPerson[l.assigned_to]=byPerson[l.assigned_to]||[]).push(l);});
   const mine=id=>byPerson[id]||[];
 
-  /* A lead entered a stage inside a window if the log says so, or - where the
-     log has nothing for that stage - if the lead sits there now and got there
-     inside it. See the note at the top: the log is thin. */
-  const enteredIn=(l,code,a,b)=>{
-    /* the Closed-Lost column counts Closed-Lost only - qualified, then lost,
-       and still lost - never a Disqualified lead or one reopened since, the
-       same test Management counts its 39 by, and on the lost date
-       (stage_entered_at) rather than the log, which still carries the
-       import's moves for leads re-dated from the client's C-lost sheet
-       (29 Sep 2026) */
-    if(code===LOST)return isClosedLost(l)&&within(l.stage_entered_at,a,b);
-    /* lost without qualifying: on its lost date, or a logged move to lost */
-    if(code==='disq')return isDisqualified(l)&&(within(l.stage_entered_at,a,b)
-      ||moves.some(m=>m.lead===l.id&&m.to===LOST&&m.day>=a&&m.day<=b));
-    /* Won the same way: on the win date the lead carries, as Management counts
-       it. The client's Activity Log (loaded 30 Sep 2026) logs a second
-       Closed-Won for a customer's later purchase, which would count twice. */
-    if(code===WON)return l.stage_code===WON&&within(l.stage_entered_at,a,b);
-    const logged=moves.some(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b);
-    if(logged)return true;
-    if((loggedFor[l.id]||new Set()).has(code))return false;
-    return l.stage_code===code&&within(l.stage_entered_at||l.created_at,a,b);
-  };
-  /* ONE CUSTOMER, ONE COLUMN (Kevin, 8 Oct 2026): a lead that moved twice in
-     the window counts once, in the last stage it reached there - Information
-     Gathering then Telling Price is 1 under Telling Price, not 1 under each. */
-  const dayIn=(l,code,a,b)=>{
-    if(code===WON||code===LOST)return localDay(l.stage_entered_at);
-    if(code==='disq'){const ds=moves.filter(m=>m.lead===l.id&&m.to===LOST&&m.day>=a&&m.day<=b).map(m=>m.day)
-      .concat(within(l.stage_entered_at,a,b)?[localDay(l.stage_entered_at)]:[]).sort();return ds[ds.length-1];}
-    const ds=moves.filter(m=>m.lead===l.id&&m.to===code&&m.day>=a&&m.day<=b).map(m=>m.day).sort();
-    return ds.length?ds[ds.length-1]:localDay(l.stage_entered_at||l.created_at);
-  };
-  const lastIn=(l,a,b)=>{let best=null,bd='';
-    STAGE_COLS.forEach(([code],i)=>{if(!enteredIn(l,code,a,b))return;
-      const d=dayIn(l,code,a,b)||'';if(best==null||d>=bd){best=i;bd=d;}});
-    return best;};
+  /* THE STAGE TABLES (Kevin, 8 Oct 2026). A row holds every customer she
+     dealt with in the window - a call or note, or a move past Information
+     Gathering - each ONCE, in the stage they were on at the window's end. So
+     #Lead Contact is the row's sum by construction. A customer already won or
+     lost before the window and still so is not pipeline work and is left out.
+     Where a customer stood on a day is the latest of: the day they came in
+     (Information Gathering), their logged moves, and their own win/loss date
+     (which wins a tie). Won is never read from the log - a later purchase logs
+     a second Closed-Won. */
+  const TERMS=[WON,LOST,'disq'];
+  const lostCol=l=>isClosedLost(l)||qualText(l)==='Qualified'?LOST:'disq';
+  const evBy={};
+  rows.forEach(l=>{evBy[l.id]=[{to:'info_gathering',day:localDay(l.lead_date||l.created_at),k:-1}];
+    if(l.stage_code===WON||l.stage_code===LOST)evBy[l.id].push({to:l.stage_code,day:localDay(l.stage_entered_at),k:1});});
+  moves.forEach(m=>{if(m.to!==WON&&evBy[m.lead])evBy[m.lead].push({to:m.to,day:m.day,k:0});});
+  Object.values(evBy).forEach(e=>e.sort((x,y)=>x.day.localeCompare(y.day)||x.k-y.k));
+  const notesBy={};contacts.forEach(c=>{(notesBy[c.lead]=notesBy[c.lead]||[]).push(c.day);});
+  const stageAtDay=(l,d)=>{let t=null;for(const x of evBy[l.id]||[]){if(x.day>d)break;t=x.to;}
+    return t===LOST?lostCol(l):t;};
+  const dayBefore=d=>{const x=new Date(d+'T00:00:00Z');x.setUTCDate(x.getUTCDate()-1);return x.toISOString().slice(0,10);};
+  const rowStage=(l,a,b)=>{const s0=stageAtDay(l,dayBefore(a)), s=stageAtDay(l,b);
+    if(!s||(TERMS.includes(s0)&&s===s0))return null;
+    const noted=(notesBy[l.id]||[]).some(d=>d>=a&&d<=b);
+    if(!noted&&!(s!==s0&&s!=='info_gathering'))return null;
+    const i=STAGE_COLS.findIndex(([c])=>c===s);return i<0?null:i;};
   const stageRow=(set,a,b)=>{const r=STAGE_COLS.map(()=>0);
-    set.forEach(l=>{const i=lastIn(l,a,b);if(i!=null)r[i]++;});return r;};
-  /* #Lead Contact: customers with a call or note in the window, OR who moved
-     stage in it - a move means she dealt with them (Kevin, 8 Oct 2026). One
-     customer once. */
-  const contactedIn=(id,a,b)=>{
-    const s=new Set(contacts.filter(c=>byId[c.lead]&&byId[c.lead].assigned_to===id
-      &&c.day>=a&&c.day<=b).map(c=>c.lead));
-    /* landing on Information Gathering is not a contact (Kevin, 8 Oct) */
-    mine(id).forEach(l=>{const i=lastIn(l,a,b);if(i!=null&&i>0)s.add(l.id);});
-    return s.size;};
+    set.forEach(l=>{const i=rowStage(l,a,b);if(i!=null)r[i]++;});return r;};
+  const contactedIn=(id,a,b)=>stageRow(mine(id),a,b).reduce((x,y)=>x+y,0);
 
   const pct=repPct, cash=repCash;
   const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+(feeBy[l.id]||0);
