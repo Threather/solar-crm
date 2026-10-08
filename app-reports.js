@@ -20,24 +20,26 @@ function downloadCSV(name,headers,rows){
 }
 const stageName=c=>(STAGES.find(s=>s.stage_code===c)||{}).stage_name||c||'';
 
+/* who sent a Third Party customer, as the Leads table's Referred by column */
+const refWho=l=>l.lead_channel==='Third_Party'?(l.agent_name||l.referrer_name||''):'';
 function exportLeads(){
   /* an export must not hand back what the screen withholds, so marketing gets
      the same columns their table shows and nothing else - date first, as on
      screen, so the two read the same way round */
   if(ME.role==='marketing'){
-    downloadCSV('leads',['Date','Customer','Customer type','Phone','Sale engineer','Channel','Sub-channel','Address','Marketing follow-up'],
+    downloadCSV('leads',['Date','Customer','Customer type','Phone','Sale engineer','Channel','Sub-channel','Referred by','Address','Marketing follow-up'],
       filteredLeads().map(l=>[l.lead_date||localDay(l.created_at),l.customer_name,l.customer_type,l.phone,staffName(l.assigned_to),
-        l.lead_channel||l.lead_source,l.lead_sub_channel,l.site_address,l.mkt_follow_up_date]));
+        l.lead_channel||l.lead_source,l.lead_sub_channel,refWho(l),l.site_address,l.mkt_follow_up_date]));
     return;
   }
   /* the Lost tab exports what the Lost table shows - which kind of lost, when,
      before or after a quotation, and both remarks - so a filtered list (Type
      Closed-Lost, Lost Sept 2026) comes out as the same rows (29 Sep 2026) */
   if(LEADSCOPE==='lost'){
-    downloadCSV('lost-leads',['Lead date','Ref ID','Customer','Phone','Customer type','Channel','Sub-channel',
+    downloadCSV('lost-leads',['Lead date','Ref ID','Customer','Phone','Customer type','Channel','Sub-channel','Referred by',
       'Sale engineer','Type','Lost date','Quotation','Remark','Revised remark','Latest remark date','Latest remark'],
       filteredLeads().map(l=>[l.lead_date||localDay(l.created_at),l.ref_id,l.customer_name,l.phone,l.customer_type,
-        l.lead_channel,l.lead_sub_channel,staffName(l.assigned_to),lostType(l),localDay(l.stage_entered_at),
+        l.lead_channel,l.lead_sub_channel,refWho(l),staffName(l.assigned_to),lostType(l),localDay(l.stage_entered_at),
         QUOTE_STAGE_TEXT[quoteStage(l,!!l.last_quot)],l.lost_note,l.lost_note_revised,
         remarkDate(l.last_remark),l.last_remark?.note]));
     return;
@@ -48,7 +50,7 @@ function exportLeads(){
   const rows=filteredLeads().map(l=>[
     l.lead_date||localDay(l.created_at),l.ref_id,l.customer_name,l.phone,l.customer_type,stageName(l.stage_code),
     l.stage_code===WON?localDay(l.stage_entered_at):'',
-    l.lead_channel,l.lead_sub_channel,l.event_name,l.event_date,
+    l.lead_channel,l.lead_sub_channel,refWho(l),l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),
     l.next_follow_up,qualText(l),
@@ -65,7 +67,7 @@ function exportLeads(){
     remarkDate(l.last_remark),l.last_remark?.note]);
   downloadCSV(LEADSCOPE==='won'?'won-deals':LEADSCOPE==='lost'?'lost-leads':LEADSCOPE==='all'?'all-leads':'leads',
     ['Lead date','Ref ID','Customer','Phone','Customer type','Stage','Closed-Won date',
-    'Channel','Sub-channel','Event name','Event date',
+    'Channel','Sub-channel','Referred by','Event name','Event date',
     'Address','Commune','District','Province','Type of site',
     'Monthly bill (USD)','Sale engineer',
     'Next follow-up','Qualification',
