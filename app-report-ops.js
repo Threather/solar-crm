@@ -34,7 +34,6 @@ async function renderOpsReport(){
   const today=localDay(new Date());
   const scheduled=active.filter(l=>l.installation_start&&localDay(l.installation_start)>today);
   const running=active.filter(l=>l.installation_start&&localDay(l.installation_start)<=today);
-  const noDate=active.filter(l=>!l.installation_start);
   /* EDC applies to on-grid and hybrid only; off-grid is exempt and a blank
      system type is unknown rather than exempt */
   const edcable=f.filter(l=>edcApplies(l)&&edcFields(l));
@@ -152,18 +151,13 @@ async function renderOpsReport(){
     </div>
     <div class="mg-band">${esc(opBand)} PROJECT EXECUTION DASHBOARD</div>
     <!-- his five boxes, in his order and his wording -->
-    <div class="kpis six">
-      ${kpi({label:'Active Projects',value:active.length,lead:true,
-        note:noDate.length?noDate.length+' with no date':'total in pipeline'})}
-      ${kpi({label:'BOQ Released',value:boqInPeriod.length,
-        note:'ready for scheduling'})}
-      ${kpi({label:'Installation Start',value:startedInPeriod.length,
-        note:'new starts '+per})}
+    <div class="kpis seven five">
+      ${kpi({label:'Active Projects',value:active.length,lead:true})}
+      ${kpi({label:'BOQ Released',value:boqInPeriod.length})}
+      ${kpi({label:'Installation Start',value:startedInPeriod.length})}
       ${kpi({label:'Installation Done',value:doneInPeriod.length,
-        delta:momPct(doneIn(thisM),doneIn(prevM)),deltaOf:prevWord,
-        note:'completed '+per})}
-      ${kpi({label:'EDC Pending',value:edcPending.length,
-        note:'awaiting inspection'})}
+        delta:momPct(doneIn(thisM),doneIn(prevM)),deltaOf:prevWord})}
+      ${kpi({label:'EDC Pending',value:edcPending.length})}
     </div>
 
     <div class="homegrid level mgrid">
