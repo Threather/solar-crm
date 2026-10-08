@@ -228,8 +228,17 @@ const COLSPEC={
   wonm:l=>l.stage_code===WON&&l.stage_entered_at?monthName(localDay(l.stage_entered_at).slice(0,7)):'—',
   by:l=>l.created_by?staffName(l.created_by):'—',
   hasphone:l=>l.phone?'Has phone':'No phone',
+  /* who sent a Third Party customer: Staff, Non-Staff or Agent, and the name
+     (8 Oct 2026) */
+  ref:l=>l.lead_channel!=='Third_Party'?'Not third party'
+    :(l.lead_sub_channel||'No sub-channel')+((l.agent_name||l.referrer_name)?' · '+(l.agent_name||l.referrer_name):''),
   wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
 };
+function refCell(l){
+  if(l.lead_channel!=='Third_Party')return '<span class="quiet">—</span>';
+  const who=l.agent_name||l.referrer_name;
+  return `<span class="refwho">${esc(who||'—')}</span><span class="days">${esc(l.lead_sub_channel||'')}</span>`;
+}
 function colFiltered(rows,skip){
   for(const k in COLF){
     if(k===skip||!COLF[k]||!COLF[k].length)continue;
@@ -459,7 +468,7 @@ function goPage(n){
 function drawActiveTable(rows){
   const pick=isBoss();
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}<th>Phone</th>${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
+    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}<th>Phone</th>${th('Referred<br>by','ref')}${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
   </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
@@ -467,6 +476,7 @@ function drawActiveTable(rows){
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td>${refCell(l)}</td>
       <td>${stagePill(l.stage_code)}</td>
       <td>${qualPill(l)}</td>
       <td>${ME.role==='sales'
@@ -483,13 +493,14 @@ function drawActiveTable(rows){
 function drawMktTable(rows){
   /* already sorted by mktSort in drawTable, before the page was cut */
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Date</th>${th('Customer','ctype')}<th>Phone</th>${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
+    <th class="rowno">No</th><th>Date</th>${th('Customer','ctype')}<th>Phone</th>${th('Referred<br>by','ref')}${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
   </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td>${refCell(l)}</td>
       <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'<span class="pooltag">NOT YET</span>'}</td>
       <td>${esc(l.lead_channel||l.lead_source||'—')}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}</td>
       <td>${esc(l.site_address||'—')}</td>
@@ -535,12 +546,13 @@ function toggleRemarks(box){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Referred<br>by','ref')}${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td>${refCell(l)}</td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>'}</td>
       <td>${l.site_engineer_id?'<span class="nm">'+esc(staffName(l.site_engineer_id))+'</span>':'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
@@ -574,12 +586,13 @@ function drawLostTable(rows){
     ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
     :(l.lost_note_revised?esc(l.lost_note_revised):'<span class="quiet">—</span>');
   $('tablewrap').innerHTML=`<table class="losttable"><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}<th>Remark</th><th>Revised remark</th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Referred<br>by','ref')}${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}<th>Remark</th><th>Revised remark</th>
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td class="lcust"><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?(/[a-z@]/i.test(l.phone)?`<span class="handle">${esc(l.phone)}</span>`:phoneCell(l.phone)):'<span class="pooltag">NO PHONE</span>'}</td>
+      <td>${refCell(l)}</td>
       <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}</td>
       <td class="nowrap">${isClosedLost(l)?'<span class="badge b-off" style="white-space:nowrap">Closed-Lost</span>':'<span class="badge" style="white-space:nowrap">Disqualified</span>'}</td>
       <td>${qcell(l)}</td>
