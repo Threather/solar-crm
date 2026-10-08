@@ -252,7 +252,7 @@ function drawFinance(){
      sideways to reach them. */
   $('finwrap').innerHTML=note+`<table class="table-compact fintable"><thead><tr>
     <th>Ref ID</th><th>Customer</th><th style="width:64px">Type of account</th><th>Phone</th>
-    <th>Balance</th><th>Expected</th><th>Paid</th>
+    <th>Balance</th><th>Expected date</th><th>Expected amount</th><th>Paid</th>
     <th>Total due</th><th>Contract</th><th>Follow-up</th><th>Sale engineer</th><th>Remark</th>
   </tr></thead><tbody>`+rows.map(r=>{
     const paid=finPaid(r), due=finDue(r), bal=due-paid, dueNow=finFollowDue(r);
@@ -262,7 +262,7 @@ function drawFinance(){
       <td>${r.fin?.account_type?esc(r.fin.account_type):'<span class="quiet">—</span>'}</td>
       <td class="phone">${r.phone?(/[a-z@]/i.test(r.phone)?`<span class="handle">${esc(r.phone)}</span>`:phoneCell(r.phone)):'<span class="quiet">—</span>'}</td>
       <td><b class="${bal>0.005?'overdue':''}">${fmtMoney(bal)}</b></td>
-      <td class="nowrap">${(()=>{const e=finNextExp(r);return e?`<b class="${finExpWord(r)==='passed'?'amber':''}">${fmtDate(e.expected_on)}</b><span class="days">${fmtMoney(Number(e.amount_usd||0))}</span>`:'<span class="quiet">—</span>';})()}</td>
+      ${(()=>{const e=finNextExp(r);return e?`<td class="nowrap"><b class="${finExpWord(r)==='passed'?'amber':''}">${fmtDate(e.expected_on)}</b></td><td class="nowrap"><b>${fmtMoney(Number(e.amount_usd||0))}</b></td>`:'<td><span class="quiet">—</span></td><td><span class="quiet">—</span></td>';})()}
       <td>${fmtMoney(paid)}<span class="days">${r.payments.length} payment${r.payments.length===1?'':'s'}</span></td>
       <td>${fmtMoney(due)}</td>
       <td>${esc(r.fin?.contract_status||'—')}<span class="days nm">${r.fin?.contract_signed_date?fmtDate(r.fin.contract_signed_date):''}</span></td>
