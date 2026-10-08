@@ -92,10 +92,10 @@ function srCols(n){
     {x:14,h:'Battery Size (kWh)',g:'sys',v:r=>srBattery(r)??'',t:'n'},
     {x:15,h:'Battery brand',g:'sys',v:r=>r.battery_brand||'',f:1},
     {x:16,h:'Engineering Name',g:'inst',v:r=>r.site_engineer_id?staffName(r.site_engineer_id):'',f:1},
-    {x:19,h:'BOQ Released Date',g:'inst',v:r=>r.boq_date||'',t:'date'},
-    {x:20,h:'Delivery Date',g:'inst',v:r=>r.delivery_date||'',t:'date'},
-    {x:21,h:'Installation Start Date',g:'inst',v:r=>r.installation_start||'',t:'date'},
-    {x:22,h:'Installation End Date',g:'inst',v:r=>r.installation_end||'',t:'date'},
+    {x:19,h:'BOQ Released Date',g:'inst',v:r=>r.boq_date||'',t:'date',fv:r=>srMon(r.boq_date),f:1},
+    {x:20,h:'Delivery Date',g:'inst',v:r=>r.delivery_date||'',t:'date',fv:r=>srMon(r.delivery_date),f:1},
+    {x:21,h:'Installation Start Date',g:'inst',v:r=>r.installation_start||'',t:'date',fv:r=>srMon(r.installation_start),f:1},
+    {x:22,h:'Installation End Date',g:'inst',v:r=>r.installation_end||'',t:'date',fv:r=>srMon(r.installation_end),f:1},
     {x:26,h:'Installer Team',g:'inst',v:r=>r.installation_team||'',f:1},
     {x:23,h:'EDC Inform',g:'edc',v:r=>srEdcInform(r)||'',t:'date'},
     {x:24,h:'Inspection Date',g:'edc',v:r=>srInspect(r)||'',t:'date'},
@@ -114,6 +114,8 @@ function srCols(n){
   c.forEach(o=>{if(o.x===999)o.x=31+n*2;if(o.x===1000)o.x=32+n*2;});
   return c;
 }
+/* a date filters by its month, or "Not yet" while empty (as EDC, council 8 Oct) */
+const srMon=d=>d?monthName(String(d).slice(0,7)):'Not yet';
 /* the value a heading filter ticks: the cell's own text, or its word */
 const srFv=(c,r,i)=>{const v=c.fv?c.fv(r):c.v(r,i);return v===''||v==null?'(blank)':String(v);};
 
@@ -177,8 +179,10 @@ function srSync(el){const o=el.id==='srtop'?$('srwrap'):$('srtop');
    filters leave (app-filter.js draws it) */
 function srFilterOpen(ev,h){
   const c=srCols(5).find(o=>o.h===h);if(!c)return;
-  const cnt={};srRows(h).forEach((r,i)=>{const v=srFv(c,r,i);cnt[v]=(cnt[v]||0)+1;});
-  const vals=Object.keys(cnt).sort((a,b)=>a==='(blank)'?1:b==='(blank)'?-1:a.localeCompare(b,undefined,{numeric:true}));
+  const cnt={},ord={};srRows(h).forEach((r,i)=>{const v=srFv(c,r,i);cnt[v]=(cnt[v]||0)+1;
+    if(c.t==='date')ord[v]=String(c.v(r,i)||'9999').slice(0,7);});
+  const vals=Object.keys(cnt).sort((a,b)=>a==='(blank)'?1:b==='(blank)'?-1
+    :c.t==='date'?ord[a].localeCompare(ord[b]):a.localeCompare(b,undefined,{numeric:true}));
   hfOpen(ev,{title:h,values:vals.map(v=>[v,cnt[v]]),selected:SRCF[h]||[],apply:sel=>{SRCF[h]=sel;drawSalesReport();}});
 }
 
