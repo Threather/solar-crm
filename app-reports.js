@@ -194,7 +194,7 @@ function setRepDates(which,v){
 }
 function setRepFilter(k,v){REPFILTER[k]=v;renderReports();}
 
-async function renderReports(){
+async function renderReports(quiet){
   const scopes=repScopes();
   if(!scopes.length){$('main').innerHTML=blank('No report for your team',
     'Reports are built per team and yours does not have one yet.');return;}
@@ -202,7 +202,7 @@ async function renderReports(){
   /* a new scope, period or date range is a new screen: whatever the last one
      was still loading must not land on top of it */
   NAVGEN++;
-  $('main').innerHTML=SKEL;
+  if(!quiet)$('main').innerHTML=SKEL;
   return window[REP_RENDER[REPSCOPE]]();
 }
 /* the switch bar every report sits under */

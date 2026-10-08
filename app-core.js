@@ -538,6 +538,7 @@ function go(v){
   /* nothing renders once the session has gone - the login screen is up and a
      render would only read a profile that no longer has a token behind it */
   if(AUTH_LOST)return;
+  CURVIEW=v;
   NAVGEN++;
   VIEW=v;
   /* EDC's Edit deals widens main for its table; every other screen reads at 1180 */
@@ -606,6 +607,22 @@ const abandoned=()=>new Promise(()=>{});
    screen, throws it away - and only for the same person and the same query.
    Others' changes arrive within the minute, or at once on a notification. */
 const CACHE=new Map(), PENDING=new Map(), CACHE_MS=60000;
+/* Reports show what is kept at once, for up to half an hour, and check the
+   database behind it; if anything came back different the report is drawn
+   again where it stands (8 Oct 2026 - Management took 4s on every visit after
+   the minute ran out). Only Reports: a list somebody works from must be live.
+   A save still throws everything away through DATAVER, as before. */
+let CURVIEW='', REDRAW=null;
+const STALE_MS=30*60000;
+function quietRedraw(gen){
+  clearTimeout(REDRAW);
+  REDRAW=setTimeout(()=>{
+    if(gen!==NAVGEN||CURVIEW!=='reports'||AUTH_LOST)return;
+    if($('lead-overlay').classList.contains('open')||[...document.querySelectorAll('.zoombox')].some(z=>getComputedStyle(z).display!=='none'))return;
+    const y=scrollY;
+    renderReports(true).then(()=>scrollTo(0,y));
+  },400);
+}
 /* the download itself, shared: two screens asking for the same query at once
    wait on one request. It always settles, whoever has moved on. */
 function loadAll(build,key,ver){
@@ -623,7 +640,7 @@ function loadAll(build,key,ver){
         out.push(...(data||[]));
         if(!data||data.length<1000){
           CACHE.set(key,{ver,at:Date.now(),rows:out});
-          for(const [k,v] of CACHE)if(Date.now()-v.at>CACHE_MS)CACHE.delete(k);
+          for(const [k,v] of CACHE)if(Date.now()-v.at>STALE_MS)CACHE.delete(k);
           return out;
         }
       }
@@ -640,6 +657,12 @@ async function fetchAll(build){
   const key=(ME&&ME.id||'')+' '+build().url;
   const hit=CACHE.get(key);
   if(hit&&hit.ver===ver&&Date.now()-hit.at<CACHE_MS)return hit.rows.slice();
+  if(hit&&hit.ver===ver&&CURVIEW==='reports'&&Date.now()-hit.at<STALE_MS){
+    if(!PENDING.has(key+'|'+ver))loadAll(build,key,ver).then(rows=>{
+      if(rows.length!==hit.rows.length||JSON.stringify(rows)!==JSON.stringify(hit.rows))quietRedraw(gen);
+    },()=>{});
+    return hit.rows.slice();
+  }
   const rows=await loadAll(build,key,ver);
   if(gen!==NAVGEN)return abandoned();
   return rows.slice();
