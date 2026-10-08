@@ -34,11 +34,11 @@ async function renderLists(){
         <div style="align-self:end"><button class="btn-sun" onclick="listAdd()">Add</button></div>
       </div>
       <div class="tablewrap" style="margin-top:14px"><table><thead><tr>
-        <th>Value</th>${LISTKEY==='install_team'?'<th>Members</th>':''}<th>Order</th><th>Status</th><th></th>
+        <th>Value</th>${LISTKEY==='install_team'?'<th>Team members</th>':''}<th>Order</th><th>Status</th><th></th>
       </tr></thead><tbody>`+(LISTROWS.length?LISTROWS.map((r,i)=>`
         <tr${r.is_active?'':' style="opacity:.55"'}>
           <td><b>${esc(r.value)}</b></td>
-          ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="names" onchange="listDetail('${r.id}',this.value)"></td>`:''}
+          ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="e.g. Dina, Sok, Vanna" onchange="listDetail('${r.id}',this.value)"></td>`:''}
           <td class="nowrap">
             <button class="btn-line" ${i===0?'disabled':''} onclick="listMove('${r.id}',-1)">↑</button>
             <button class="btn-line" ${i===LISTROWS.length-1?'disabled':''} onclick="listMove('${r.id}',1)">↓</button>
