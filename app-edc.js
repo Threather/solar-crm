@@ -9,6 +9,16 @@
    column lists every step), and it passes when any of them is ticked. */
 let EDCF={}, EDCSRC=[];
 const edMon=d=>d?monthName(localDay(d).slice(0,7)):'Not yet';
+/* WAITING ON (council, 8 Oct 2026): the next step a deal needs, and how long
+   it has waited for it - counted from the step before, or from the win for
+   the first step. "Not yet" on a later step also catches deals that simply
+   have not got there, so this is the question she actually asks: what do I
+   chase next, and which has waited longest. */
+const edcWait=l=>{const f=edcFields(l)||[];const i=f.findIndex(([k])=>!l[k]);
+  if(i<0)return null;
+  const from=i>0?l[f[i-1][0]]:l.stage_entered_at;
+  return {step:f[i][1],days:from?Math.max(0,Math.round((new Date(localDay(new Date()))-new Date(localDay(from)))/864e5)):null};};
+const edcWaitDays=l=>{const w=edcWait(l);return w&&w.days!=null?w.days:-1;};
 const EDCCOL={
   branch:l=>[l.edc_branch||'(blank)'],
   price:l=>[l.edc_fee_usd==null?'Not set':'Set'],
@@ -16,7 +26,7 @@ const EDCCOL={
   done:l=>[edcDone(l)+' of '+(edcFields(l)||[]).length],
   won:l=>[edMon(l.stage_entered_at)],
   sys:l=>[l.system_type||'(blank)'],
-  prog:l=>(edcFields(l)||[]).map(([k,short])=>short+': '+edMon(l[k])),
+  wait:l=>{const w=edcWait(l);return [w?w.step:'All done'];},
   sale:l=>[l.assigned_to?staffName(l.assigned_to):'(blank)'],
   miss:l=>[!edcApplies(l)?'System type':'Inverter total']
 };
@@ -91,8 +101,8 @@ async function renderEdc(){
       :blank('Every date is in','Nothing is waiting on EDC. A deal returns here if a new one is won, and every date already recorded is under Submitted.')):''}
 
     ${EDCSCOPE==='sent'?(started.length?`<div class="tablewrap"><table><thead><tr>
-        <th>Ref ID</th><th>Customer</th>${edcHead('Closed-Won','won')}${edcHead('System','sys')}${edcHead('EDC price','price')}${edcHead('Steps done','done')}${edcHead('Progress','prog','Each step by the month it was done')}${edcHead('Sale engineer','sale')}
-      </tr></thead><tbody>`+(fStarted.length?'':`<tr><td colspan="8">${blank('Nothing matches','Clear the filters.')}</td></tr>`)+fStarted.map(l=>{
+        <th>Ref ID</th><th>Customer</th>${edcHead('Closed-Won','won')}${edcHead('System','sys')}${edcHead('EDC price','price')}${edcHead('Steps done','done')}<th>Progress</th>${edcHead('Waiting on','wait','The next step, or All done')}${edcHead('Sale engineer','sale')}
+      </tr></thead><tbody>`+(fStarted.length?'':`<tr><td colspan="9">${blank('Nothing matches','Clear the filters.')}</td></tr>`)+fStarted.map(l=>{
         const fl=edcFields(l),d=edcDone(l);
         return `<tr class="rowlink" onclick="edcReview('${l.id}')">
           <td class="refid">${esc(l.ref_id||'—')}</td>
@@ -102,6 +112,7 @@ async function renderEdc(){
           <td class="nowrap">${l.edc_fee_usd==null?'<span class="quiet">—</span>':fmtMoney(l.edc_fee_usd)}</td>
           <td><b>${d} of ${fl.length}</b></td>
           <td><div class="edc-steps">${fl.map(([k,short])=>`<span class="${l[k]?'ok':''}" title="${short}${l[k]?': '+fmtDate(l[k]):''}">${short}</span>`).join('')}</div></td>
+          <td class="nowrap">${(()=>{const w=edcWait(l);return w?`<b>${esc(w.step)}</b><span class="days">${w.days==null?'':w.days+' day'+(w.days===1?'':'s')}</span>`:'<span class="mark mark-done">All done</span>';})()}</td>
           <td>${esc(staffName(l.assigned_to))}</td></tr>`;}).join('')
       +`</tbody></table></div>`
       :blank('Nothing submitted yet','A deal appears here as soon as its first EDC date is recorded.')):''}
@@ -169,14 +180,20 @@ function setEdcScope(v){EDCSCOPE=v;EDCF={};$('main').style.maxWidth='';renderEdc
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>
     <div class="empty" style="margin-bottom:22px"><b>${Object.values(EDCF).some(v=>v.length)?'Nothing matches the filters':'Nothing pending here'}</b><span>A deal in this size band shows up while it still has an EDC date to record.</span></div>`;
+  rows=rows.slice().sort((a,b)=>edcWaitDays(b)-edcWaitDays(a));
+  /* a step filter set on the other table does not touch this one - say so */
+  const skipped=Object.entries(EDCF).filter(([k,v])=>v.length&&k.startsWith('d:')&&!fields.some(([f])=>'d:'+f===k))
+    .map(([k])=>EDCLABEL[k]||k);
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
+    ${skipped.length?`<p class="hint" style="margin:-2px 0 8px">${esc(skipped.join(', '))} filter not applied here: this size has no such step.</p>`:''}
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
-      <th>Ref ID</th>${edcHead('Customer','eng','Filter by site engineer')}${edcHead('Branch','branch')}${edcHead('EDC price','price','What EDC charges for this submission')}${fields.map(([k,short,full])=>edcHead(short,'d:'+k,full)).join('')}${edcHead('Done','done')}
+      <th>Ref ID</th>${edcHead('Customer','eng','Filter by site engineer')}${edcHead('Waiting on','wait','The next step and how long it has waited')}${edcHead('Branch','branch')}${edcHead('EDC price','price','What EDC charges for this submission')}${fields.map(([k,short,full])=>edcHead(short,'d:'+k,full)).join('')}${edcHead('Done','done')}
     </tr></thead><tbody>`+rows.map(l=>{
       const next=fields.find(([k])=>!l[k]);
       return `<tr>
       <td class="refid" style="cursor:pointer" onclick="openLead('${l.id}')" title="Open the lead">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b><span class="days">${kwac(l)} kWac · ${esc(staffName(l.site_engineer_id))}</span></td>
+      <td class="nowrap">${(()=>{const w=edcWait(l);return w?`<b>${esc(w.step)}</b><span class="days ${w.days>30?'overdue':''}">${w.days==null?'no start date':w.days+' day'+(w.days===1?'':'s')}</span>`:'<span class="mark mark-done">All done</span>';})()}</td>
       <td><select style="min-width:170px" onchange="setEdcBranch('${l.id}',this.value)">${optList(EDC_BRANCHES,l.edc_branch)}</select></td>
       <td>${numBox('edcfee-'+l.id,l.edc_fee_usd,{attrs:`style="min-width:110px" placeholder="\u2014" onchange="setEdcFee('${l.id}',this.value)"`})}</td>
       ${fields.map(([k])=>`<td class="${next&&next[0]===k?'edc-next':''}"><input type="date" style="min-width:130px" value="${l[k]||''}" onchange="setEdcDate('${l.id}','${k}',this.value)"></td>`).join('')}
@@ -205,5 +222,12 @@ async function setEdcDate(id,col,v){
   const {error}=await sb.from('leads').update({[col]:v||null}).eq('id',id);
   if(error){toast('Could not save that date. '+why(error));console.error(error);return;}
   await logActivity(id,'edit',null,null,'EDC '+col.replace(/^edc_/,'').replace(/_/g,' ')+': '+(v||'cleared'));
-  toast('Saved');
+  /* with a filter on, the row may no longer match - redraw so the list and
+     "Showing X of Y" stay true, and say why a row left */
+  if(Object.values(EDCF).some(x=>x.length)){
+    await renderEdc();
+    const still=EDCSRC.find(l=>l.id===id);
+    toast(!still?'Saved · every step is in, so it moved to Submitted'
+      :edcPass(still)?'Saved':'Saved · it no longer matches the filter, so it left the list');
+  } else toast('Saved');
 }
