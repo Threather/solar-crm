@@ -57,7 +57,8 @@ function saleWeeks(monthISO){
 let SALEVIEW='daily';
 function setSaleView(v){SALEVIEW=v;renderReports();}
 
-let CHSHEETS=null;
+let CHSHEETS=null, CHMET='raw';
+function setChMet(v){CHMET=v;renderReports();}
 async function exportChannels(){
   const D=CHSHEETS;if(!D)return;
   if(!window.XLSX)await new Promise((ok,no)=>{const x=document.createElement('script');
@@ -221,6 +222,21 @@ async function renderSalesReport(){
     +`</tbody><tfoot><tr><td><b>Total</b></td><td><b>${chTot.raw}</b></td>
       <td><b>${chTot.qual}</b>${chTot.raw?` <span class="quiet">(${Math.round(chTot.qual/chTot.raw*100)}%)</span>`:''}</td>
       <td><b>${chTot.won}</b></td><td><b>${esc(cash(chTot.contract))}</b></td><td><b>${esc(cash(chTot.coll))}</b></td></tr></tfoot></table></div>`;
+
+  /* MoM by channel (Kevin, 8 Oct 2026): one number at a time, months down,
+     channels across. Each month is its own window, counted the same way as
+     the MTD table; Qualified is "of that month's leads, qualified by its
+     last day". */
+  const CH_MET=[['raw','Raw Lead'],['qual','Qualified'],['won','Closed-Won'],['contract','Contract Value'],['coll','Payment Collected']];
+  const chMonth=(k,a,b,c)=>{
+    const inC=l=>chOf(l)===c&&chScope(l);
+    if(k==='raw')return rows.filter(l=>inC(l)&&within(dayOf(l),a,b)).length;
+    if(k==='qual')return rows.filter(l=>inC(l)&&within(dayOf(l),a,b)&&qualText(l)==='Qualified'&&localDay(qualOnS[l.id]||dayOf(l))<=b).length;
+    const w=rows.filter(l=>inC(l)&&l.stage_code===WON&&within(l.stage_entered_at,a,b));
+    if(k==='won')return w.length;
+    if(k==='contract')return w.reduce((x,l)=>x+chContractOf(l),0);
+    return pays.filter(p=>byId[p.lead_id]&&inC(byId[p.lead_id])&&within(countDay(p),a,b)).reduce((x,p)=>x+Number(p.amount_usd||0),0);
+  };
 
   const dim=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
   const dayNow=new Date().getDate();
@@ -431,7 +447,22 @@ async function renderSalesReport(){
         <td><b>${months.reduce((x,m)=>{const [a,b]=monthWin(m);return x+mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b)).length;},0)}</b></td>
         <td><b>${esc(cash(months.reduce((x,m)=>x+contractOf(p.id,...monthWin(m)),0)))}</b></td>
         <td><b>${esc(cash(months.reduce((x,m)=>x+collectedOf(p.id,...monthWin(m)),0)))}</b></td></tr></tfoot></table></div>`)}`).join('')}</div>`
-      :''}`:''}
+      :''}
+
+    <h3 class="sechead">MoM — Performance by Channel</h3>
+    <div class="scope" role="group" aria-label="Which figure" style="margin-bottom:10px">${CH_MET.map(([k,l])=>
+      `<button class="${CHMET===k?'on':''}" aria-pressed="${CHMET===k}" onclick="setChMet('${k}')">${l}</button>`).join('')}</div>
+    ${months.length?(()=>{
+      const money=['contract','coll'].includes(CHMET), f=v=>money?cash(v):String(v);
+      const cols=chKeys.filter(c=>CH_ORDER.includes(c)||months.some(m=>chMonth(CHMET,...monthWin(m),c)));
+      const grid=months.map(m=>cols.map(c=>chMonth(CHMET,...monthWin(m),c)));
+      const max=Math.max(1,...grid.flat());
+      return `<div class="tablewrap"><table class="table-compact chtable"><thead><tr><th>Month</th>${cols.map(c=>`<th>${esc(chName(c))}</th>`).join('')}<th>Total</th></tr></thead><tbody>`
+        +months.map((m,i)=>`<tr><td><b>${esc(monthName(m))}</b></td>${grid[i].map(v=>`<td class="chcell"><div class="chbar"><i style="width:${v?Math.max(2,v/max*100):0}%;background:var(--c-${CHMET==='coll'?'active':CHMET==='contract'?'raw':CHMET})"></i></div><span>${esc(f(v))}</span></td>`).join('')}
+          <td><b>${esc(f(grid[i].reduce((a,b)=>a+b,0)))}</b></td></tr>`).join('')
+        +`</tbody><tfoot><tr><td><b>Total</b></td>${cols.map((c,j)=>`<td><b>${esc(f(grid.reduce((a,r)=>a+r[j],0)))}</b></td>`).join('')}
+          <td><b>${esc(f(grid.flat().reduce((a,b)=>a+b,0)))}</b></td></tr></tfoot></table></div>`;})()
+      :blank('No months to show yet','This fills in as leads accumulate.')}`:''}
    </div>
   `;
 }
