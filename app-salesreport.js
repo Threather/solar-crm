@@ -135,7 +135,10 @@ function drawSalesReport(){
   const rows=srRows(), n=srPayCols(rows), cols=srCols(n).filter(c=>c.g==='pin'||!SRHIDE.has(c.g));
   const total=rows.reduce((a,r)=>a+finDue(r),0), left=rows.reduce((a,r)=>a+srLeft(r),0);
   const on=Object.values(SRCF).filter(v=>v.length).length;
-  $('srsum').innerHTML=`<span><b>${rows.length}</b> won deal${rows.length===1?'':'s'}</span><span><b>${fmtMoney(total)}</b> amount</span><span><b>${fmtMoney(left)}</b> remaining</span>`;
+  const paidSum=rows.reduce((a,r)=>a+r.payments.reduce((x,p)=>x+Number(p.amount_usd||0),0),0);
+  $('srsum').innerHTML=[['Total won',rows.length],['Total contract value',fmtMoney(total)],
+    ['Total payment collected',fmtMoney(paidSum)],['Remaining',fmtMoney(left)]]
+    .map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('');
   $('srchips').innerHTML=hfChips(Object.entries(SRCF).map(([h,v])=>[h,v,`SRCF['${esc(h)}']=[];drawSalesReport()`]),
     'SRCF={};drawSalesReport()');
   $('srgroups').innerHTML=SR_GROUPS.map(([k,l])=>
