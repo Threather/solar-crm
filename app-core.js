@@ -233,6 +233,8 @@ const LOST='closed_lost';
    back to the database column, which records whether it ever got that far. */
 const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff','closed_won'];
 let INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
+/* who is in each team, typed on Lists (vocabularies.detail, 8 Oct 2026) */
+let INSTALL_TEAM_DETAIL={};
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
 let ACCOUNT_TYPES=['SWN','SWT'];
 const BOQ_STATUS=['Pending','Done'];
@@ -488,7 +490,7 @@ const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=[['home','Today'],['leads','My jobs'],['aftersale','After-sale'],['reports','Reports']].map(navBtn).join('');
+    $('nav').innerHTML=[['home','Today'],['leads','My jobs'],['cal','Calendar'],['aftersale','After-sale'],['reports','Reports']].map(navBtn).join('');
     return;
   }
   /* finance only ever works won deals and their money */
@@ -520,6 +522,7 @@ function buildNav(){
      inside decides which one they actually see */
   /* the manager runs sales and marketing; after-sale is the installation
      team's record and is not theirs (27 Aug 2026) */
+  if(['admin','sales','site_engineer','manager'].includes(ME.role)) admin.push(['cal','Calendar']);
   if(['admin','sales','site_engineer','manager'].includes(ME.role)) admin.push(['aftersale','After-sale']);
   if(['marketing','sales','manager','admin'].includes(ME.role)) admin.push(['reports','Reports']);
   if(ME.role==='admin') admin.push(['users','Users']);
@@ -547,7 +550,7 @@ function go(v){
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,dups:renderDups,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
-    targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderWonSheet}[v])();
+    targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderWonSheet,cal:renderCalendar}[v])();
 }
 
 /* ---------------- editable lists ---------------- */
@@ -572,7 +575,7 @@ const VOCAB_LISTS=[
    dropdowns, but a lead already carrying it still shows it - see optList. */
 async function loadVocab(){
   const {data,error}=await sb.from('vocabularies')
-    .select('list_key,value,sort_order,is_active').eq('is_active',true).order('sort_order');
+    .select('*').eq('is_active',true).order('sort_order');
   /* 42P01 is the table not existing yet. Either way the fallbacks above stand,
      because an empty dropdown is worse than a slightly stale one. */
   if(error){console.error('lists',error);return;}
@@ -581,6 +584,8 @@ async function loadVocab(){
     const vals=data.filter(r=>r.list_key===key).map(r=>r.value);
     if(vals.length)set(vals);
   }
+  INSTALL_TEAM_DETAIL={};
+  data.filter(r=>r.list_key==='install_team'&&r.detail).forEach(r=>{INSTALL_TEAM_DETAIL[r.value]=r.detail;});
 }
 
 /* ---------------- data ---------------- */

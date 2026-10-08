@@ -1065,3 +1065,32 @@ table.losttable td.lcust{max-width:140px;overflow-wrap:anywhere}
 .homegrid.mgrid.level{grid-template-columns:1fr 1fr}
 .homegrid.mgrid.opwide{grid-template-columns:1fr}
 @media(max-width:900px){.homegrid.mgrid.level{grid-template-columns:1fr}}
+
+/* Calendar (8 Oct 2026) */
+.calbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px}
+.calbar select{width:auto}
+.calnav{display:flex;align-items:center;gap:8px}
+.calnav b{min-width:130px;text-align:center}
+.calgrid{border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.calhead{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--sunk);font-size:11px;font-weight:700;color:var(--ink-soft)}
+.calhead span{padding:6px 8px}
+.calweek{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:3px;min-height:84px;border-top:1px solid var(--line)}
+.calgrid.compact .calweek{min-height:46px}
+.calcell{border-left:1px solid var(--line);padding:3px 6px;font-size:12px;color:var(--ink-soft)}
+.calcell:first-child{border-left:0}
+.calcell.out{background:var(--sunk);color:var(--ink-faint,#aaa)}
+.calcell.today span{background:var(--ink);color:#fff;border-radius:99px;padding:0 6px}
+.calseg{z-index:1;margin:0 -1px;border:0;border-radius:0;color:#fff;font-size:11px;font-weight:600;text-align:left;padding:0 6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:inherit;min-width:0}
+.calseg.s{margin-left:4px;border-top-left-radius:6px;border-bottom-left-radius:6px}
+.calseg.e{margin-right:4px;border-top-right-radius:6px;border-bottom-right-radius:6px}
+.calseg.open{outline:2px dashed rgba(255,255,255,.8);outline-offset:-3px}
+.calgrid.compact .calseg{font-size:10px;padding:0 4px}
+.caldet{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:16px;align-items:start}
+@media(max-width:900px){.caldet{grid-template-columns:1fr}}
+.calteams{display:grid;gap:8px;margin-top:14px}
+.calteam{display:flex;gap:10px;align-items:flex-start}
+.calteam>b{width:24px;height:24px;border-radius:6px;background:var(--sunk);display:grid;place-items:center;flex:none}
+.calteam span{display:block;color:var(--ink-soft);font-size:12px}
+.calsw{display:inline-block;width:10px;height:10px;border-radius:3px}
+tr.calrow{cursor:pointer}

@@ -34,10 +34,11 @@ async function renderLists(){
         <div style="align-self:end"><button class="btn-sun" onclick="listAdd()">Add</button></div>
       </div>
       <div class="tablewrap" style="margin-top:14px"><table><thead><tr>
-        <th>Value</th><th>Order</th><th>Status</th><th></th>
+        <th>Value</th>${LISTKEY==='install_team'?'<th>Members</th>':''}<th>Order</th><th>Status</th><th></th>
       </tr></thead><tbody>`+(LISTROWS.length?LISTROWS.map((r,i)=>`
         <tr${r.is_active?'':' style="opacity:.55"'}>
           <td><b>${esc(r.value)}</b></td>
+          ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="names" onchange="listDetail('${r.id}',this.value)"></td>`:''}
           <td class="nowrap">
             <button class="btn-line" ${i===0?'disabled':''} onclick="listMove('${r.id}',-1)">↑</button>
             <button class="btn-line" ${i===LISTROWS.length-1?'disabled':''} onclick="listMove('${r.id}',1)">↓</button>
@@ -48,7 +49,7 @@ async function renderLists(){
             <button class="btn-line" onclick="listDelete('${r.id}')">Delete</button>
           </td>
         </tr>`).join('')
-      :`<tr><td colspan="4">Nothing in this list yet.</td></tr>`)+`</tbody></table></div>
+      :`<tr><td colspan="5">Nothing in this list yet.</td></tr>`)+`</tbody></table></div>
     </div>`;
 }
 function listGo(k){LISTKEY=k;renderLists();}
@@ -89,4 +90,10 @@ async function listMove(id,dir){
   const e2=await sb.from('vocabularies').update({sort_order:oa}).eq('id',b.id);
   if(e1.error||e2.error){toast('Could not reorder. '+why(e1.error||e2.error));return;}
   await loadVocab();renderLists();
+}
+/* team members, shown under the letters on the Calendar */
+async function listDetail(id,v){
+  const {error}=await sb.from('vocabularies').update({detail:v.trim()||null}).eq('id',id);
+  if(error){toast('Could not save. '+why(error));return;}
+  toast('Saved');await loadVocab();
 }
