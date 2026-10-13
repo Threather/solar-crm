@@ -1113,3 +1113,20 @@ tr.calrow{cursor:pointer}
 .srsum b{font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums}
 .refwho{display:block;max-width:84px;font-size:12.5px;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
 .fintable b.amber{color:#b07a00}
+
+/* Many leads at once (13 Oct 2026) */
+.bulkbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-bottom:12px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r)}
+.bulkbar>b{align-self:center;font-size:13px}
+.bulkbar label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+.bulkbar select,.bulkbar input{width:auto;min-width:130px}
+.bulktable td{padding:4px 4px;vertical-align:top}
+.bulktable input,.bulktable select{min-width:110px;padding:6px 8px;font-size:13px}
+.bulktable td:nth-child(3) input{min-width:160px}
+.bulktable td:first-child{color:var(--ink-soft);padding-top:12px}
+.bulktable tr.bulkwarn td{background:color-mix(in srgb,#e0a000 10%,transparent)}
+.bulktable tr.bulkbad td{background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.bulknote{display:block;font-size:11px;margin-top:3px;color:#9a6a00;white-space:normal;max-width:220px}
+.bulkbad .bulknote{color:var(--bad)}
+.bulkfoot{display:flex;align-items:center;gap:10px;margin-top:12px}
+.bulkfoot #bulkmsg{font-size:13px;color:var(--ink-soft)}
+.bulkfoot .btn-sun{margin-left:auto}

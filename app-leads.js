@@ -703,6 +703,7 @@ function renderNew(){
     $('main').innerHTML=blank('New lead is not open to your role','Marketing creates new leads.');return;}
   $('main').innerHTML=`
     <h2 style="margin-bottom:12px">New lead</h2>
+    <div class="scope" style="margin-bottom:14px"><button class="on">One lead</button><button onclick="renderBulk()">Many leads</button></div>
     <div style="background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:820px">
       ${['sales','manager','admin'].includes(ME.role)?`<div class="section sec-eng" style="margin:0 0 18px">
         <h4>Coming back for more?</h4>
