@@ -64,7 +64,7 @@ function homeSales(rows){
   const canPool=['manager','admin'].includes(ME.role);
   /* a won deal with no BOQ blocks the install, so it is counted here as well
      as raised at login — one of those is missable, two is not */
-  const noBoq=rows.filter(l=>l.stage_code===WON&&l.boq_status!=='Done');
+  const noBoq=rows.filter(l=>l.stage_code===WON&&l.boq_status!=='Done'&&!isService(l));
 
   $('main').innerHTML=dayBar(`${ME.full_name} · ${live.length} lead${live.length===1?'':'s'} in play`)+`
     <div class="stats">

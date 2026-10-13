@@ -49,7 +49,7 @@ function exportLeads(){
   const money=canSeeMoney();
   const rows=filteredLeads().map(l=>[
     l.lead_date||localDay(l.created_at),l.ref_id,l.customer_name,l.phone,l.customer_type,stageName(l.stage_code),
-    l.stage_code===WON?localDay(l.stage_entered_at):'',
+    l.stage_code===WON?localDay(l.stage_entered_at):'',dealWord(l),
     l.lead_channel,l.lead_sub_channel,refWho(l),l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),
@@ -66,7 +66,7 @@ function exportLeads(){
     staffName(l.created_by),localDay(l.created_at),
     remarkDate(l.last_remark),l.last_remark?.note]);
   downloadCSV(LEADSCOPE==='won'?'won-deals':LEADSCOPE==='lost'?'lost-leads':LEADSCOPE==='all'?'all-leads':'leads',
-    ['Lead date','Ref ID','Customer','Phone','Customer type','Stage','Closed-Won date',
+    ['Lead date','Ref ID','Customer','Phone','Customer type','Stage','Closed-Won date','Deal type',
     'Channel','Sub-channel','Referred by','Event name','Event date',
     'Address','Commune','District','Province','Type of site',
     'Monthly bill (USD)','Sale engineer',

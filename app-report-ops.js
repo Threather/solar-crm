@@ -30,7 +30,7 @@ async function renderOpsReport(){
 
   const done=f.filter(l=>instDoneOn(l));
   const active=f.filter(l=>!instDoneOn(l));
-  const boqDone=f.filter(l=>l.boq_status==='Done');
+  const boqDone=f.filter(l=>l.boq_status==='Done'&&!isService(l));
   const today=localDay(new Date());
   const scheduled=active.filter(l=>l.installation_start&&localDay(l.installation_start)>today);
   const running=active.filter(l=>l.installation_start&&localDay(l.installation_start)<=today);
@@ -52,7 +52,7 @@ async function renderOpsReport(){
   const startedInPeriod=f.filter(l=>l.installation_start&&inPeriod(l.installation_start)
     &&localDay(l.installation_start)<=today);
   const doneInPeriod=f.filter(l=>instDoneOn(l)&&inPeriod(instDoneOn(l)));
-  const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&inPeriod(l.boq_date));
+  const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&!isService(l)&&inPeriod(l.boq_date));
 
   /* the four turnaround targets the manager sets each month, in days. Read for
      the month being shown, like every other target in the app. */

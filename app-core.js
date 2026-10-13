@@ -256,6 +256,14 @@ let INSTALL_TEAM_DETAIL={};
 /* Third Party > Agent: the agents admin keeps on Lists (8 Oct 2026); their
    phone, bank account and contract date sit in agent_details, admin only */
 let AGENTS=[];
+/* Deal type (13 Oct 2026): a full package (product, BOQ, delivery, installation,
+   EDC) or service only - the customer has the equipment and pays for some of
+   the work. A service-only deal has no BOQ, so it never sits in the BOQ
+   reminder, and it only joins the EDC and installation lists it bought. */
+const DEAL_SERVICES=['EDC/EAC','Installation','Technical check'];
+const isService=l=>l&&l.deal_type==='service';
+const hasPart=(l,s)=>!isService(l)||(l.deal_services||[]).includes(s);
+const dealWord=l=>isService(l)?'Service only'+((l.deal_services||[]).length?' · '+l.deal_services.join(', '):''):'Full package';
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
 let ACCOUNT_TYPES=['SWN','SWT'];
 const BOQ_STATUS=['Pending','Done'];
@@ -443,13 +451,15 @@ async function followUpToday(){
   if(!['sales','manager','admin'].includes(ME.role))return;
   const today=new Date().toISOString().slice(0,10);
   const mine=q=>ME.role==='sales'?q.eq('assigned_to',ME.id):q;
-  const [{data:due},{data:boq}]=await Promise.all([
+  let [{data:due},{data:boq}]=await Promise.all([
     mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code')
       .eq('is_deleted',false).eq('next_follow_up',today)),
-    mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code,boq_status,stage_entered_at')
+    mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code,boq_status,stage_entered_at,deal_type')
       .eq('is_deleted',false).eq('stage_code',WON).or('boq_status.is.null,boq_status.neq.Done'))
   ]);
-  const nDue=(due||[]).length, nBoq=(boq||[]).length;
+  /* a service-only deal has no BOQ to release */
+  boq=(boq||[]).filter(l=>!isService(l));
+  const nDue=(due||[]).length, nBoq=boq.length;
   if(!nDue&&!nBoq)return;
   const item=(l,meta)=>`<div class="tl-item rowlink" style="cursor:pointer" onclick="openLead('${l.id}')">
       <div class="t-head"><span class="refid">${esc(l.ref_id||'')}</span> ${esc(l.customer_name)}</div>

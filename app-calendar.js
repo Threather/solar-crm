@@ -28,12 +28,12 @@ async function renderCalendar(){
   if(!CALMONTH){const t=new Date();CALMONTH=new Date(t.getFullYear(),t.getMonth(),1);}
   $('main').innerHTML='<div class="sub">Loading…</div>';
   const rows=(await fetchLeads(q=>q.eq('stage_code','closed_won')))||[];
-  const all=rows.filter(l=>l.installation_start).map(l=>({
+  const all=rows.filter(l=>l.installation_start&&hasPart(l,'Installation')).map(l=>({
     id:l.id, ref:l.ref_id||'', name:l.customer_name||'(no name)', team:l.installation_team||'',
     start:l.installation_start.slice(0,10),
     end:(l.installation_end&&l.installation_end>=l.installation_start?l.installation_end:l.installation_start).slice(0,10),
     endKnown:!!l.installation_end}));
-  const unsched=rows.filter(l=>!l.installation_start).length;
+  const unsched=rows.filter(l=>!l.installation_start&&hasPart(l,'Installation')).length;
   const letters=calLetters(all);
   const y=CALMONTH.getFullYear(), m=CALMONTH.getMonth();
   const first=calIso(new Date(y,m,1)), last=calIso(new Date(y,m+1,0));

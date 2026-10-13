@@ -106,8 +106,13 @@ async function openLead(id){
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
         ${canMoney?`<div id="d-salewrap" style="display:${(l.stage_code===WON||fin?.final_sale_usd!=null)?'block':'none'}">
           <label>Final sale value (USD)</label>${numBox('d-sale',fin?.final_sale_usd)}</div>`:''}
-        ${seeEng?`<div><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
-        <div><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
+        ${seeEng?`<div><label>Deal type</label><select id="d-dtype" onchange="dDealType()" ${canEng?'':'disabled'}>
+          <option value="full" ${isService(l)?'':'selected'}>Full package</option><option value="service" ${isService(l)?'selected':''}>Service only</option></select></div>
+        <div id="d-svcwrap" ${isService(l)?'':'style="display:none"'}><label>Services</label>
+          <div class="svcticks">${DEAL_SERVICES.map(v=>`<label><input type="checkbox" class="d-svc" value="${esc(v)}" ${(l.deal_services||[]).includes(v)?'checked':''} ${canEng?'':'disabled'} onchange="dSvcSync()"> ${esc(v)}</label>`).join('')}</div>
+          <input type="hidden" id="d-svcs" value="${esc((l.deal_services||[]).join(','))}"></div>
+        <div class="d-boqbox" ${isService(l)?'style="display:none"':''}><label>BOQ release</label><select id="d-boq" ${canEng?'':'disabled'}>${optList(BOQ_STATUS,l.boq_status)}</select></div>
+        <div class="d-boqbox" ${isService(l)?'style="display:none"':''}><label>BOQ date</label><input id="d-boqdate" type="date" value="${l.boq_date||''}" ${canEng?'':'disabled'}></div>
         <div><label>Estimated close date</label><input id="d-closedate" type="date" value="${l.expected_close_date||''}" ${canEng?'':'disabled'} title="Optional. When you expect this to be signed — usually set once the quotation has gone out."></div>`:''}
         ${l.stage_code===LOST?`<!-- Remark is sales' own words; Revised remark is admin's standard wording
              of it, which the dashboards count (Kevin, 29 Sep 2026) -->
@@ -374,10 +379,14 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
            service_checkup_date:'d-svchk',service_clean_date:'d-svclean',
            service_general_note:'d-svgen',service_technical_note:'d-svtech',
            service_other_note:'d-svother',
-           boq_status:'d-boq',boq_date:'d-boqdate',
+           boq_status:'d-boq',boq_date:'d-boqdate',deal_type:'d-dtype',
            expected_close_date:'d-closedate',mkt_follow_up_date:'d-mktfollow',
            lost_note:'d-lostnote',lost_note_revised:'d-lostrev'};
   for(const k in m){const v=val(m[k]);if(v!==undefined)upd[k]=v.trim()||null;}
+  /* deal type is never blank, and the services list is an array */
+  if(upd.deal_type===null)upd.deal_type='full';
+  {const v=val('d-svcs');if(v!==undefined)upd.deal_services=v?v.split(','):null;}
+  if($('d-dtype')&&!$('d-dtype').disabled&&$('d-dtype').value==='service'&&!$('d-svcs').value){needField('d-dtype','Tick the services this customer bought');return;}
   const pv=val('d-prov'); if(pv!==undefined){upd.province=pv||null;upd.city_province=pv||null;}
   /* panel kWp is derived, and its input is readonly so val() skips it */
   const kw=$('d-kwp'); if(kw&&$('d-pwatt')&&!$('d-pwatt').disabled)upd.panel_kwp=kw.value||null;
@@ -699,3 +708,9 @@ async function useQuot(quotId,leadId){
     card.outerHTML=quotCard(other,leadId,true,other.id===q.id);
   });
 }
+
+/* Service only shows the service ticks and hides BOQ, which it does not have */
+function dDealType(){const svc=$('d-dtype').value==='service';
+  $('d-svcwrap').style.display=svc?'':'none';
+  document.querySelectorAll('.d-boqbox').forEach(e=>e.style.display=svc?'none':'');}
+function dSvcSync(){$('d-svcs').value=[...document.querySelectorAll('.d-svc')].filter(c=>c.checked).map(c=>c.value).join(',');}

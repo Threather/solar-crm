@@ -78,6 +78,7 @@ function srCols(n){
     {x:1,h:'Month won',g:'deal',v:r=>srMonth(r)?monthName(srMonth(r)):'',f:1},
     {x:3,h:'Agreement Sign Off Date',g:'deal',v:r=>r.stage_entered_at?localDay(r.stage_entered_at):'',t:'date'},
     {x:4,h:'Lead Received Date',g:'deal',v:r=>r.lead_date||localDay(r.created_at),t:'date'},
+    {x:4.5,h:'Deal type',g:'deal',v:r=>dealWord(r),fv:r=>isService(r)?'Service only':'Full package',f:1},
     {x:5,h:'Sales Person',g:'deal',v:r=>r.assigned_to?staffName(r.assigned_to):'',f:1},
     {x:6,h:'Referral By',g:'deal',v:r=>r.referrer_name||'',f:1},
     {x:7,h:'Lead Channel',g:'deal',v:r=>(r.lead_channel||'').replace(/_/g,' '),f:1},

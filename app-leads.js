@@ -143,7 +143,7 @@ function wonStats(rows){
      won deals rather than at the end — and the ones still waiting are the
      half worth reading, so they are named */
   const boq=rows.filter(l=>l.boq_status==='Done');
-  const noBoq=rows.length-boq.length;
+  const noBoq=rows.filter(l=>l.boq_status!=='Done'&&!isService(l)).length;
   return `<div class="stats">
       <div class="stat hero"><div class="n">${rows.length}</div><div class="l">Closed-Won</div></div>
       <div class="stat ${noBoq?'alert':''}"><div class="n">${boq.length}</div><div class="l">BOQ released</div>
@@ -214,7 +214,7 @@ const COLSPEC={
   qual:l=>qualText(l),
   eng:l=>l.assigned_to?staffName(l.assigned_to):'Not assigned',
   site:l=>l.site_engineer_id?staffName(l.site_engineer_id):'None',
-  boq:l=>l.boq_status||'Not set',
+  boq:l=>isService(l)?'Service only':l.boq_status||'Not set',
   sched:l=>l.installation_start||l.installation_end?'Scheduled':'Not scheduled',
   fu:fuWord,
   rem:l=>FU_TEST.quiet(l)?'No remark in 7 days':'Remark in last 7 days',
@@ -556,7 +556,7 @@ function drawWonTable(rows){
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>'}</td>
       <td>${l.site_engineer_id?'<span class="nm">'+esc(staffName(l.site_engineer_id))+'</span>':'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
-      <td class="nowrap">${l.boq_status==='Done'
+      <td class="nowrap">${isService(l)?`<span class="mark mark-open">Service only</span><span class="days">${esc((l.deal_services||[]).join(', '))}</span>`:l.boq_status==='Done'
         ?`<span class="mark mark-done">Done</span>${l.boq_date?`<span class="days">${fmtDate(l.boq_date)}</span>`:''}`
         :l.boq_status
           ?`<span class="mark mark-wait">${esc(l.boq_status)}</span>`
