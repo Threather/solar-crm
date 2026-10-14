@@ -91,18 +91,18 @@ function asDraw(){
   </tr></thead><tbody>`+rows.map(r=>`
     <tr class="rowlink" onclick="asOpen('${r.id}')">
       <td class="refid">${esc(r.leads?.ref_id||'—')}</td>
-      <td><b>${esc(r.leads?.customer_name||'—')}</b></td>
+      <td><b class="asclamp">${esc(r.leads?.customer_name||'—')}</b></td>
       <td class="phone">${r.leads?.phone?phoneCell(r.leads.phone):'<span class="quiet">—</span>'}</td>
       <td class="nowrap">${fmtDate(r.issue_date)}</td>
       <td>${esc(lvl(r))}</td>
       <td>${(r.status||'Pending')==='Solved'
         ?'<span class="mark mark-done">Solved</span>'
         :'<span class="mark mark-open">Pending</span>'}</td>
-      <td>${esc(r.cause||'—')}</td>
-      <td>${esc(asPicOf(r)||'—')}</td>
-      <td>${esc(r.solved_by||'—')}</td>
+      <td><span class="asclamp">${esc(r.cause||'—')}</span></td>
+      <td><span class="asclamp">${esc(asPicOf(r)||'—')}</span></td>
+      <td><span class="asclamp">${esc(r.solved_by||'—')}</span></td>
       <td class="nowrap">${asTurnText(r)}</td>
-      <td class="rem">${esc(r.problem_detail||'')}${r.status_remark?`<span class="days">${esc(r.status_remark)}</span>`:''}</td>
+      <td class="rem"><span class="asclamp" title="${esc([r.problem_detail,r.status_remark].filter(Boolean).join(' — '))}">${esc(r.problem_detail||'')}</span></td>
     </tr>`).join('')+`</tbody></table>`;
 }
 /* the same lookup the repeat-customer flow uses: nobody remembers a reference
