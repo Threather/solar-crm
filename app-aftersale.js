@@ -177,10 +177,12 @@ function asCard(r,l){
     <div class="section sec-eng"><h4>Solving it</h4>
       <div class="grid3">
         <div><label>First level solved</label><input id="as-l1" type="date" value="${esc(g('level1_date'))}"></div>
-        <div><label>Second level solved</label><input id="as-l2" type="date" value="${esc(g('level2_date'))}" title="The visit to the customer's house"></div>
-        <div><label>Third level solved</label><input id="as-l3" type="date" value="${esc(g('level3_date'))}"></div>
         <div><label>Solved by</label><input id="as-by" value="${esc(g('solved_by'))}" placeholder="Site engineer or installer name"></div>
         <div><label>PIC</label><select id="as-pic"><option value="">—</option>${staffOpts}</select></div>
+        <!-- second and third level stay out of sight until a case escalates (14 Oct 2026) -->
+        <div id="as-l2wrap" ${g('level2_date')?'':'style="display:none"'}><label>Second level solved</label><input id="as-l2" type="date" value="${esc(g('level2_date'))}" title="The visit to the customer's house"></div>
+        <div id="as-l3wrap" ${g('level3_date')?'':'style="display:none"'}><label>Third level solved</label><input id="as-l3" type="date" value="${esc(g('level3_date'))}"></div>
+        <div id="as-more" style="grid-column:1/-1;${g('level3_date')?'display:none':''}"><a class="aslink" onclick="asNextLevel()">+ ${g('level2_date')?'Third':'Second'} level</a></div>
         <div style="grid-column:1/-1"><label>Solution</label><textarea id="as-solution" rows="3" placeholder="What was actually done">${esc(g('solution'))}</textarea></div>
       </div>
     </div>
@@ -246,4 +248,11 @@ function exportAfterSale(){
       r.status||'Pending',r.status_remark,r.cause,r.cause_from,r.problem_detail,r.solution,
       r.level1_date,r.level2_date,r.level3_date,r.solved_by,
       r.pic_id?staffName(r.pic_id):'',localDay(r.created_at)]));
+}
+
+/* opens the next level date when a case escalates */
+function asNextLevel(){
+  const two=$('as-l2wrap'),three=$('as-l3wrap'),more=$('as-more');
+  if(two.style.display==='none'){two.style.display='';more.firstElementChild.textContent='+ Third level';$('as-l2').focus();}
+  else{three.style.display='';more.style.display='none';$('as-l3').focus();}
 }
