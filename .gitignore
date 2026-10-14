@@ -6,3 +6,4 @@ dup-alert.sql
 exports/
 speed-rls.sql
 agents.sql
+restore-sok-samnang.sql
