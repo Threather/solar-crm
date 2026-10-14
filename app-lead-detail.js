@@ -714,5 +714,8 @@ async function useQuot(quotId,leadId){
 /* Service only shows the service ticks and hides BOQ, which it does not have */
 function dDealType(){const svc=$('d-dtype').value==='service';
   $('d-svcwrap').style.display=svc?'':'none';
-  document.querySelectorAll('.d-boqbox').forEach(e=>e.style.display=svc?'none':'');}
-function dSvcSync(){$('d-svcs').value=[...document.querySelectorAll('.d-svc')].filter(c=>c.checked).map(c=>c.value).join(',');}
+  document.querySelectorAll('.d-boqbox').forEach(e=>e.style.display=svc?'none':'');dInstShow();}
+function dSvcSync(){$('d-svcs').value=[...document.querySelectorAll('.d-svc')].filter(c=>c.checked).map(c=>c.value).join(',');dInstShow();}
+/* the Installation box follows the ticks as they change */
+function dInstShow(){const w=$('d-instwrap'),t=$('d-dtype');if(!w||!t)return;
+  w.style.display=t.value!=='service'||$('d-svcs').value.split(',').includes('Installation')?'':'none';}

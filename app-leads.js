@@ -956,7 +956,9 @@ function siteSpec(l,always){
     </div>`;
 }
 function siteBox(l,canSite,first,isAdmin){
-  return siteSpec(l)+`<div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
+  /* a Service only deal without Installation ticked has no installation to
+     record, so the box stays hidden until the tick is on (client, 14 Oct 2026) */
+  return siteSpec(l)+`<div id="d-instwrap" ${hasPart(l,'Installation')?'':'style="display:none"'}><div class="section sec-install${first?' lead-first':''}"><h4>Installation ${l.site_engineer_id?('· '+esc(staffName(l.site_engineer_id))):'· no site engineer yet'}</h4>
       <div class="grid3">
         <div><label>Delivery date</label><input id="d-deliv" type="date" value="${l.delivery_date||''}" ${canSite?'':'disabled'}></div>
         <div><label>Installation start</label><input id="d-cstart" type="date" value="${l.installation_start||''}" ${canSite?'':'disabled'}></div>
@@ -973,7 +975,7 @@ function siteBox(l,canSite,first,isAdmin){
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
         <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
       </div>
-    </div>`+serviceBox(l,canSite);
+    </div>`+serviceBox(l,canSite)+`</div>`;
 }
 /* After handover. The job is finished and the relationship is not: a system
    gets checked and cleaned every year, and whatever the customer raises
