@@ -12,7 +12,7 @@ let LISTKEY='panel_brand', LISTROWS=[], LISTFLASH=null;
 /* the lists grouped by what they describe, so thirteen tabs read as four
    short groups (UI pass, 14 Oct 2026) */
 const LIST_GROUPS=[
-  ['Products',['panel_brand','inverter_brand','battery_brand','roof_type','phase_type']],
+  ['Products',['__products','panel_brand','inverter_brand','battery_brand','roof_type','phase_type']],
   ['Customers',['customer_type','lost_reason']],
   ['After-sale',['as_cause','as_pic']],
   ['Team and office',['install_team','agent','edc_branch','account_type']]];
@@ -20,6 +20,11 @@ const LIST_GROUPS=[
 async function renderLists(){
   if(ME.role!=='admin'){
     $('main').innerHTML=blank('Lists are admin only','Ask an admin to change a dropdown.');return;}
+  /* Models & photos is its own table, drawn by app-products.js */
+  if(LISTKEY==='__products'){
+    $('main').innerHTML=`<h2 style="margin-bottom:14px">Lists</h2><div class="lslayout">${lsNav()}<div class="lscard wide" id="prodcard"></div></div>`;
+    return renderProducts();
+  }
   const {data,error}=await sb.from('vocabularies')
     .select('*').eq('list_key',LISTKEY).order('sort_order');
   if(error){
@@ -29,17 +34,13 @@ async function renderLists(){
   let AD={};
   if(LISTKEY==='agent'){const r=await sb.from('agent_details').select('*');(r.data||[]).forEach(x=>AD[x.name]=x);}
   const meta=VOCAB_LISTS.find(l=>l[0]===LISTKEY)||[];
-  const label=k=>(VOCAB_LISTS.find(l=>l[0]===k)||[])[1]||k;
-  const grouped=new Set(LIST_GROUPS.flatMap(g=>g[1]));
-  const groups=LIST_GROUPS.concat([['Other',VOCAB_LISTS.map(l=>l[0]).filter(k=>!grouped.has(k))]]).filter(g=>g[1].length);
   const live=LISTROWS.filter(r=>r.is_active).length, off=LISTROWS.length-live;
   const extra=LISTKEY==='install_team'?'<th>Team members</th>':LISTKEY==='agent'?'<th>Phone · Contract signed</th><th>Bank</th>':'';
   const span=3+(LISTKEY==='install_team'?1:LISTKEY==='agent'?2:0);
   $('main').innerHTML=`
     <h2 style="margin-bottom:14px">Lists</h2>
     <div class="lslayout">
-      <nav class="lsnav">${groups.map(([g,keys])=>`<div class="lsgroup">${esc(g)}</div>`+keys.map(k=>
-        `<button class="${k===LISTKEY?'on':''}" onclick="listGo('${k}')">${esc(label(k))}</button>`).join('')).join('')}</nav>
+      ${lsNav()}
       <div class="lscard ${LISTKEY==='agent'?'wide':''}">
         <div class="lshead"><h3>${esc(meta[1]||LISTKEY)}</h3><span>${live} in use${off?` · ${off} hidden`:''}</span></div>
         <div class="tablewrap"><table class="lstable ${LISTKEY==='agent'?'agtable':''}"><thead><tr>
@@ -61,6 +62,13 @@ async function renderLists(){
       </div>
     </div>`;
   if(LISTFLASH){const f=LISTFLASH;setTimeout(()=>{if(LISTFLASH===f){LISTFLASH=null;document.querySelectorAll('.lssaved').forEach(e=>e.remove());}},1800);}
+}
+function lsNav(){
+  const label=k=>k==='__products'?'Models & photos':(VOCAB_LISTS.find(l=>l[0]===k)||[])[1]||k;
+  const grouped=new Set(LIST_GROUPS.flatMap(g=>g[1]));
+  const groups=LIST_GROUPS.concat([['Other',VOCAB_LISTS.map(l=>l[0]).filter(k=>!grouped.has(k))]]).filter(g=>g[1].length);
+  return `<nav class="lsnav">${groups.map(([g,keys])=>`<div class="lsgroup">${esc(g)}</div>`+keys.map(k=>
+    `<button class="${k===LISTKEY?'on':''}" onclick="listGo('${k}')">${esc(label(k))}</button>`).join('')).join('')}</nav>`;
 }
 function listGo(k){LISTKEY=k;LISTFLASH=null;renderLists();}
 /* the same name already in the list is said while typing, not after Add */

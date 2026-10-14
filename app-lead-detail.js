@@ -283,7 +283,7 @@ async function openLead(id){
      listens to the whole box rather than each field restating it */
   const eng=$('lead-modal').querySelector('.sec-eng');
   if(eng){eng.addEventListener('change',dKit);dKit();}
-  markLockable();setLock(true);
+  markLockable();setLock(true);qdocsFill();
 }
 /* everything openLead left enabled is what Edit unlocks and Lock puts back */
 function markLockable(){
@@ -565,7 +565,7 @@ function quotCard(q,leadId,canUse,inUse,canDelete){
       <button class="btn-mini" onclick="printQuote('${q.id}','${leadId}','km')">Quotation (ខ្មែរ)</button><button class="btn-mini" onclick="printQuote('${q.id}','${leadId}','en')">Quotation (English)</button>
       ${(canUse&&!inUse)?`<button class="btn-mini" onclick="useQuot('${q.id}','${leadId}')" title="Copy this option's specification onto the lead, so EDC, installation and the export all follow it">Use this one</button>`:''}
       ${canDelete?`<button class="btn-mini qdel" onclick="delQuot('${q.id}','${leadId}')" title="Remove this option. A quotation has no undo.">Delete</button>`:''}
-    </div></div>`;
+    </div><div class="qdocs" data-q="${q.id}" data-lead="${leadId}"></div></div>`;
 }
 async function addQuot(leadId){
   const price=$('q-price').value;
@@ -595,6 +595,7 @@ async function addQuot(leadId){
   if(list){
     const none=list.querySelector('.quot-none');if(none)none.remove();
     list.insertAdjacentHTML('afterbegin',quotCard(data,leadId,true,false,true));
+    qdocsFill();
   }
   const n=$('quot-n');if(n)n.textContent=LEADQUOTS.length;
   $('q-price').value='';
@@ -707,6 +708,7 @@ async function useQuot(quotId,leadId){
     if(!other)return;
     card.outerHTML=quotCard(other,leadId,true,other.id===q.id);
   });
+  qdocsFill();
 }
 
 /* Service only shows the service ticks and hides BOQ, which it does not have */

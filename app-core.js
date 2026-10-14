@@ -253,6 +253,9 @@ const QUALIFIED_STAGES=['telling_price','pending_quotation','quotation_sent','fo
 let INSTALL_TEAMS=['Team A','Team B','Team C','Team D'];
 /* who is in each team, typed on Lists (vocabularies.detail, 8 Oct 2026) */
 let INSTALL_TEAM_DETAIL={};
+/* the products table (Lists > Products); null until loaded, and the code's
+   own constants answer while it is */
+let PRODUCTS=null;
 /* Third Party > Agent: the agents admin keeps on Lists (8 Oct 2026); their
    phone, bank account and contract date sit in agent_details, admin only */
 let AGENTS=[];
@@ -612,6 +615,7 @@ const VOCAB_LISTS=[
 /* Loaded once at login. A value hidden on the Lists screen leaves the
    dropdowns, but a lead already carrying it still shows it - see optList. */
 async function loadVocab(){
+  loadProducts();
   const {data,error}=await sb.from('vocabularies')
     .select('*').eq('is_active',true).order('sort_order');
   /* 42P01 is the table not existing yet. Either way the fallbacks above stand,
@@ -624,6 +628,12 @@ async function loadVocab(){
   }
   INSTALL_TEAM_DETAIL={};
   data.filter(r=>r.list_key==='install_team'&&r.detail).forEach(r=>{INSTALL_TEAM_DETAIL[r.value]=r.detail;});
+}
+
+async function loadProducts(){
+  const {data,error}=await sb.from('products').select('*').eq('is_active',true).order('sort_order');
+  if(error){console.error('products',error);return;}
+  PRODUCTS=data||[];
 }
 
 /* ---------------- data ---------------- */

@@ -206,7 +206,7 @@ const BRAND_PATTERNS={
 };
 const isBrand=(kind,name,brand)=>BRAND_PATTERNS[kind][name].test((brand||'').trim());
 function phaseNum(phaseType){return /3P/.test(phaseType||'')?'3':/1P/.test(phaseType||'')?'1':'';}
-function inverterModel(brand,kw,phaseType){
+function inverterModelCode(brand,kw,phaseType){
   const p=phaseNum(phaseType);
   const n=Number(kw||0);
   if(isBrand('inverter','Urayzero',brand))return URAYZERO[n]||'';
@@ -227,7 +227,7 @@ const YINERGY_BLW=[4.8,9.6];
 /* Deye's F-series battery is named by its capacity, the same shape as the
    Yinergy BLW. One size stocked. */
 const DEYE_BATT={16:'SE-F16'};
-function batteryModel(brand,kwhEach){
+function batteryModelCode(brand,kwhEach){
   const k=Number(kwhEach||0);
   if(isBrand('battery','Deye',brand))return DEYE_BATT[k]||'';
   if(isBrand('battery','Yinergy',brand)){
@@ -241,7 +241,7 @@ function batteryModel(brand,kwhEach){
 /* LONGi's part numbers are not a formula — HGD at 625W, HYD at 645W — so this
    stays a plain lookup on the wattage the app already stores. */
 const LONGI_LR8={625:'LR8-66HGD-625M',645:'LR8-66HYD-645M',650:'LR8-66HYD-650M'};
-function panelModel(brand,watt){
+function panelModelCode(brand,watt){
   if(!isBrand('panel','LONGi',brand))return '';
   return LONGI_LR8[Number(watt||0)]||'';
 }
@@ -270,7 +270,7 @@ const PRODUCT_IMG={
    one photo and it shows even where no part number derives. An inverter and a
    battery are not interchangeable to look at, so those stay keyed off the
    part number and an unmatched brand shows nothing rather than the wrong box. */
-function imgFor(model,kind,brand,size){
+function imgForCode(model,kind,brand,size){
   if(model){
     if(/^SUN-\d+K-SG05LP[13]-EU-SM2$/.test(model))return 'img/deye-sg05lp-v3.png';
     if(PRODUCT_IMG[model])return PRODUCT_IMG[model];
@@ -297,6 +297,58 @@ function imgFor(model,kind,brand,size){
    so the labels themselves stay exactly as the client wrote them. Matched
    loosely, like the brands, because admin edits the system-type list - and
    "Off-Grid" carries no "on", so it cannot match by accident. */
+/* Products (14 Oct 2026): admin keeps the models, codes and photos on
+   Lists > Products, in the products table. PRODUCTS holds its rows once
+   loaded; until then, or if the read fails, the constants above answer, so a
+   quotation never loses its codes and photos to a bad connection.
+   A brand matches loosely, the same way BRAND_PATTERNS does: AD is ANTI-DARK. */
+const brandKey=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function sameBrand(kind,a,b){
+  if(!a||!b)return false;
+  if(brandKey(a)===brandKey(b))return true;
+  return Object.values(BRAND_PATTERNS[kind]||{}).some(re=>re.test(a.trim())&&re.test(b.trim()));
+}
+/* the row for this brand and size; a row with a phase needs that phase for
+   its code, but still gives its photo when no phase was keyed in */
+function prodFind(kind,brand,size,phase){
+  const n=Number(size||0);
+  const hits=(PRODUCTS||[]).filter(r=>r.kind===kind&&r.brand&&sameBrand(kind,r.brand,brand)
+    &&r.size!=null&&Math.abs(Number(r.size)-n)<0.01);
+  return hits.find(r=>!r.phase||r.phase===phase)||null;
+}
+function prodPhotoRow(kind,brand,size){
+  const n=Number(size||0);
+  return (PRODUCTS||[]).find(r=>r.kind===kind&&r.brand&&sameBrand(kind,r.brand,brand)
+    &&r.size!=null&&Math.abs(Number(r.size)-n)<0.01&&r.photo_url)||null;
+}
+const useProducts=()=>Array.isArray(PRODUCTS)&&PRODUCTS.length>0;
+function inverterModel(brand,kw,phaseType){
+  if(!useProducts())return inverterModelCode(brand,kw,phaseType);
+  const r=prodFind('inverter',brand,kw,phaseNum(phaseType));
+  return r&&(!r.phase||phaseNum(phaseType))?(r.model_code||''):'';
+}
+function batteryModel(brand,kwhEach){
+  if(!useProducts())return batteryModelCode(brand,kwhEach);
+  const r=prodFind('battery',brand,kwhEach,'');return r?(r.model_code||''):'';
+}
+function panelModel(brand,watt){
+  if(!useProducts())return panelModelCode(brand,watt);
+  const r=prodFind('panel',brand,watt,'');return r?(r.model_code||''):'';
+}
+/* the shared pictures: every panel, the mounting set, the electrical set */
+function sharedPhoto(kind,dflt){
+  if(!useProducts())return dflt;
+  const r=PRODUCTS.find(x=>x.kind===kind&&!x.brand&&x.photo_url);
+  return r?r.photo_url:dflt;
+}
+function imgFor(model,kind,brand,size){
+  if(!useProducts())return imgForCode(model,kind,brand,size);
+  const k=(kind||'').toLowerCase();
+  const r=prodPhotoRow(k,brand,size);
+  if(r)return r.photo_url;
+  return k==='panel'?sharedPhoto('panel',''):'';
+}
+const isTallPhoto=src=>/deye-sg05lp/.test(src||'')||(PRODUCTS||[]).some(r=>r.tall&&r.photo_url===src);
 const KH_LETTERS=['ក','ខ','គ','ឃ'];
 const khLabel=(i,text)=>QT.letters[i]+'. '+String(text).replace(/^([ក-៿]|[A-D])\.\s*/,'');
 const isOnGrid=sys=>/on[\s-]?grid/i.test(sys||'');
@@ -304,7 +356,10 @@ const isOnGrid=sys=>/on[\s-]?grid/i.test(sys||'');
 const qb=(w,val)=>`<span class="fill" contenteditable="true" style="min-width:${w}px">${val==null?'':esc(String(val))}</span>`;
 const qnum=n=>n||n===0?Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'';
 
-function printQuote(quotId,leadId,lang){
+function printQuote(quotId,leadId,lang,docId){
+  /* a saved copy: the window must open inside the click or the browser
+     blocks it, so it opens first and is filled once the copy has loaded */
+  if(docId)return qdocOpen(quotId,leadId,docId);
   /* Khmer unless English is asked for; every string on the sheet reads QT */
   QT=lang==='en'?QT_EN:QT_KM;
   const q=(QUOTS||[]).find(x=>x.id===quotId)||(LEADQUOTS||[]).find(x=>x.id===quotId);
@@ -330,6 +385,105 @@ function printQuote(quotId,leadId,lang){
   if(!w){toast('Allow pop-ups to print the quotation');return;}
   w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual,edcRate:edcRateUsd,base}));
   w.document.close();
+  qdocBind(w,q.id,lang==='en'?'en':'km',null,'');
+}
+/* the sheet as quoteHtml builds it for this quotation, without opening it */
+function quoteSheetHtml(q,leadId,lang){
+  QT=lang==='en'?QT_EN:QT_KM;
+  const l=(LEADS||[]).find(x=>x.id===(leadId||q.lead_id))||q.leads||{};
+  const kwp=Number(q.panel_kwp||0)||((Number(q.panel_watt||0)*Number(q.panel_pcs||0))/1000);
+  const kwac=(Number(q.inverter_kw||0)*Number(q.inverter_pcs||0))||Number(q.inverter_kw_total||0);
+  const addr=[l.site_address,l.commune,l.district,l.province||l.city_province].filter(Boolean).join(', ');
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');
+  return quoteHtml(q,l,{kwp,kwac,addr,price:Number(q.price_usd||0),annual:Math.round(kwp*4*365),edcRate:edcRate(kwac),base});
+}
+
+/* ---------------- saved copies (quotation_docs, 14 Oct 2026) ----------------
+   A is the quotation itself, built fresh every time and never stored, so it
+   cannot change. A copy is the edited sheet kept as HTML - never a new
+   quotations row, so the log, the before/after counts and Use this one are
+   untouched, and the price still comes from the quotation.
+   Saved HTML is opened by other people, so it is cleaned on the way in and
+   on the way out: no scripts, no handlers except the photo's own. */
+function qdocClean(html){
+  const d=new DOMParser().parseFromString('<div>'+html+'</div>','text/html');
+  d.querySelectorAll('script,iframe,object,embed,link,meta,base,form').forEach(e=>e.remove());
+  d.querySelectorAll('*').forEach(e=>{[...e.attributes].forEach(a=>{
+    const n=a.name.toLowerCase(),v=(a.value||'').trim();
+    if(n.startsWith('on')&&!(n==='onerror'&&v==='this.remove()'))e.removeAttribute(a.name);
+    else if((n==='href'||n==='src'||n==='xlink:href')&&/^\s*javascript:/i.test(v))e.removeAttribute(a.name);
+  });});
+  return d.body.firstChild.innerHTML;
+}
+function qdocBind(w,qid,lang,docId,label){
+  try{w.__qid=qid;w.__lang=lang;w.__docId=docId;
+    const u=w.document.getElementById('qd-upd'),lb=w.document.getElementById('qd-label');
+    if(u)u.style.display=docId?'':'none';
+    if(lb)lb.textContent=label?'Copy '+label:'';
+    if(docId)w.document.title='Copy '+label;
+  }catch(e){}
+}
+async function qdocSave(w,update){
+  if(!['sales','manager','admin'].includes(ME.role)){w.alert('Only sales, the manager and admin save quotations.');return;}
+  const d=w.document;
+  /* a tick is a property, not an attribute; write it down so the copy keeps it */
+  d.querySelectorAll('input[type=checkbox]').forEach(i=>i.checked?i.setAttribute('checked',''):i.removeAttribute('checked'));
+  const html=qdocClean([...d.querySelectorAll('.sheet')].map(s=>s.outerHTML).join('\n'));
+  const vatOn=(d.getElementById('vat-on')||{}).checked!==false;
+  const t=d.getElementById(vatOn?'o-grand':'o-net');
+  const total=t?(parseFloat((t.innerText||'').replace(/[^0-9.]/g,''))||null):null;
+  if(update&&w.__docId){
+    const {data,error}=await sb.from('quotation_docs').update({sheet_html:html,total_usd:total,updated_at:new Date().toISOString()})
+      .eq('id',w.__docId).select('id');
+    if(error||!data||!data.length){w.alert('Could not save. '+(error?why(error):'Only the person who made this copy, the manager or admin can change it.'));return;}
+    w.alert('Saved');qdocsFill();return;
+  }
+  const {count}=await sb.from('quotation_docs').select('id',{count:'exact',head:true}).eq('quotation_id',w.__qid);
+  const label=String.fromCharCode(66+Math.min(count||0,24));
+  const {data,error}=await sb.from('quotation_docs').insert({quotation_id:w.__qid,parent_doc_id:w.__docId||null,
+    lang:w.__lang||'km',label,sheet_html:html,total_usd:total,created_by:ME.id}).select('id').single();
+  if(error){w.alert('Could not save. '+why(error));return;}
+  qdocBind(w,w.__qid,w.__lang,data.id,label);
+  w.alert('Saved as copy '+label);qdocsFill();
+}
+async function qdocOpen(quotId,leadId,docId){
+  const w=window.open('','_blank');
+  if(!w){toast('Allow pop-ups to open the copy');return;}
+  w.document.write('<p style="font:14px sans-serif;padding:20px">Opening…</p>');
+  const {data:row,error}=await sb.from('quotation_docs').select('*').eq('id',docId).single();
+  let q=(QUOTS||[]).find(x=>x.id===quotId)||(LEADQUOTS||[]).find(x=>x.id===quotId);
+  if(!q&&row){const r=await sb.from('quotations').select('*').eq('id',row.quotation_id).single();q=r.data;}
+  if(error||!row||!q){w.document.body.innerHTML='<p style="font:14px sans-serif;padding:20px">Could not open this copy.</p>';return;}
+  const doc=new DOMParser().parseFromString(quoteSheetHtml(q,leadId,row.lang),'text/html');
+  const saved=new DOMParser().parseFromString(qdocClean(row.sheet_html),'text/html').querySelectorAll('.sheet');
+  const old=[...doc.querySelectorAll('.sheet')];
+  if(saved.length&&old.length){
+    saved.forEach(sh=>old[0].parentNode.insertBefore(doc.importNode(sh,true),old[0]));
+    old.forEach(e=>e.remove());
+  }
+  w.document.open();w.document.write('<!doctype html>'+doc.documentElement.outerHTML);w.document.close();
+  qdocBind(w,q.id,row.lang,row.id,row.label||'');
+}
+/* the copies under each quotation card, filled after the cards are drawn */
+async function qdocsFill(){
+  const boxes=[...document.querySelectorAll('.qdocs[data-q]')];
+  const ids=[...new Set(boxes.map(b=>b.dataset.q))];
+  if(!ids.length)return;
+  const {data,error}=await sb.from('quotation_docs').select('id,quotation_id,lang,label,total_usd,created_by,updated_at')
+    .in('quotation_id',ids).order('created_at');
+  if(error){console.error('copies',error);return;}
+  boxes.forEach(b=>{
+    const rows=(data||[]).filter(r=>r.quotation_id===b.dataset.q);
+    b.innerHTML=rows.length?'<span class="quiet">Copies</span> '+rows.map(r=>
+      `<button class="btn-mini" title="${esc(staffName(r.created_by))}, ${esc(fmtDate(r.updated_at))}" onclick="printQuote('${r.quotation_id}','${b.dataset.lead||''}','${r.lang}','${r.id}')">${esc(r.label||'')} · ${r.lang==='en'?'English':'ខ្មែរ'}${r.total_usd!=null?' · '+esc(fmtMoney(r.total_usd)):''}</button>`
+      +((r.created_by===ME.id||['manager','admin'].includes(ME.role))?`<button class="btn-mini qdel" title="Delete copy ${esc(r.label||'')}" onclick="qdocDelete('${r.id}')">✕</button>`:'')).join(' '):'';
+  });
+}
+async function qdocDelete(id){
+  if(!confirm('Delete this copy? The quotation itself stays.'))return;
+  const {data,error}=await sb.from('quotation_docs').delete().eq('id',id).select('id');
+  if(error||!data||!data.length){toast('Could not delete. '+(error?why(error):'Only its author, the manager or admin can.'));return;}
+  toast('Copy deleted');qdocsFill();
 }
 
 function quoteHtml(q,l,c){
@@ -339,8 +493,8 @@ function quoteHtml(q,l,c){
   /* A portrait photo at the same height as a square one reads as half the
      size - the Deye inverter stands 609x937 beside an 11mm square panel. TALL
      lets those use more height so the three products look alike on the sheet. */
-  const TALL=/deye-sg05lp/;
-  const cell=(base,img)=>img?`<img class="${TALL.test(img)?'tall':''}" src="${esc((base||'')+img)}" alt="" onerror="this.remove()">`:'';
+  /* a photo admin uploaded is a full address already; the img/ ones need the app's */
+  const cell=(base,img)=>img?`<img class="${isTallPhoto(img)?'tall':''}" src="${esc((/^https?:/.test(img)?'':(base||''))+img)}" alt="" onerror="this.remove()">`:'';
   const row=(no,desc,qty,img)=>`<tr><td class="n">${no||''}</td><td>${desc}</td>`
     +`<td class="q">${qty||''}</td><td class="im">${cell(c.base,img)}</td></tr>`;
   /* one product inside the components row: description, quantity with its
@@ -809,6 +963,9 @@ function quoteHtml(q,l,c){
   <button onclick="window.print()">Print</button>
   <button onclick="dlPdf(this)">Download PDF</button>
   <button onclick="dlWord()">Download Word</button>
+  <button id="qd-new" onclick="opener&&opener.qdocSave&&opener.qdocSave(window,false)">Save as new copy</button>
+  <button id="qd-upd" style="display:none" onclick="opener&&opener.qdocSave&&opener.qdocSave(window,true)">Save changes</button>
+  <b id="qd-label" style="font-size:12px;align-self:center"></b>
   <span style="font-size:11px;color:#555;align-self:center">Every line can be edited. Yellow marks what changes on each quotation.</span>
 </div>
 
@@ -889,7 +1046,7 @@ function quoteHtml(q,l,c){
              /* rails, clamps, tile feet, L-brackets and bolts - one picture for
                 the whole mounting set, the way electrical.jpg carries the
                 electrical bundle. No part number: it is a set, not a product. */
-             'img/mounting.png',c.base)}
+             sharedPhoto('mounting','img/mounting.png'),c.base)}
       ${row(QT.n3,'<span class="sec">'+QT.s3+'</span>'
              +QT.elec.map(t=>'<div class="ind">* '+t+'</div>').join(''),
              qb(50,'1 '+QT.unitSet)+'<span class="wty">'+(QT.elecWty||QT.warranty+': '+qb(16)+' '+QT.yr)+'</span>',
@@ -897,7 +1054,7 @@ function quoteHtml(q,l,c){
                 whole electrical set, the way their own sheet carries it. No
                 part number is derived for it: it is a bundle, not a product.
                 A missing file drops its own cell. */
-             'img/electrical.jpg')}
+             sharedPhoto('electrical','img/electrical.jpg'))}
     </tbody>
   </table>
 
