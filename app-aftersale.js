@@ -37,7 +37,7 @@ function asFiltered(){
 }
 function paintAfterSale(){
   const open=ASROWS.filter(r=>(r.status||'Pending')!=='Solved');
-  const overThird=ASROWS.filter(r=>r.level3_date);
+  const overThird=ASROWS.filter(r=>asLevelN(r)>=3);
   $('main').innerHTML=`
     <h2 style="margin-bottom:4px">After-sale report</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">A problem raised by a customer after handover, and how far it got. Find the customer by reference ID, name or phone number.</p>
@@ -82,7 +82,7 @@ function asDraw(){
     ?blank('No matches','No case fits the current search and filters.')
     :blank('No cases yet','Find a customer above to raise the first one.');return;}
   /* how far it got, read off the dates rather than stored twice */
-  const lvl=r=>r.level3_date?'3rd':r.level2_date?'2nd':r.level1_date?'1st':'—';
+  const lvl=r=>{const n=asLevelN(r);return n?ordWord(n):'—';};
   $('as-wrap').innerHTML=`<table class="table-compact"><thead><tr>
     <th style="width:104px">Ref ID</th><th>Customer</th><th style="width:110px">Issue date</th>
     <th style="width:80px">Level</th><th style="width:104px">Status</th>
@@ -178,11 +178,10 @@ function asCard(r,l){
         <div><label>First level solved</label><input id="as-l1" type="date" value="${esc(g('level1_date'))}"></div>
         <div><label>Solved by</label><input id="as-by" value="${esc(g('solved_by'))}" placeholder="Site engineer or installer name"></div>
         <div><label>PIC</label><select id="as-pic"><option value="">—</option>${staffOpts}</select></div>
-        <!-- second and third level stay out of sight until a case escalates (14 Oct 2026) -->
-        <div id="as-l2wrap" ${g('level2_date')?'':'style="display:none"'}><label>Second level solved</label><input id="as-l2" type="date" value="${esc(g('level2_date'))}" title="The visit to the customer's house"></div>
-        <div id="as-l3wrap" ${g('level3_date')?'':'style="display:none"'}><label>Third level solved</label><input id="as-l3" type="date" value="${esc(g('level3_date'))}"></div>
-        <div id="as-more" style="grid-column:1/-1;${g('level3_date')?'display:none':''}"><a class="aslink" onclick="asNextLevel()">+ ${g('level2_date')?'Third':'Second'} level</a></div>
         <div style="grid-column:1/-1"><label>Solution</label><textarea id="as-solution" rows="3" placeholder="What was actually done">${esc(g('solution'))}</textarea></div>
+        <!-- each later level is a full step: date, who went, PIC, what was done (14 Oct 2026) -->
+        <div id="as-levels" style="grid-column:1/-1">${asLevels(r||{}).map((lv,n)=>asLevelBlock(n+2,lv)).join('')}</div>
+        <div style="grid-column:1/-1"><a class="aslink" id="as-more" onclick="asNextLevel()">+ ${LEVEL_WORD[asLevels(r||{}).length+2]} level</a></div>
       </div>
     </div>
 
@@ -201,8 +200,6 @@ async function asSave(){
     lead_id:ASPICK.leadId,
     issue_date:v('as-issue')||null,
     level1_date:v('as-l1')||null,
-    level2_date:v('as-l2')||null,
-    level3_date:v('as-l3')||null,
     solved_by:v('as-by')||null,
     pic_name:v('as-pic')||null,
     pic_id:(STAFF.find(x=>x.full_name===v('as-pic'))||{}).id||null,
@@ -213,12 +210,21 @@ async function asSave(){
     problem_detail:v('as-detail')||null,
     solution:v('as-solution')||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
+  /* the later levels, empty blocks dropped; the 2nd and 3rd dates are also
+     kept in their own columns, which older screens and the backup read */
+  const more=[...document.querySelectorAll('#as-levels .aslevel')].map(b=>({
+    date:b.querySelector('.lv-date').value||null, by:b.querySelector('.lv-by').value.trim()||null,
+    pic:b.querySelector('.lv-pic').value||null, solution:b.querySelector('.lv-sol').value.trim()||null}))
+    .filter(x=>x.date||x.by||x.pic||x.solution);
+  row.more_levels=more;
+  row.level2_date=more[0]?.date||null;
+  row.level3_date=more[1]?.date||null;
   /* a case with neither a date nor a description is an empty row nobody can
      act on, and it would sit in the pending count for ever */
   if(!row.issue_date&&!row.problem_detail){toast('Set the issue date, or describe the problem');return;}
   /* solved means solved: without a dated level the record says it was fixed
      and cannot say when, which is what breaks a turnaround figure later */
-  if(row.status==='Solved'&&!row.level1_date&&!row.level2_date&&!row.level3_date){
+  if(row.status==='Solved'&&!row.level1_date&&!more.some(x=>x.date)){
     toast('Date the level it was solved at before marking it Solved');return;}
   const q=ASPICK.caseId
     ? sb.from('after_sales').update(row).eq('id',ASPICK.caseId)
@@ -243,18 +249,36 @@ function exportAfterSale(){
   if(!rows.length){toast('Nothing to export');return;}
   downloadCSV('after-sale',['Ref ID','Customer','Phone','Issue date','Status','Why pending',
     'Caused by','Occurred from','Problem','Solution',
-    'First level','Second level','Third level','Solved by','PIC','Raised'],
+    'First level','Second level','Third level','Solved by','PIC','Later levels','Raised'],
     rows.map(r=>[r.leads?.ref_id,r.leads?.customer_name,r.leads?.phone,r.issue_date,
       r.status||'Pending',r.status_remark,r.cause,r.cause_from,r.problem_detail,r.solution,
       r.level1_date,r.level2_date,r.level3_date,r.solved_by,
-      asPicOf(r),localDay(r.created_at)]));
+      asPicOf(r),asLevels(r).map((x,n)=>ordWord(n+2)+': '+[x.date,x.by,x.pic,x.solution].filter(Boolean).join(' · ')).join(' | '),localDay(r.created_at)]));
 }
 
-/* opens the next level date when a case escalates */
+/* Levels after the first. A case saved before more_levels existed carries
+   only 2nd/3rd dates, which become blocks of their own. */
+const LEVEL_WORD=['','First','Second','Third','Fourth','Fifth','Sixth','Seventh','Eighth','Ninth','Tenth'];
+const ordWord=n=>['','1st','2nd','3rd'][n]||n+'th';
+function asLevels(r){
+  if(Array.isArray(r.more_levels)&&r.more_levels.length)return r.more_levels;
+  return [r.level2_date,r.level3_date].filter(Boolean).map(d=>({date:d}));
+}
+const asLevelN=r=>{const m=asLevels(r).length;return m?1+m:(r.level1_date?1:0);};
+function asLevelBlock(n,lv){
+  lv=lv||{};
+  return `<div class="aslevel"><h5>${LEVEL_WORD[n]||n+'th'} level</h5><div class="grid3">
+    <div><label>${LEVEL_WORD[n]||n+'th'} level solved</label><input class="lv-date" type="date" value="${esc(lv.date||'')}"></div>
+    <div><label>Solved by</label><input class="lv-by" value="${esc(lv.by||'')}" placeholder="Site engineer or installer name"></div>
+    <div><label>PIC</label><select class="lv-pic"><option value="">—</option>${optList(asPicList(),lv.pic||'',false)}</select></div>
+    <div style="grid-column:1/-1"><label>Solution</label><textarea class="lv-sol" rows="2" placeholder="What was done at this level">${esc(lv.solution||'')}</textarea></div>
+  </div></div>`;
+}
 function asNextLevel(){
-  const two=$('as-l2wrap'),three=$('as-l3wrap'),more=$('as-more');
-  if(two.style.display==='none'){two.style.display='';more.firstElementChild.textContent='+ Third level';$('as-l2').focus();}
-  else{three.style.display='';more.style.display='none';$('as-l3').focus();}
+  const box=$('as-levels'),n=box.children.length+2;
+  box.insertAdjacentHTML('beforeend',asLevelBlock(n));
+  box.lastElementChild.querySelector('.lv-date').focus();
+  $('as-more').textContent='+ '+(LEVEL_WORD[n+1]||(n+1)+'th')+' level';
 }
 
 /* who is PIC on a case: the name picked from Lists, or the staff account older cases carry */

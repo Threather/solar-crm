@@ -1143,3 +1143,5 @@ input.ag-contract_date{min-width:132px}
 .agtable td:last-child .btn-line{display:block;width:100%;margin:2px 0}
 .agbank input{min-width:186px}
 .aslink{cursor:pointer;font-size:13px;font-weight:600;color:var(--own-eng,#2f6f86);text-decoration:underline}
+.aslevel{border-top:1px dashed var(--line);margin-top:12px;padding-top:10px}
+.aslevel h5{margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
