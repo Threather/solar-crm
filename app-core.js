@@ -256,6 +256,10 @@ let INSTALL_TEAM_DETAIL={};
 /* Third Party > Agent: the agents admin keeps on Lists (8 Oct 2026); their
    phone, bank account and contract date sit in agent_details, admin only */
 let AGENTS=[];
+/* the PIC list on an after-sale case, typed on Lists (14 Oct 2026); until
+   admin fills it, the active staff stand in so the dropdown is never empty */
+let AS_PICS=[];
+const asPicList=()=>AS_PICS.length?AS_PICS:STAFF.filter(s=>s.is_active).map(s=>s.full_name);
 /* Deal type (13 Oct 2026): a full package (product, BOQ, delivery, installation,
    EDC) or service only - the customer has the equipment and pays for some of
    the work. A service-only deal has no BOQ, so it never sits in the BOQ
@@ -602,7 +606,8 @@ const VOCAB_LISTS=[
   ['as_cause','After-sale cause',()=>AS_CAUSES,v=>AS_CAUSES=v,''],
   ['account_type','Type of account',()=>ACCOUNT_TYPES,v=>ACCOUNT_TYPES=v,''],
   ['edc_branch','EDC branch',()=>EDC_BRANCHES,v=>EDC_BRANCHES=v,''],
-  ['agent','Agent',()=>AGENTS,v=>AGENTS=v,'Picked on a lead when the sub-channel is Agent.']
+  ['agent','Agent',()=>AGENTS,v=>AGENTS=v,'Picked on a lead when the sub-channel is Agent.'],
+  ['as_pic','After-sale PIC',()=>AS_PICS,v=>AS_PICS=v,'Picked as PIC on an after-sale case.']
 ];
 /* Loaded once at login. A value hidden on the Lists screen leaves the
    dropdowns, but a lead already carrying it still shows it - see optList. */

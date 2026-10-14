@@ -98,7 +98,7 @@ function asDraw(){
         ?'<span class="mark mark-done">Solved</span>'
         :'<span class="mark mark-open">Pending</span>'}</td>
       <td>${esc(r.cause||'—')}</td>
-      <td>${esc(r.pic_id?staffName(r.pic_id):'—')}</td>
+      <td>${esc(asPicOf(r)||'—')}</td>
       <td>${esc(r.solved_by||'—')}</td>
       <td class="rem">${esc(r.problem_detail||'')}${r.status_remark?`<span class="days">${esc(r.status_remark)}</span>`:''}</td>
     </tr>`).join('')+`</tbody></table>`;
@@ -141,8 +141,7 @@ function asCard(r,l){
   ASPICK={caseId:r?r.id:null,leadId:l.id};
   const past=ASROWS.filter(x=>x.lead_id===l.id&&(!r||x.id!==r.id));
   const g=k=>r?(r[k]??''):'';
-  const staffOpts=STAFF.filter(s=>s.is_active)
-    .map(s=>`<option value="${s.id}" ${g('pic_id')===s.id?'selected':''}>${esc(s.full_name)}</option>`).join('');
+  const staffOpts=optList(asPicList(),r?asPicOf(r):'',false);
   const site=[l.site_address,l.commune,l.district,l.province||l.city_province].filter(Boolean).join(', ');
   $('lead-modal').innerHTML=`
     <h2>${esc(l.customer_name||'')} <span class="refid">${esc(l.ref_id||'')}</span></h2>
@@ -205,7 +204,8 @@ async function asSave(){
     level2_date:v('as-l2')||null,
     level3_date:v('as-l3')||null,
     solved_by:v('as-by')||null,
-    pic_id:v('as-pic')||null,
+    pic_name:v('as-pic')||null,
+    pic_id:(STAFF.find(x=>x.full_name===v('as-pic'))||{}).id||null,
     status:v('as-status')||'Pending',
     status_remark:v('as-remark')||null,
     cause:v('as-cause')||null,
@@ -247,7 +247,7 @@ function exportAfterSale(){
     rows.map(r=>[r.leads?.ref_id,r.leads?.customer_name,r.leads?.phone,r.issue_date,
       r.status||'Pending',r.status_remark,r.cause,r.cause_from,r.problem_detail,r.solution,
       r.level1_date,r.level2_date,r.level3_date,r.solved_by,
-      r.pic_id?staffName(r.pic_id):'',localDay(r.created_at)]));
+      asPicOf(r),localDay(r.created_at)]));
 }
 
 /* opens the next level date when a case escalates */
@@ -256,3 +256,6 @@ function asNextLevel(){
   if(two.style.display==='none'){two.style.display='';more.firstElementChild.textContent='+ Third level';$('as-l2').focus();}
   else{three.style.display='';more.style.display='none';$('as-l3').focus();}
 }
+
+/* who is PIC on a case: the name picked from Lists, or the staff account older cases carry */
+const asPicOf=r=>r.pic_name||(r.pic_id?staffName(r.pic_id):'');
