@@ -30,21 +30,23 @@ const QT_KM={
   s1a:'ជូនដំណឹងដល់ អគ្គិសនីកម្ពុជា (EDC) ឬ អាជ្ញាធរអគ្គិសនីមូលដ្ឋាន',
   s1b:'រួមបញ្ចូលថ្លៃសេវាសម្រាប់៖',
   s1c:'ក. ប្លង់បច្ចេកទេសអគ្គិសនី AC/DC',
-  s1d:'ខ. ការគ្រប់គ្រងគម្រោង ការរៀបចំឯកសារ និងការដាក់ពាក្យស្នើសុំទៅកាន់អាជ្ញាធរពាក់ព័ន្ធ',
-  s1e:'គ. ការធ្វើតេស្តប្រព័ន្ធ និងការដាក់ឱ្យដំណើរការ',
+  s1d:'ខ. គ្រប់គ្រងគម្រោង រៀបចំឯកសារ និងការដាក់ពាក្យស្នើសុំទៅកាន់អាជ្ញាធរពាក់ព័ន្ធ',
+  s1e:'គ. ធ្វើតេស្តប្រព័ន្ធ និងដាក់ឱ្យដំណើរការ',
   s1f:'ឃ. សេវាកម្មការតម្លើង កម្លាំងពលកម្ម ការដឹកជញ្ជូន ការស្នាក់នៅ និងអាហារ',
   s2:'គ្រឿងបង្គំសំខាន់ៗ',
   s2a:'ក. ផ្ទាំងសូឡា', s2b:'ខ. អាំងវែទ័រ', s2c:'គ. អាគុយ', s2d:'ឃ. គ្រឿងបង្គុំប្រព័ន្ធសូឡា',
   model:'ម៉ូដែល', panelsize:'ទំហំផ្ទាំងសូឡា', invsize:'ទំហំអាំងវែទ័រ', battcap:'ទំហំអាគុយ',
   warrantyN:n=>'ការធានា: '+n+' ឆ្នាំ', perfWarrantyN:n=>'ធានាលើប្រសិទ្ធភាព: '+n+' ឆ្នាំ',
   unitPanel:'ផ្ទាំង', unitPiece:'គ្រឿង', unitSet:'ឈុត',
-  mount1:'គ្រោងបង្គុំប្រព័ន្ធសូឡា', mount2:'ក្រចាប់សូឡាចំហៀង និង កណ្ដាល',
-  mount3:'ជើងចាប់ក្បឿង និង ជើង L', mount4:'តំណចាប់គ្រោង', mount5:'បាឡុង…',
+  /* one line, worded by the roof it sits on (client, 14 Oct 2026) */
+  mountLines:roof=>{const r=roof||'';
+    return ['ជើងទម្រសូឡា'+(/zinc/i.test(r)?' សម្រាប់ដំបូលសង់ឬស្សី':/tile/i.test(r)?' សម្រាប់ដំបូលក្បឿង'
+      :/rc|awning|concrete/i.test(r)?' សម្រាប់ដំបូលបេតុង':/ground/i.test(r)?' សម្រាប់ជើងទម្រលើដី':'')];},
   s3:'គ្រឿងបង្គុំប្រព័ន្ធអគ្គិសនី',
-  e1:'ថាសដាក់ខ្សែ និង ឧបករណ៍លើកខ្សែ',
-  e2:'ខ្សែ AC ចម្ងាយ 3.5ម៉ែត្រ ពីទូរភ្លើងសូឡាទៅទូរភ្លើងឌឺសង់ទ័រផ្ទះ',
-  e3:'ខ្សែដី ១០០ ម៉ែត្រ (សម្រាប់ផ្ទាំងសូឡា និង អាំងវែទ័រ)',
-  e4:'ខ្សែ DC ២៤០ ម៉ែត្រ', e5:'ប្រអប់ភ្លើងAC/DC', e6:'ឧបករណ៍ការពារAC/DC',
+  elec:['ប្រអប់រត់ខ្សែភ្លើង, ទុយោការពារខ្សែភ្លើង (ជីប ម៉ុង)','ខ្សែ AC',
+    'ខ្សែដី 100m សម្រាប់ផ្ទាំងសូឡា និង អាំងវែទ័រ','ខ្សែ DC (ការពារពីកាំរស្មី UV-4mm2-Lion) 240m',
+    'ទូរភ្លើង AC/DC','ឌីសុងទ័រ AC / ឌីសុងទ័រ DC','ATS'],
+  elecWty:'ធានារយៈពេល 2ឆ្នាំ', brandOnly:true,
   payHead:'*ដំណាក់កាលទូទាត់ប្រាក់៖',
   pay1:'ក. ទូទាត់ ៤០% នៅថ្ងៃដែលអតិថិជនចុះហត្ថលេខាទៅលើសម្រង់តម្លៃ',
   pay2:'ខ. ទូទាត់ ៥០% នៅថ្ងៃដែលសម្ភារៈសូឡាបានដឹកជញ្ជូនទៅដល់ទីតាំងរបស់អតិថិជន',
@@ -116,13 +118,11 @@ const QT_EN={
   model:'Model', panelsize:'Panel size', invsize:'Inverter size', battcap:'Battery capacity',
   warrantyN:n=>'Warranty: '+n+' years', perfWarrantyN:n=>'Performance warranty: '+n+' years',
   unitPanel:'pcs', unitPiece:'pcs', unitSet:'set',
-  mount1:'Solar mounting structure', mount2:'End and mid clamps',
-  mount3:'Tile hooks and L-feet', mount4:'Rail splices', mount5:'Bolts…',
+  mountLines:()=>['Solar mounting structure','End and mid clamps','Tile hooks and L-feet','Rail splices','Bolts…'],
   s3:'Electrical balance of system',
-  e1:'Cable trays and cable supports',
-  e2:'AC cable, 3.5 m, from the solar board to the house distribution board',
-  e3:'Earth cable, 100 m (for the solar panels and inverter)',
-  e4:'DC cable, 240 m', e5:'AC/DC distribution box', e6:'AC/DC protection devices',
+  elec:['Cable trays and cable supports','AC cable, 3.5 m, from the solar board to the house distribution board',
+    'Earth cable, 100 m (for the solar panels and inverter)','DC cable, 240 m','AC/DC distribution box','AC/DC protection devices'],
+  elecWty:'', brandOnly:false,
   payHead:'*Payment terms:',
   pay1:'A. 40% on the day the customer signs this quotation',
   pay2:'B. 50% on the day the solar equipment is delivered to the customer\'s site',
@@ -240,7 +240,7 @@ function batteryModel(brand,kwhEach){
 }
 /* LONGi's part numbers are not a formula — HGD at 625W, HYD at 645W — so this
    stays a plain lookup on the wattage the app already stores. */
-const LONGI_LR8={625:'LR8-66HGD-625M',645:'LR8-66HYD-645M'};
+const LONGI_LR8={625:'LR8-66HGD-625M',645:'LR8-66HYD-645M',650:'LR8-66HYD-650M'};
 function panelModel(brand,watt){
   if(!isBrand('panel','LONGi',brand))return '';
   return LONGI_LR8[Number(watt||0)]||'';
@@ -865,38 +865,34 @@ function quoteHtml(q,l,c){
       <tr class="comp"><td class="n" rowspan="${onGrid?4:5}">${QT.n2}</td>
           <td class="sec2">${QT.s2}</td><td class="q"></td><td class="im"></td></tr>
           ${grpRow(khLabel(0,QT.s2a)
-             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mPanel||q.panel_brand||'')+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(QT.brandOnly?esc(q.panel_brand||''):(mPanel||q.panel_brand||''))+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
              (q.panel_pcs||'')+' '+QT.unitPanel,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>'
              +'<span class="wty">'+QT.perfWarranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt),c.base)}
           ${grpRow(khLabel(1,QT.s2b)
-             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mInv||q.inverter_brand||'')+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(QT.brandOnly?esc(q.inverter_brand||''):(mInv||q.inverter_brand||''))+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.invsize+'</span>: '+(c.kwac?c.kwac.toFixed(2):'')+' kWac</div>',
              (q.inverter_pcs||'')+' '+QT.unitPiece,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw),c.base)}
           ${onGrid?'':grpRow(khLabel(2,QT.s2c)
-             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(mBatt||q.battery_brand||'')+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(QT.brandOnly?esc(q.battery_brand||''):(mBatt||q.battery_brand||''))+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.battcap+'</span>: '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh</div>',
              (q.battery_pcs||'')+' '+QT.unitPiece,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mBatt,'Battery',q.battery_brand,q.battery_kwh_each||q.battery_kwh),c.base)}
           ${grpRow(khLabel(onGrid?2:3,QT.s2d)
-             +'<div class="ind it">* '+QT.mount1+'</div><div class="ind it">* '+QT.mount2+'</div>'
-             +'<div class="ind it">* '+QT.mount3+'</div><div class="ind it">* '+QT.mount4+'</div>'
-             +'<div class="ind it">* '+QT.mount5+'</div>',
+             +QT.mountLines(q.roof_type||l.roof_type).map(t=>'<div class="ind it">* '+t+'</div>').join(''),
              qb(50,'1 '+QT.unitSet),'',
              /* rails, clamps, tile feet, L-brackets and bolts - one picture for
                 the whole mounting set, the way electrical.jpg carries the
                 electrical bundle. No part number: it is a set, not a product. */
              'img/mounting.png',c.base)}
       ${row(QT.n3,'<span class="sec">'+QT.s3+'</span>'
-             +'<div class="ind">* '+QT.e1+'</div><div class="ind">* '+QT.e2+'</div>'
-             +'<div class="ind">* '+QT.e3+'</div><div class="ind">* '+QT.e4+'</div>'
-             +'<div class="ind">* '+QT.e5+'</div><div class="ind">* '+QT.e6+'</div>',
-             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
+             +QT.elec.map(t=>'<div class="ind">* '+t+'</div>').join(''),
+             qb(50,'1 '+QT.unitSet)+'<span class="wty">'+(QT.elecWty||QT.warranty+': '+qb(16)+' '+QT.yr)+'</span>',
              /* cables, breakers and the AC/DC boxes - one picture for the
                 whole electrical set, the way their own sheet carries it. No
                 part number is derived for it: it is a bundle, not a product.

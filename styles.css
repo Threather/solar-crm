@@ -623,6 +623,12 @@ td.numcell b{font-weight:600}
 .kpis.seven .kpi .note{order:4}
 .kpis.seven.five{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:700px){.kpis.seven.five{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Operations: six boxes, read across the room (client, 14 Oct 2026) */
+.kpis.seven.ops{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:700px){.kpis.seven.ops{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpis.seven.ops .kpi{padding:16px 12px 14px}
+.kpis.seven.ops .kpi .l{font-size:13px;font-weight:600;color:var(--ink-2);letter-spacing:.02em}
+.kpis.seven.ops .kpi .n{font-size:38px;margin-top:4px}
 .kpis.seven.eight .kpi{padding:12px 10px 10px}
 .kpis.seven.eight .kpi .n{font-size:25px}
 @media(max-width:1100px){.kpis.seven.eight{grid-template-columns:repeat(4,minmax(0,1fr))}}

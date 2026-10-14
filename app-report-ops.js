@@ -28,30 +28,43 @@ async function renderOpsReport(){
     :REPFILTER.team==='__none'?rows.filter(l=>!l.installation_team)
     :rows.filter(l=>l.installation_team===REPFILTER.team);
 
-  const done=f.filter(l=>instDoneOn(l));
-  const active=f.filter(l=>!instDoneOn(l));
-  const boqDone=f.filter(l=>l.boq_status==='Done'&&!isService(l));
+  /* a project is a Full package deal; a service deal never counts as one
+     (client, 14 Oct 2026). EDC Pending Submit counts installed jobs only (client, 14 Oct 2026). */
+  const job=l=>!isService(l);
+  const jobs=f.filter(job);
+  const done=jobs.filter(l=>instDoneOn(l));
+  const active=jobs.filter(l=>!instDoneOn(l));
+  /* not started yet: no start date, or one still ahead (client, 14 Oct 2026) */
+  const pendingInst=active.filter(l=>!l.installation_start||localDay(l.installation_start)>localDay(new Date()));
+  /* the two EDC boxes read the dates, not edcFields: most won deals carry no
+     system type, and a submission date already proves EDC applies. Only an
+     explicit Off-Grid is exempt. */
+  const edcSubmit=f.filter(l=>hasPart(l,'EDC/EAC')&&l.system_type!=='Off-Grid'&&!edcSentOn(l)
+    &&hasPart(l,'Installation')&&instDoneOn(l));
+  const edcInspect=f.filter(l=>hasPart(l,'EDC/EAC')&&edcSentOn(l)&&!edcSeenOn(l));
   const today=localDay(new Date());
-  const scheduled=active.filter(l=>l.installation_start&&localDay(l.installation_start)>today);
-  const running=active.filter(l=>l.installation_start&&localDay(l.installation_start)<=today);
-  /* EDC applies to on-grid and hybrid only; off-grid is exempt and a blank
-     system type is unknown rather than exempt */
-  const edcable=f.filter(l=>edcApplies(l)&&edcFields(l));
-  const edcWaiting=edcable.filter(l=>edcSentOn(l)&&!edcSeenOn(l));
-  const edcSeen=edcable.filter(l=>edcSeenOn(l));
-  const edcPending=edcable.filter(l=>edcDone(l)<edcFields(l).length);
 
   /* The five figures the client puts at the top. "All time" asks about state,
      not about a window, so it must not also demand that a date was filled in —
      a BOQ marked Done with no date is still a BOQ that was released. */
   const windowed=REPPERIOD!=='all';
+  const inW=v=>!windowed||(v&&inRange(localDay(v),range));
   const inPeriod=v=>!windowed||inRange(v,range);
-  /* All time asks about state, so inPeriod lets everything through - which
-     counted an installation booked for next week as one that has started.
-     A start is a date that has arrived. */
-  const startedInPeriod=f.filter(l=>l.installation_start&&inPeriod(l.installation_start)
-    &&localDay(l.installation_start)<=today);
-  const doneInPeriod=f.filter(l=>instDoneOn(l)&&inPeriod(instDoneOn(l)));
+  const doneInPeriod=jobs.filter(l=>instDoneOn(l)&&inPeriod(instDoneOn(l)));
+  /* the pipeline and the teams follow the window (client, 14 Oct 2026): each
+     bar by the date that finishes its own step; a job on site counts when its
+     installation overlaps the window. All time is state, as before. */
+  const wS=range[0], wE=range[1];
+  const onSite=l=>{const s=l.installation_start&&localDay(l.installation_start);
+    if(!s||s>today)return false; if(!windowed)return !instDoneOn(l);
+    const e=instDoneOn(l)?localDay(instDoneOn(l)):today; return s<=wE&&e>=wS;};
+  const pBoq=jobs.filter(l=>l.boq_status==='Done'&&inW(l.boq_date));
+  const pSched=active.filter(l=>l.installation_start&&localDay(l.installation_start)>today&&(!windowed||localDay(l.installation_start)>=wS));
+  const pRun=jobs.filter(l=>onSite(l)&&!instDoneOn(l));
+  const pDone=jobs.filter(l=>instDoneOn(l)&&inW(instDoneOn(l)));
+  const pWait=f.filter(l=>hasPart(l,'EDC/EAC')&&edcSentOn(l)&&!edcSeenOn(l)&&inW(edcSentOn(l)));
+  const pSeen=f.filter(l=>hasPart(l,'EDC/EAC')&&edcSeenOn(l)&&inW(edcSeenOn(l)));
+  const pMax=Math.max(1,pBoq.length,pSched.length,pRun.length,pDone.length,pWait.length,pSeen.length);
   const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&!isService(l)&&inPeriod(l.boq_date));
 
   /* the four turnaround targets the manager sets each month, in days. Read for
@@ -70,7 +83,6 @@ async function renderOpsReport(){
   /* each step belongs to the window its finishing date falls in, so Today and
      This month show how fast the steps finished then went (Kevin, 30 Sep 2026).
      All time lets every step through, as before. */
-  const inW=v=>!windowed||(v&&inRange(localDay(v),range));
   /* BOQ released to the kit arriving on site (27 Sep 2026); a delivery date still
      ahead is a booking, as with installation */
   const tatDeliv =avgDays(f.map(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date)?daysBetween(l.boq_date,l.delivery_date):null));
@@ -119,9 +131,10 @@ async function renderOpsReport(){
      every job a team has ever finished, and it reads the filtered set so the
      team filter above it actually filters it. It read `rows` and counted the
      lot, filter and finished jobs included. */
-  const teamRows=teams.map(t=>[t,active.filter(l=>l.installation_team===t).length])
-    .concat(active.some(l=>!l.installation_team)
-      ?[['No team yet',active.filter(l=>!l.installation_team).length]]:[])
+  const teamJobs=windowed?jobs.filter(onSite):active;
+  const teamRows=teams.map(t=>[t,teamJobs.filter(l=>l.installation_team===t).length])
+    .concat(teamJobs.some(l=>!l.installation_team)
+      ?[['No team yet',teamJobs.filter(l=>!l.installation_team).length]]:[])
     .filter(r=>r[1]>0).sort((a,b)=>b[1]-a[1]);
   const teamTotal=teamRows.reduce((a,r)=>a+r[1],0);
   /* the categorical set, not steps of one ramp - the last three used to be
@@ -151,30 +164,31 @@ async function renderOpsReport(){
     </div>
     <div class="mg-band">${esc(opBand)} PROJECT EXECUTION DASHBOARD</div>
     <!-- his five boxes, in his order and his wording -->
-    <div class="kpis seven five">
+    <div class="kpis seven ops">
       ${kpi({label:'Active Projects',value:active.length,lead:true})}
       ${kpi({label:'BOQ Released',value:boqInPeriod.length})}
-      ${kpi({label:'Installation Start',value:startedInPeriod.length})}
+      ${kpi({label:'Pending Installation',value:pendingInst.length})}
       ${kpi({label:'Installation Done',value:doneInPeriod.length,
         delta:momPct(doneIn(thisM),doneIn(prevM)),deltaOf:prevWord})}
-      ${kpi({label:'EDC Pending',value:edcPending.length})}
+      ${kpi({label:'EDC Pending Submit',value:edcSubmit.length})}
+      ${kpi({label:'EDC Pending Inspection',value:edcInspect.length})}
     </div>
 
     <div class="homegrid level mgrid">
-      ${repPanel('I. Project status pipeline',`<div class="cap" style="margin:-4px 0 10px">All won deals, as of today</div><div class="pipe">
-        ${bar('BOQ released',boqDone.length,f.length)}
-        ${bar('Installation scheduled',scheduled.length,f.length)}
-        ${bar('Installation in progress',running.length,f.length)}
-        ${bar('Installation completed',done.length,f.length,' won')}
-        ${bar('Waiting EDC inspection',edcWaiting.length,f.length)}
-        ${bar('EDC inspected',edcSeen.length,f.length)}
+      ${repPanel('Project Status Pipeline',`<div class="pipe">
+        ${bar('BOQ released',pBoq.length,pMax)}
+        ${bar('Installation scheduled',pSched.length,pMax)}
+        ${bar('Installation in progress',pRun.length,pMax)}
+        ${bar('Installation completed',pDone.length,pMax,' won')}
+        ${bar('Waiting EDC inspection',pWait.length,pMax)}
+        ${bar('EDC inspected',pSeen.length,pMax)}
       </div>`)}
 
       ${repPanel('Active installation teams',
         teamRows.length
           /* pie beside its ledger rather than above it, so the card is no
              taller than the pipeline next to it (Kevin, 27 Sep 2026) */
-          ?`<div class="cap" style="margin:-4px 0 10px">As of today</div><div class="pieled">`+gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
+          ?`<div class="pieled">`+gPie(teamRows.map((r,i)=>[r[0],r[1],TEAM_HUE[i%TEAM_HUE.length]]),
               teamTotal+' project'+(teamTotal===1?'':'s')+' · '+teamRows.filter(r=>r[0]!=='No team yet').length+' teams')
            +ledger(teamRows.map((r,i)=>[r[0],r[1],
               Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))+`</div>`
@@ -182,7 +196,7 @@ async function renderOpsReport(){
     </div>
 
     <div class="homegrid level mgrid">
-      ${repPanel('II. Turnaround vs target',gPair([
+      ${repPanel('Turn Around Time Vs Target',gPair([
         ['BOQ to delivery',tatDeliv.avg,sla.deliv||null,tatDeliv.n],
         ['BOQ to installation',tatBoq.avg,sla.boq||null,tatBoq.n],
         ['Installation duration',tatInst.avg,sla.install||null,tatInst.n],
@@ -195,12 +209,12 @@ async function renderOpsReport(){
         /* how many systems actually went live each month. The figures above count
            the window; this is the run of work behind them. Beside the turnaround
            since 27 Sep 2026, so the page reads as four charts in two rows. */
-        const done=f.filter(l=>instDoneOn(l));
-        const ms=lastMonths(done,l=>instDoneOn(l),12);
-        if(!ms.length)return emptyChart('Installations finished per month','Nothing finished yet','A month fills in as installations are confirmed.');
+        /* January to December of the year being shown (client, 14 Oct 2026) */
+        const done=jobs.filter(l=>instDoneOn(l));
+        const yr=wE.slice(0,4);
+        const ms=Array.from({length:12},(_,i)=>yr+'-'+String(i+1).padStart(2,'0'));
         const cnt=ms.map(m=>done.filter(l=>localDay(instDoneOn(l)).slice(0,7)===m).length);
         return colChart(ms.map(monthName),cnt,{title:'Installations finished per month',
-          cap:'By the date the installation was confirmed, or its end date once that has passed.',
           color:'var(--viz-1)',table:false,compact:true});
       })()}
     </div>
