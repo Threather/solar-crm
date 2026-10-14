@@ -84,14 +84,15 @@ function asDraw(){
   /* how far it got, read off the dates rather than stored twice */
   const lvl=r=>{const n=asLevelN(r);return n?ordWord(n):'—';};
   $('as-wrap').innerHTML=`<table class="table-compact"><thead><tr>
-    <th style="width:104px">Ref ID</th><th>Customer</th><th style="width:110px">Issue date</th>
+    <th style="width:104px">Ref ID</th><th>Customer</th><th style="width:110px">Phone</th><th style="width:110px">Issue date</th>
     <th style="width:80px">Level</th><th style="width:104px">Status</th>
     <th style="width:140px">Caused by</th><th style="width:130px">PIC</th>
     <th style="width:130px">Solved by</th><th style="width:110px">Turnaround</th><th>Problem</th>
   </tr></thead><tbody>`+rows.map(r=>`
     <tr class="rowlink" onclick="asOpen('${r.id}')">
       <td class="refid">${esc(r.leads?.ref_id||'—')}</td>
-      <td><b>${esc(r.leads?.customer_name||'—')}</b><span class="days">${esc(r.leads?.phone||'')}</span></td>
+      <td><b>${esc(r.leads?.customer_name||'—')}</b></td>
+      <td class="phone">${r.leads?.phone?phoneCell(r.leads.phone):'<span class="quiet">—</span>'}</td>
       <td class="nowrap">${fmtDate(r.issue_date)}</td>
       <td>${esc(lvl(r))}</td>
       <td>${(r.status||'Pending')==='Solved'
