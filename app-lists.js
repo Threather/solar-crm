@@ -29,7 +29,7 @@ async function renderLists(){
     <div class="sub">The dropdown values people pick from. Changes show the next time somebody signs in.</div>
     <div class="scope" style="flex-wrap:wrap;max-width:900px;margin-bottom:14px">${VOCAB_LISTS.map(([k,label])=>
       `<button class="${k===LISTKEY?'on':''}" onclick="listGo('${k}')">${esc(label)}</button>`).join('')}</div>
-    <div class="section sec-eng" style="max-width:900px">
+    <div class="section sec-eng" style="max-width:${LISTKEY==='agent'?1180:900}px">
       <h4>${esc(meta[1]||LISTKEY)} · ${live} in use</h4>
       ${note?`<div class="hint">${esc(note)}</div>`:''}
       <div class="grid2">
@@ -42,7 +42,7 @@ async function renderLists(){
         <tr${r.is_active?'':' style="opacity:.55"'}>
           <td><b>${esc(r.value)}</b></td>
           ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="e.g. Dina, Sok, Vanna" onchange="listDetail('${r.id}',this.value)"></td>`:''}
-          ${LISTKEY==='agent'?['phone','bank_account','contract_date'].map(f=>`<td><input ${f==='contract_date'?'type="date"':''} value="${esc((AD[r.value]||{})[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)"></td>`).join(''):''}
+          ${LISTKEY==='agent'?['phone','bank_account','contract_date'].map(f=>`<td><input class="ag-${f}" ${f==='contract_date'?'type="date"':''} value="${esc((AD[r.value]||{})[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)"></td>`).join(''):''}
           <td class="nowrap">
             <button class="btn-line" ${i===0?'disabled':''} onclick="listMove('${r.id}',-1)">↑</button>
             <button class="btn-line" ${i===LISTROWS.length-1?'disabled':''} onclick="listMove('${r.id}',1)">↓</button>
