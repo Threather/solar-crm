@@ -299,5 +299,5 @@ function asTurn(r){
 function asTurnText(r){
   const t=asTurn(r);if(!t)return '<span class="quiet">—</span>';
   const d=t.days+' day'+(t.days===1?'':'s');
-  return t.solved?`<b>${d}</b><span class="days">solved</span>`:`<b>${d}</b><span class="days">open</span>`;
+  return `<b>${d}</b>`;
 }
