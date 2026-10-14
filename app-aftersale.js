@@ -87,7 +87,7 @@ function asDraw(){
     <th style="width:104px">Ref ID</th><th>Customer</th><th style="width:110px">Issue date</th>
     <th style="width:80px">Level</th><th style="width:104px">Status</th>
     <th style="width:140px">Caused by</th><th style="width:130px">PIC</th>
-    <th style="width:130px">Solved by</th><th>Problem</th>
+    <th style="width:130px">Solved by</th><th style="width:110px">Turnaround</th><th>Problem</th>
   </tr></thead><tbody>`+rows.map(r=>`
     <tr class="rowlink" onclick="asOpen('${r.id}')">
       <td class="refid">${esc(r.leads?.ref_id||'—')}</td>
@@ -100,6 +100,7 @@ function asDraw(){
       <td>${esc(r.cause||'—')}</td>
       <td>${esc(asPicOf(r)||'—')}</td>
       <td>${esc(r.solved_by||'—')}</td>
+      <td class="nowrap">${asTurnText(r)}</td>
       <td class="rem">${esc(r.problem_detail||'')}${r.status_remark?`<span class="days">${esc(r.status_remark)}</span>`:''}</td>
     </tr>`).join('')+`</tbody></table>`;
 }
@@ -249,11 +250,11 @@ function exportAfterSale(){
   if(!rows.length){toast('Nothing to export');return;}
   downloadCSV('after-sale',['Ref ID','Customer','Phone','Issue date','Status','Why pending',
     'Caused by','Occurred from','Problem','Solution',
-    'First level','Second level','Third level','Solved by','PIC','Later levels','Raised'],
+    'First level','Second level','Third level','Solved by','PIC','Later levels','Turnaround (days)','Raised'],
     rows.map(r=>[r.leads?.ref_id,r.leads?.customer_name,r.leads?.phone,r.issue_date,
       r.status||'Pending',r.status_remark,r.cause,r.cause_from,r.problem_detail,r.solution,
       r.level1_date,r.level2_date,r.level3_date,r.solved_by,
-      asPicOf(r),asLevels(r).map((x,n)=>ordWord(n+2)+': '+[x.date,x.by,x.pic,x.solution].filter(Boolean).join(' · ')).join(' | '),localDay(r.created_at)]));
+      asPicOf(r),asLevels(r).map((x,n)=>ordWord(n+2)+': '+[x.date,x.by,x.pic,x.solution].filter(Boolean).join(' · ')).join(' | '),asTurn(r)?.days??'',localDay(r.created_at)]));
 }
 
 /* Levels after the first. A case saved before more_levels existed carries
@@ -283,3 +284,20 @@ function asNextLevel(){
 
 /* who is PIC on a case: the name picked from Lists, or the staff account older cases carry */
 const asPicOf=r=>r.pic_name||(r.pic_id?staffName(r.pic_id):'');
+
+/* Turnaround (14 Oct 2026): a solved case, issue date to the last level it was
+   solved at; a pending one, issue date to today */
+function asTurn(r){
+  if(!r.issue_date)return null;
+  const solved=(r.status||'Pending')==='Solved';
+  const done=[r.level1_date,...asLevels(r).map(x=>x.date)].filter(Boolean).sort().pop();
+  const end=solved?done:localDay(new Date());
+  if(!end)return null;
+  const days=Math.max(0,Math.round((new Date(end+'T00:00:00')-new Date(r.issue_date+'T00:00:00'))/864e5));
+  return {days,solved};
+}
+function asTurnText(r){
+  const t=asTurn(r);if(!t)return '<span class="quiet">—</span>';
+  const d=t.days+' day'+(t.days===1?'':'s');
+  return t.solved?`<b>${d}</b><span class="days">solved</span>`:`<b>${d}</b><span class="days">open</span>`;
+}
