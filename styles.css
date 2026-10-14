@@ -1135,7 +1135,10 @@ tr.calrow{cursor:pointer}
 .svcticks input{width:auto}
 
 /* Lists > Agent: room for a 10-digit phone and a bank account (14 Oct 2026) */
-input.ag-phone{min-width:124px}
-input.ag-bank_account{min-width:150px}
+input.ag-phone{min-width:140px}
+.agbank{display:grid;gap:4px}
+.agbank input{min-width:210px}
 input.ag-contract_date{min-width:132px}
-.section .badge{white-space:nowrap}
+.section .badge{white-space:nowrap;display:inline-block;min-width:64px;text-align:center}
+.agtable td:last-child .btn-line{display:block;width:100%;margin:2px 0}
+.agbank input{min-width:186px}

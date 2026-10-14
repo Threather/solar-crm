@@ -36,13 +36,16 @@ async function renderLists(){
         <div><label>Add a value</label><input id="v-new" placeholder="type it exactly as it should appear"></div>
         <div style="align-self:end"><button class="btn-sun" onclick="listAdd()">Add</button></div>
       </div>
-      <div class="tablewrap" style="margin-top:14px"><table><thead><tr>
-        <th>Value</th>${LISTKEY==='install_team'?'<th>Team members</th>':''}${LISTKEY==='agent'?'<th>Phone</th><th>Bank account</th><th>Contract signed</th>':''}<th>Order</th><th>Status</th><th></th>
+      <div class="tablewrap" style="margin-top:14px"><table class="${LISTKEY==='agent'?'agtable':''}"><thead><tr>
+        <th>Value</th>${LISTKEY==='install_team'?'<th>Team members</th>':''}${LISTKEY==='agent'?'<th>Phone</th><th>Bank</th><th>Contract signed</th>':''}<th>Order</th><th>Status</th><th></th>
       </tr></thead><tbody>`+(LISTROWS.length?LISTROWS.map((r,i)=>`
         <tr${r.is_active?'':' style="opacity:.55"'}>
           <td><b>${esc(r.value)}</b></td>
           ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="e.g. Dina, Sok, Vanna" onchange="listDetail('${r.id}',this.value)"></td>`:''}
-          ${LISTKEY==='agent'?['phone','bank_account','contract_date'].map(f=>`<td><input class="ag-${f}" ${f==='contract_date'?'type="date"':''} value="${esc((AD[r.value]||{})[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)"></td>`).join(''):''}
+          ${LISTKEY==='agent'?(()=>{const a=AD[r.value]||{},box=(f,ph,t)=>`<input class="ag-${f}" ${t?`type="${t}"`:''} placeholder="${ph}" value="${esc(a[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)">`;
+            return `<td>${box('phone','0898123456')}</td>
+            <td><div class="agbank">${box('bank_name','Bank name')}${box('bank_account','Bank account number')}${box('bank_account_name','Bank account name')}</div></td>
+            <td>${box('contract_date','','date')}</td>`;})():''}
           <td class="nowrap">
             <button class="btn-line" ${i===0?'disabled':''} onclick="listMove('${r.id}',-1)">↑</button>
             <button class="btn-line" ${i===LISTROWS.length-1?'disabled':''} onclick="listMove('${r.id}',1)">↓</button>
