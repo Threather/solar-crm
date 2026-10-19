@@ -40,7 +40,8 @@ function popNotice(b){
   el.innerHTML=`<h5>${b.kind==='won'?'Deal won':b.kind==='delivered'?'Delivered'
       :b.kind==='installed'?'Installation finished'
       :b.kind==='boq'?'BOQ not released'
-      :b.kind==='dup'?'Duplicate customer':'Notification'}</h5>
+      :b.kind==='dup'?'Duplicate customer'
+      :b.kind==='loan_paid'?'Loan paid in full':'Notification'}</h5>
     <p>${esc(b.message)}</p>
     <div class="row">
       ${b.lead_id?`<button class="btn-sun" onclick="hidePop();openLead('${b.lead_id}')">Open the lead</button>`:''}
@@ -70,7 +71,7 @@ function watchBells(){
       paintBell();
       /* your own win should not startle you - but a duplicate you have just
          keyed in is exactly what you need to be told about */
-      if(b.created_by!==ME.id||b.kind==='dup')popNotice(b);
+      if(b.created_by!==ME.id||b.kind==='dup'||b.kind==='loan_paid')popNotice(b);
     })
     .subscribe();
   if(window.Notification&&Notification.permission==='default')

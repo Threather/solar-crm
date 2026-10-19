@@ -1202,3 +1202,6 @@ input.ag-contract_date{min-width:132px}
 .prtable tbody td:nth-child(4) select{min-width:64px}.prtable tbody td:nth-child(5) input{min-width:175px}
 .prtable td:nth-child(5) input{font-family:ui-monospace,Consolas,monospace;font-size:12px}
 .prtable td,.prtable th{padding-left:5px;padding-right:5px}
+/* Loan from, in the lead window (19 Oct 2026) */
+.loanline{padding:9px 0;font-size:13px;font-weight:600;color:var(--ink-2)}
+.loanline.paid{color:var(--viz-good,#2e7d32)}

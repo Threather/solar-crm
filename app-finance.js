@@ -311,6 +311,8 @@ function openFinance(id){
         <div style="grid-column:2/-1"><label>What it is for</label><input id="f-extranote" value="${esc(f.contract_extra_note||'')}" placeholder="Optional"></div>
         <div><label>Type of account</label><select id="f-acct">${optList(ACCOUNT_TYPES,f.account_type)}</select></div>
         <div style="grid-column:2/-1"><label>Payment term</label><input id="f-term" value="${esc(f.payment_term||'')}" placeholder="50% deposit, 50% on completion"></div>
+        <!-- who lent the money (19 Oct 2026): the database rings the bell when a loan deal reaches $0 -->
+        <div><label>Loan from</label><select id="f-loan"><option value="" ${f.loan_from?'':'selected'}>No loan</option>${['Han','Company'].map(v=>`<option ${f.loan_from===v?'selected':''}>${v}</option>`).join('')}</select></div>
         <div style="grid-column:1/-1"><label>Remark</label><textarea id="f-remark" rows="2" placeholder="Anything worth knowing about this contract">${esc(f.finance_remark||'')}</textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
@@ -413,6 +415,7 @@ async function saveFinance(id){
     contract_extra_note:$('f-extranote').value.trim()||null,
     account_type:$('f-acct').value||null,
     payment_term:$('f-term').value.trim()||null,
+    loan_from:$('f-loan').value||null,
     finance_remark:$('f-remark').value.trim()||null,
     follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
@@ -523,7 +526,7 @@ function exportFinance(){
   downloadCSV('finance',['Ref ID','Customer','Closed-Won month','Received','Sale engineer',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed',
-    'Type of account','Payment term','Remark','Next follow-up',
+    'Type of account','Payment term','Loan from','Remark','Next follow-up',
     'Other fees (USD)','What the fees were for',
     'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)','Next expected date','Next expected (USD)'],
     filteredFin().map(r=>[r.ref_id,r.customer_name,
@@ -531,7 +534,7 @@ function exportFinance(){
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
       r.final_sale_usd,r.fin?.contract_total_usd,r.fin?.contract_status,r.fin?.contract_signed_date,
-      r.fin?.account_type,r.fin?.payment_term,r.fin?.finance_remark,
+      r.fin?.account_type,r.fin?.payment_term,r.fin?.loan_from||'No loan',r.fin?.finance_remark,
       r.fin?.follow_up_date,finFees(r)||'',
       (r.payments||[]).map(p=>p.other_fee_note).filter(Boolean).join('; '),
       r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r),
