@@ -40,7 +40,7 @@ const QT_KM={
   unitPanel:'ផ្ទាំង', unitPiece:'គ្រឿង', unitSet:'ឈុត',
   /* one line, worded by the roof it sits on (client, 14 Oct 2026) */
   mountLines:roof=>{const r=roof||'';
-    return ['ជើងទម្រសូឡា'+(/zinc/i.test(r)?' សម្រាប់ដំបូលសង់ឬស្សី':/tile/i.test(r)?' សម្រាប់ដំបូលក្បឿង'
+    return ['ជើងទម្រសូឡា'+(/zinc/i.test(r)?' សម្រាប់ដំបូលស័ង្កសី':/tile/i.test(r)?' សម្រាប់ដំបូលក្បឿង'
       :/rc|awning|concrete/i.test(r)?' សម្រាប់ដំបូលបេតុង':/ground/i.test(r)?' សម្រាប់ជើងទម្រលើដី':'')];},
   s3:'គ្រឿងបង្គុំប្រព័ន្ធអគ្គិសនី',
   elec:['ប្រអប់រត់ខ្សែភ្លើង, ទុយោការពារខ្សែភ្លើង (ជីប ម៉ុង)','ខ្សែ AC',

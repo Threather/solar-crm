@@ -468,7 +468,7 @@ function goPage(n){
 function drawActiveTable(rows){
   const pick=isBoss();
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}<th>Phone</th>${th('Referred<br>by','ref')}${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
+    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
   </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
@@ -493,7 +493,7 @@ function drawActiveTable(rows){
 function drawMktTable(rows){
   /* already sorted by mktSort in drawTable, before the page was cut */
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Date</th>${th('Customer','ctype')}<th>Phone</th>${th('Referred<br>by','ref')}${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
+    <th class="rowno">No</th><th>Date</th>${th('Customer','ctype')}${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Sale engineer','eng')}${th('Channel','chan')}<th>Address</th><th>Follow-up</th>
   </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.mkt_follow_up_date&&new Date(l.mkt_follow_up_date)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink" onclick="openLead('${l.id}')">
@@ -546,7 +546,7 @@ function toggleRemarks(box){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Referred<br>by','ref')}${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th>${th('Phone','hasphone')}${th('Referred<br>by','ref')}${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
@@ -586,7 +586,7 @@ function drawLostTable(rows){
     ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
     :(l.lost_note_revised?esc(l.lost_note_revised):'<span class="quiet">—</span>');
   $('tablewrap').innerHTML=`<table class="losttable"><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th><th>Phone</th>${th('Referred<br>by','ref')}${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}<th>Remark</th><th>Revised remark</th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th>${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}<th>Remark</th><th>Revised remark</th>
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
