@@ -18,6 +18,9 @@ const finContract=r=>r.fin?.contract_extra_usd==null&&r.fin?.contract_total_usd!
   ? Number(r.fin.contract_total_usd)
   : Number(r.final_sale_usd??r.fin?.contract_total_usd??0)+Number(r.fin?.contract_extra_usd||0);
 const finDue=r=>finContract(r)+finFees(r);
+/* a Han loan is its own debt, customer to Han (19 Oct 2026) */
+const hanPaid=r=>(r.loanReps||[]).reduce((a,p)=>a+Number(p.amount_usd||0),0);
+const hanLeft=r=>Number(r.fin?.loan_amount_usd||0)-hanPaid(r);
 /* the card being looked at, so the derived total can be recomputed as the
    addition is typed */
 let FINROW=null;
@@ -43,17 +46,19 @@ async function renderFinance(){
   $('main').innerHTML=SKEL;
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const ids=leads.map(l=>l.id);
-  const [{data:fins},{data:pays},{data:sale},{data:expd}]=await Promise.all([
+  const [{data:fins},{data:pays},{data:sale},{data:expd},{data:lrep}]=await Promise.all([
     rowsOf(()=>sb.from('lead_finance').select('*').order('lead_id')),
     rowsOf(()=>sb.from('lead_payments').select('*').order('paid_on').order('id')),
     rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id')),
-    rowsOf(()=>sb.from('lead_expected_payments').select('*').order('expected_on').order('id'))
+    rowsOf(()=>sb.from('lead_expected_payments').select('*').order('expected_on').order('id')),
+    rowsOf(()=>sb.from('loan_repayments').select('*').order('paid_on').order('id'))
   ]);
   const finBy=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f]));
   const saleBy=Object.fromEntries((sale||[]).map(f=>[f.lead_id,f.final_sale_usd]));
   FINROWS=leads.map(l=>({...l,fin:finBy[l.id]||null,final_sale_usd:saleBy[l.id]??null,
     payments:(pays||[]).filter(p=>p.lead_id===l.id),
-    expected:(expd||[]).filter(p=>p.lead_id===l.id)}));
+    expected:(expd||[]).filter(p=>p.lead_id===l.id),
+    loanReps:(lrep||[]).filter(p=>p.lead_id===l.id)}));
 
   const contracted=FINROWS.filter(r=>r.fin?.contract_signed_date);
   const totalDue=FINROWS.reduce((a,r)=>a+finDue(r),0);
@@ -312,7 +317,8 @@ function openFinance(id){
         <div><label>Type of account</label><select id="f-acct">${optList(ACCOUNT_TYPES,f.account_type)}</select></div>
         <div style="grid-column:2/-1"><label>Payment term</label><input id="f-term" value="${esc(f.payment_term||'')}" placeholder="50% deposit, 50% on completion"></div>
         <!-- who lent the money (19 Oct 2026): the database rings the bell when a loan deal reaches $0 -->
-        <div><label>Loan from</label><select id="f-loan"><option value="" ${f.loan_from?'':'selected'}>No loan</option>${['Han','Company'].map(v=>`<option ${f.loan_from===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div><label>Loan from</label><select id="f-loan" onchange="$('f-loanamtwrap').style.display=this.value==='Han'?'':'none'"><option value="" ${f.loan_from?'':'selected'}>No loan</option>${['Han','Company'].map(v=>`<option ${f.loan_from===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div id="f-loanamtwrap" ${f.loan_from==='Han'?'':'style="display:none"'}><label>Han loan amount (USD)</label>${numBox('f-loanamt',f.loan_amount_usd)}</div>
         <div style="grid-column:1/-1"><label>Remark</label><textarea id="f-remark" rows="2" placeholder="Anything worth knowing about this contract">${esc(f.finance_remark||'')}</textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
@@ -374,6 +380,29 @@ function openFinance(id){
       <div class="modal-actions"><button class="btn-sun" onclick="addExpected('${r.id}')">Add expected payment</button></div>`:''}
     </div>
 
+    ${f.loan_from==='Han'?(()=>{
+      /* Han pays Solarworks up front; the customer repays Han monthly. The
+         collateral goes back when this reaches $0 (19 Oct 2026). */
+      const amt=Number(f.loan_amount_usd||0);let run=0;
+      return `<div class="section sec-fin"><h4>Repayments to Han (${r.loanReps.length})</h4>
+      <div class="grid3"><div><label>Han loan</label><input value="${fmtMoney(amt)}" disabled></div>
+        <div><label>Repaid</label><input value="${fmtMoney(hanPaid(r))}" disabled></div>
+        <div><label>Loan left</label><input value="${hanLeft(r)<=0.005&&amt>0?'Paid in full':fmtMoney(hanLeft(r))}" disabled></div></div>
+      ${r.loanReps.length?`<div class="tablewrap" style="margin-top:10px"><table class="table-compact"><thead><tr>
+        <th style="width:34px">#</th><th style="width:120px">Date</th><th style="width:100px">Amount</th><th style="width:110px">Loan left after</th><th>Note</th><th style="width:86px"></th></tr></thead><tbody>
+        ${r.loanReps.map((p,i)=>{run+=Number(p.amount_usd||0);const left=amt-run;return `<tr>
+          <td>${i+1}</td><td class="nowrap">${fmtDate(p.paid_on)}</td><td><b>${fmtMoney(p.amount_usd)}</b></td>
+          <td class="nowrap">${left<=0.005?'<span class="mark mark-done">paid in full</span>':fmtMoney(left)}</td>
+          <td>${esc(p.note||'')}</td><td style="text-align:right"><button class="btn-mini" onclick="deleteLoanRep('${p.id}')">Remove</button></td></tr>`;}).join('')}
+        </tbody></table></div>`:''}
+      <div class="grid3" style="margin-top:10px">
+        <div><label>Date</label><input id="lr-date" type="date"></div>
+        <div><label>Amount (USD)</label>${numBox('lr-amt','')}</div>
+        <div><label>Note</label><input id="lr-note" placeholder="Month 1…"></div>
+      </div>
+      <div class="modal-actions"><button class="btn-sun" onclick="addLoanRep('${r.id}')">Add repayment to Han</button></div>
+    </div>`;})():''}
+
     <div class="section sec-fin"><h4>Delivery and installation</h4>
       <div class="grid2">
         <div><label>Planned by the site engineer</label><input value="${r.delivery_date?fmtDate(r.delivery_date):'not set'}" disabled></div>
@@ -416,6 +445,7 @@ async function saveFinance(id){
     account_type:$('f-acct').value||null,
     payment_term:$('f-term').value.trim()||null,
     loan_from:$('f-loan').value||null,
+    loan_amount_usd:$('f-loan').value==='Han'?(normNum($('f-loanamt').value)||null):null,
     finance_remark:$('f-remark').value.trim()||null,
     follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
@@ -501,6 +531,19 @@ async function addPayment(id){
     .upsert({lead_id:id,follow_up_date:addMonths(cur,1),updated_by:ME.id,updated_at:new Date().toISOString()},{onConflict:'lead_id'});
   toast('Payment added');closeLead();renderFinance();
 }
+async function addLoanRep(id){
+  if(!Number(normNum($('lr-amt').value))){needField('lr-amt','Enter the amount');return;}
+  const {error}=await sb.from('loan_repayments').insert({lead_id:id,paid_on:$('lr-date').value||null,
+    amount_usd:normNum($('lr-amt').value),note:$('lr-note').value.trim()||null,created_by:ME.id});
+  if(error){toast('Could not add it. '+why(error));console.error(error);return;}
+  toast('Repayment to Han added');closeLead();renderFinance();
+}
+async function deleteLoanRep(rid){
+  if(!confirm('Remove this repayment to Han?'))return;
+  const {data,error}=await sb.from('loan_repayments').delete().eq('id',rid).select('id');
+  if(error||!data||!data.length){toast('Could not remove it. '+(error?why(error):''));return;}
+  toast('Repayment removed');closeLead();renderFinance();
+}
 async function addExpected(id){
   if(!$('e-date').value){needField('e-date','Pick the date it is expected');return;}
   if(!Number($('e-amt').value)){needField('e-amt','Enter the amount');return;}
@@ -526,7 +569,7 @@ function exportFinance(){
   downloadCSV('finance',['Ref ID','Customer','Closed-Won month','Received','Sale engineer',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed',
-    'Type of account','Payment term','Loan from','Remark','Next follow-up',
+    'Type of account','Payment term','Loan from','Han loan (USD)','Repaid to Han (USD)','Han loan left (USD)','Remark','Next follow-up',
     'Other fees (USD)','What the fees were for',
     'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)','Next expected date','Next expected (USD)'],
     filteredFin().map(r=>[r.ref_id,r.customer_name,
@@ -534,7 +577,9 @@ function exportFinance(){
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
       r.final_sale_usd,r.fin?.contract_total_usd,r.fin?.contract_status,r.fin?.contract_signed_date,
-      r.fin?.account_type,r.fin?.payment_term,r.fin?.loan_from||'No loan',r.fin?.finance_remark,
+      r.fin?.account_type,r.fin?.payment_term,r.fin?.loan_from||'No loan',
+      r.fin?.loan_from==='Han'?Number(r.fin.loan_amount_usd||0):'',r.fin?.loan_from==='Han'?hanPaid(r):'',r.fin?.loan_from==='Han'?hanLeft(r):'',
+      r.fin?.finance_remark,
       r.fin?.follow_up_date,finFees(r)||'',
       (r.payments||[]).map(p=>p.other_fee_note).filter(Boolean).join('; '),
       r.payments.length,finPaid(r),finDue(r),finDue(r)-finPaid(r),
