@@ -236,9 +236,14 @@ const countDay=p=>p.count_month||p.paid_on;
 function expStill(exps,pays,a,b){
   const prom={},paid={},from={};
   exps.forEach(e=>{if(e.expected_on>=a&&e.expected_on<=b){prom[e.lead_id]=(prom[e.lead_id]||0)+Number(e.amount_usd||0);
-    const k=e.created_at?localDay(e.created_at):a;if(!from[e.lead_id]||k<from[e.lead_id])from[e.lead_id]=k;}});
-  pays.forEach(p=>{const d=localDay(countDay(p)),on=localDay(p.paid_on);
-    if(d>=a&&d<=b&&p.lead_id in prom&&on>=from[p.lead_id])paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0);});
+    const k=e.created_at||a;if(!from[e.lead_id]||k<from[e.lead_id])from[e.lead_id]=k;}});
+  /* the moment each was typed, not the day: a payment and a promise keyed a
+     minute apart on 20 Oct (Thanin) both read "20 Oct", and the payment came
+     off a promise that was already what was left (21 Oct 2026) */
+  pays.forEach(p=>{const d=localDay(countDay(p));
+    const on=localDay(p.paid_on),kd=localDay(from[p.lead_id]);
+    const after=on>kd||(on===kd&&(!p.created_at||String(from[p.lead_id]).length<=10||new Date(p.created_at)>new Date(from[p.lead_id])));
+    if(d>=a&&d<=b&&p.lead_id in prom&&after)paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0);});
   const by={};let total=0;
   for(const id in prom){by[id]=Math.max(0,prom[id]-(paid[id]||0));total+=by[id];}
   return {by,total};

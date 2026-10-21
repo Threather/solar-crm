@@ -85,7 +85,7 @@ async function renderMgmtReport(){
     repByIds(()=>sb.from('lead_activities').select('lead_id,activity_type,created_at,note_date').in('activity_type',['call','note','stage_change']).order('id'),ids),
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
-    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month').order('id'),ids),
+    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month,created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date').order('lead_id'),ids),
     /* what customers have promised to pay, keyed in by admin on Finance */
     rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd,created_at').order('expected_on').order('id')).then(r=>r.data||[])
