@@ -182,8 +182,12 @@ function scopeLeads(){
   if(LEADSCOPE==='all')return LEADS_;
   return LEADS_.filter(l=>!STAGES.find(s=>s.stage_code===l.stage_code)?.is_terminal);
 }
-function filteredLeads(){
-  let rows=colFiltered(scopeLeads());
+function filteredLeads(){return colFiltered(toolbarLeads());}
+/* the toolbar's filters - dates, channel, created by, search. The heading lists
+   count from these rows too, or "Has phone 72" sat over a table of 49 when
+   dates were picked (21 Oct 2026). */
+function toolbarLeads(){
+  let rows=scopeLeads();
   /* the lead's own date - the day it came in, as the reports count it - and
      the channel, the two things "which leads" is usually asked by */
   const dayOf=l=>l.lead_date||localDay(l.created_at);
@@ -206,7 +210,7 @@ function filteredLeads(){
 let COLF={}, ROWNO=0;
 /* which list the heading filters, the tick boxes and the pager are driving -
    Leads, or the Unassigned pool (28 Sep 2026). One set of tools, two lists. */
-const LV_LEADS={name:'leads',src:()=>scopeLeads(),rows:()=>filteredLeads(),draw:()=>drawTable(),after:()=>paintLeads()};
+const LV_LEADS={name:'leads',src:()=>toolbarLeads(),rows:()=>filteredLeads(),draw:()=>drawTable(),after:()=>paintLeads()};
 let LV=LV_LEADS;
 const fuWord=l=>!l.next_follow_up?'No date':FU_TEST.overdue(l)?'Overdue':FU_TEST.today(l)?'Today':'Later';
 const COLSPEC={
