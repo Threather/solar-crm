@@ -499,11 +499,15 @@ async function qdocsFill(){
   boxes.forEach(b=>{
     const rows=(data||[]).filter(r=>r.quotation_id===b.dataset.q&&r.label!=='A');
     const chosen=b.closest('.qcard')&&b.closest('.qcard').classList.contains('qcard-on');
-    b.innerHTML=rows.length?'<span class="quiet">Copies</span> '+rows.map(r=>
-      `<button class="btn-mini" title="${esc(staffName(r.created_by))}, ${esc(fmtDate(r.updated_at))}" onclick="printQuote('${r.quotation_id}','${b.dataset.lead||''}','${r.lang}','${r.id}')">${esc(r.label||'')} · ${r.lang==='en'?'English':'ខ្មែរ'}${r.total_usd!=null?' · '+esc(fmtMoney(r.total_usd)):''}</button>`
-      +(chosen&&r.total_usd!=null&&saleNow===Number(r.total_usd)?'<span class="qtag">In use</span>'
-        :(canUse&&b.dataset.lead&&r.total_usd!=null?`<button class="btn-mini" onclick="useQuot('${r.quotation_id}','${b.dataset.lead}',${Number(r.total_usd)},'${esc(r.label||'')}')">Use this one</button>`:''))
-      +((r.created_by===ME.id||['manager','admin'].includes(ME.role))?`<button class="btn-mini qdel" title="Delete copy ${esc(r.label||'')}" onclick="qdocDelete('${r.id}')">✕</button>`:'')).join(' '):'';
+    /* one quiet row per copy under its quotation: name, then Open, Use this
+       one and a soft Delete (21 Oct 2026) */
+    b.innerHTML=rows.map(r=>`<div class="qdoc" title="${esc(staffName(r.created_by))}, ${esc(fmtDate(r.updated_at))}">
+      <span class="qdoc-n">Copy ${esc(r.label||'')} · ${r.lang==='en'?'English':'ខ្មែរ'}${r.total_usd!=null?' · <b>'+esc(fmtMoney(r.total_usd))+'</b>':''}</span>
+      <button class="btn-mini" onclick="printQuote('${r.quotation_id}','${b.dataset.lead||''}','${r.lang}','${r.id}')">Open</button>
+      ${chosen&&r.total_usd!=null&&saleNow===Number(r.total_usd)?'<span class="qtag">In use</span>'
+        :(canUse&&b.dataset.lead&&r.total_usd!=null?`<button class="btn-mini" onclick="useQuot('${r.quotation_id}','${b.dataset.lead}',${Number(r.total_usd)},'${esc(r.label||'')}')">Use this one</button>`:'')}
+      ${(r.created_by===ME.id||['manager','admin'].includes(ME.role))?`<button class="btn-mini qdoc-del" onclick="qdocDelete('${r.id}')">Delete</button>`:''}
+    </div>`).join('');
   });
 }
 async function qdocDelete(id){

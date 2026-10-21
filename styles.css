@@ -1205,3 +1205,11 @@ input.ag-contract_date{min-width:132px}
 /* Loan from, in the lead window (19 Oct 2026) */
 .loanline{padding:9px 0;font-size:13px;font-weight:600;color:var(--ink-2)}
 .loanline.paid{color:var(--viz-good,#2e7d32)}
+/* saved copies under a quotation card (21 Oct 2026) */
+.qdocs:not(:empty){margin-top:10px;border-top:1px solid var(--line)}
+.qdoc{display:flex;align-items:center;gap:8px;padding:7px 0 7px 14px;border-bottom:1px dashed var(--line)}
+.qdoc:last-child{border-bottom:0}
+.qdoc-n{flex:1;font-size:13px;color:var(--ink-2)}
+.qdoc .qtag{margin-top:0}
+.qdoc-del{color:var(--ink-soft)}
+.qdoc-del:hover{color:var(--bad)}
