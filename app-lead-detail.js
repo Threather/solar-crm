@@ -650,10 +650,13 @@ async function delQuot(quotId,leadId){
 /* Which option is real. The lead carries the specification that EDC, the
    installation screen and the CSV all read, so with several options saved,
    this is what says which one the customer took. */
-async function useQuot(quotId,leadId){
-  const q=(LEADQUOTS||[]).find(x=>x.id===quotId);
-  if(!q){toast('Could not find that quotation');return;}
-  if(!confirm('Use the '+fmtMoney(q.price_usd)+' option as this lead\'s specification?\n\n'
+/* a saved copy (B, C...) can be the one the customer took: same specification
+   as its quotation, but the price on that copy (21 Oct 2026) */
+async function useQuot(quotId,leadId,copyPrice,copyLabel){
+  const q0=(LEADQUOTS||[]).find(x=>x.id===quotId);
+  if(!q0){toast('Could not find that quotation');return;}
+  const q=copyPrice!=null?{...q0,price_usd:copyPrice}:q0;
+  if(!confirm('Use the '+fmtMoney(q.price_usd)+(copyLabel?' copy '+copyLabel:'')+' option as this lead\'s specification?\n\n'
     +'EDC, installation and the export all read the lead, so they will follow this one.\n'
     +'The final sale value is set to '+fmtMoney(q.price_usd)+' as well, and stays editable.'))return;
   const {error}=await sb.from('leads').update({
@@ -673,7 +676,7 @@ async function useQuot(quotId,leadId){
     {onConflict:'lead_id'});
   if(fe)console.error(fe);
   await logActivity(leadId,'edit',null,null,
-    'Lead specification and sale value set from the '+fmtMoney(q.price_usd)+' quotation');
+    'Lead specification and sale value set from the '+fmtMoney(q.price_usd)+(copyLabel?' copy '+copyLabel:' quotation'));
   toast(fe?'Specification set, but the sale value did not save':'This lead now follows that option');
 
   /* Update in place rather than re-opening the lead. A re-render reads the

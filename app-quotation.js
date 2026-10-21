@@ -360,6 +360,11 @@ function printQuote(quotId,leadId,lang,docId){
   /* a saved copy: the window must open inside the click or the browser
      blocks it, so it opens first and is filled once the copy has loaded */
   if(docId)return qdocOpen(quotId,leadId,docId);
+  /* the quotation itself keeps its own saved edits too (Save changes, 21 Oct
+     2026): stored as copy "A" of that language and opened in its place */
+  return qdocOpenOriginal(quotId,leadId,lang==='en'?'en':'km');
+}
+function printQuoteFresh(quotId,leadId,lang,w){
   /* Khmer unless English is asked for; every string on the sheet reads QT */
   QT=lang==='en'?QT_EN:QT_KM;
   const q=(QUOTS||[]).find(x=>x.id===quotId)||(LEADQUOTS||[]).find(x=>x.id===quotId);
@@ -381,8 +386,7 @@ function printQuote(quotId,leadId,lang,docId){
   /* the document opens on about:blank, so a relative img src would resolve
      against nothing — every picture needs the app's own address in front */
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');
-  const w=window.open('','_blank');
-  if(!w){toast('Allow pop-ups to print the quotation');return;}
+  w.document.open();
   w.document.write(quoteHtml(q,l,{kwp,kwac,addr,price,annual,edcRate:edcRateUsd,base}));
   w.document.close();
   qdocBind(w,q.id,lang==='en'?'en':'km',null,'');
@@ -418,9 +422,9 @@ function qdocClean(html){
 function qdocBind(w,qid,lang,docId,label){
   try{w.__qid=qid;w.__lang=lang;w.__docId=docId;
     const u=w.document.getElementById('qd-upd'),lb=w.document.getElementById('qd-label');
-    if(u)u.style.display=docId?'':'none';
-    if(lb)lb.textContent=label?'Copy '+label:'';
-    if(docId)w.document.title='Copy '+label;
+    if(u)u.style.display='';
+    if(lb)lb.textContent=label&&label!=='A'?'Copy '+label:'';
+    if(label&&label!=='A')w.document.title='Copy '+label;
   }catch(e){}
 }
 async function qdocSave(w,update){
@@ -431,14 +435,23 @@ async function qdocSave(w,update){
   const html=qdocClean([...d.querySelectorAll('.sheet')].map(s=>s.outerHTML).join('\n'));
   const vatOn=(d.getElementById('vat-on')||{}).checked!==false;
   const t=d.getElementById(vatOn?'o-grand':'o-net');
-  const total=t?(parseFloat((t.innerText||'').replace(/[^0-9.]/g,''))||null):null;
+  const shown=t?(parseFloat((t.innerText||'').replace(/[^0-9.]/g,''))||null):null;
+  /* the price before VAT, which is what a sale value is everywhere else */
+  const total=shown==null?null:(vatOn?Math.round(shown/1.1*100)/100:shown);
+  if(update&&!w.__docId){
+    /* the first Save changes on the quotation itself stores it as A */
+    const {data,error}=await sb.from('quotation_docs').insert({quotation_id:w.__qid,lang:w.__lang||'km',label:'A',
+      sheet_html:html,total_usd:total,created_by:ME.id}).select('id').single();
+    if(error){w.alert('Could not save. '+why(error));return;}
+    qdocBind(w,w.__qid,w.__lang,data.id,'A');w.alert('Saved');qdocsFill();return;
+  }
   if(update&&w.__docId){
     const {data,error}=await sb.from('quotation_docs').update({sheet_html:html,total_usd:total,updated_at:new Date().toISOString()})
       .eq('id',w.__docId).select('id');
     if(error||!data||!data.length){w.alert('Could not save. '+(error?why(error):'Only the person who made this copy, the manager or admin can change it.'));return;}
     w.alert('Saved');qdocsFill();return;
   }
-  const {count}=await sb.from('quotation_docs').select('id',{count:'exact',head:true}).eq('quotation_id',w.__qid);
+  const {count}=await sb.from('quotation_docs').select('id',{count:'exact',head:true}).eq('quotation_id',w.__qid).neq('label','A');
   const label=String.fromCharCode(66+Math.min(count||0,24));
   const {data,error}=await sb.from('quotation_docs').insert({quotation_id:w.__qid,parent_doc_id:w.__docId||null,
     lang:w.__lang||'km',label,sheet_html:html,total_usd:total,created_by:ME.id}).select('id').single();
@@ -446,10 +459,18 @@ async function qdocSave(w,update){
   qdocBind(w,w.__qid,w.__lang,data.id,label);
   w.alert('Saved as copy '+label);qdocsFill();
 }
-async function qdocOpen(quotId,leadId,docId){
+async function qdocOpenOriginal(quotId,leadId,lang){
   const w=window.open('','_blank');
-  if(!w){toast('Allow pop-ups to open the copy');return;}
+  if(!w){toast('Allow pop-ups to print the quotation');return;}
   w.document.write('<p style="font:14px sans-serif;padding:20px">Opening…</p>');
+  const {data}=await sb.from('quotation_docs').select('id').eq('quotation_id',quotId).eq('lang',lang).eq('label','A').limit(1);
+  if(data&&data.length)return qdocOpen(quotId,leadId,data[0].id,w);
+  printQuoteFresh(quotId,leadId,lang,w);
+}
+async function qdocOpen(quotId,leadId,docId,win){
+  const w=win||window.open('','_blank');
+  if(!w){toast('Allow pop-ups to open the copy');return;}
+  if(!win)w.document.write('<p style="font:14px sans-serif;padding:20px">Opening…</p>');
   const {data:row,error}=await sb.from('quotation_docs').select('*').eq('id',docId).single();
   let q=(QUOTS||[]).find(x=>x.id===quotId)||(LEADQUOTS||[]).find(x=>x.id===quotId);
   if(!q&&row){const r=await sb.from('quotations').select('*').eq('id',row.quotation_id).single();q=r.data;}
@@ -465,6 +486,7 @@ async function qdocOpen(quotId,leadId,docId){
   qdocBind(w,q.id,row.lang,row.id,row.label||'');
 }
 /* the copies under each quotation card, filled after the cards are drawn */
+const b0use=()=>!!$('quot-list');
 async function qdocsFill(){
   const boxes=[...document.querySelectorAll('.qdocs[data-q]')];
   const ids=[...new Set(boxes.map(b=>b.dataset.q))];
@@ -472,10 +494,15 @@ async function qdocsFill(){
   const {data,error}=await sb.from('quotation_docs').select('id,quotation_id,lang,label,total_usd,created_by,updated_at')
     .in('quotation_id',ids).order('created_at');
   if(error){console.error('copies',error);return;}
+  const canUse=['sales','manager','admin'].includes(ME.role)&&b0use();
+  const saleNow=$('d-sale')?Number(normNum($('d-sale').value)):null;
   boxes.forEach(b=>{
-    const rows=(data||[]).filter(r=>r.quotation_id===b.dataset.q);
+    const rows=(data||[]).filter(r=>r.quotation_id===b.dataset.q&&r.label!=='A');
+    const chosen=b.closest('.qcard')&&b.closest('.qcard').classList.contains('qcard-on');
     b.innerHTML=rows.length?'<span class="quiet">Copies</span> '+rows.map(r=>
       `<button class="btn-mini" title="${esc(staffName(r.created_by))}, ${esc(fmtDate(r.updated_at))}" onclick="printQuote('${r.quotation_id}','${b.dataset.lead||''}','${r.lang}','${r.id}')">${esc(r.label||'')} · ${r.lang==='en'?'English':'ខ្មែរ'}${r.total_usd!=null?' · '+esc(fmtMoney(r.total_usd)):''}</button>`
+      +(chosen&&r.total_usd!=null&&saleNow===Number(r.total_usd)?'<span class="qtag">In use</span>'
+        :(canUse&&b.dataset.lead&&r.total_usd!=null?`<button class="btn-mini" onclick="useQuot('${r.quotation_id}','${b.dataset.lead}',${Number(r.total_usd)},'${esc(r.label||'')}')">Use this one</button>`:''))
       +((r.created_by===ME.id||['manager','admin'].includes(ME.role))?`<button class="btn-mini qdel" title="Delete copy ${esc(r.label||'')}" onclick="qdocDelete('${r.id}')">✕</button>`:'')).join(' '):'';
   });
 }
