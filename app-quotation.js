@@ -451,13 +451,32 @@ async function qdocSave(w,update){
     if(error||!data||!data.length){w.alert('Could not save. '+(error?why(error):'Only the person who made this copy, the manager or admin can change it.'));return;}
     w.alert('Saved');qdocsFill();return;
   }
-  const {count}=await sb.from('quotation_docs').select('id',{count:'exact',head:true}).eq('quotation_id',w.__qid).neq('label','A');
-  const label=String.fromCharCode(66+Math.min(count||0,24));
-  const {data,error}=await sb.from('quotation_docs').insert({quotation_id:w.__qid,parent_doc_id:w.__docId||null,
-    lang:w.__lang||'km',label,sheet_html:html,total_usd:total,created_by:ME.id}).select('id').single();
-  if(error){w.alert('Could not save. '+why(error));return;}
-  qdocBind(w,w.__qid,w.__lang,data.id,label);
-  w.alert('Saved as copy '+label);qdocsFill();
+  /* Save as new copy makes a real quotation (Kevin, 21 Oct 2026): the same
+     system as the one it came from, the price on this sheet, released today
+     by whoever saved it - its own card, on the Quotations page, counted like
+     any other. The edited sheet is kept as that quotation's own saved version. */
+  if(total==null||!(total>0)){w.alert('This sheet has no price to save.');return;}
+  let src=(LEADQUOTS||[]).find(x=>x.id===w.__qid)||(QUOTS||[]).find(x=>x.id===w.__qid);
+  if(!src){const r=await sb.from('quotations').select('*').eq('id',w.__qid).single();src=r.data;}
+  if(!src){w.alert('Could not find the quotation this came from.');return;}
+  const keep=['lead_id','roof_type','system_type','ampere_phase','panel_pcs','panel_brand','panel_watt','panel_kwp',
+    'inverter_kw','inverter_brand','inverter_pcs','inverter_kw_total','battery_pcs','battery_kwh_each','battery_kwh','battery_brand'];
+  const row={provided_by:ME.id,price_usd:total};keep.forEach(k=>{if(src[k]!==undefined)row[k]=src[k];});
+  const {data:nq,error:qe}=await sb.from('quotations').insert(row).select().single();
+  if(qe){w.alert('Could not save. '+why(qe));return;}
+  const {data:nd,error:de}=await sb.from('quotation_docs').insert({quotation_id:nq.id,lang:w.__lang||'km',label:'A',
+    sheet_html:html,total_usd:total,created_by:ME.id}).select('id').single();
+  if(de){w.alert('The new quotation was saved, but not its edits. '+why(de));}
+  await logActivity(nq.lead_id,'note',null,null,'Quotation released: $'+total);
+  qdocBind(w,nq.id,w.__lang,nd?nd.id:null,'A');
+  /* the lead window, if it is open, gets the new card where it stands */
+  LEADQUOTS=[nq,...(LEADQUOTS||[])];
+  const list=$('quot-list');
+  if(list){const none=list.querySelector('.quot-none');if(none)none.remove();
+    list.insertAdjacentHTML('afterbegin',quotCard(nq,nq.lead_id,true,false,true));}
+  const qn=$('quot-n');if(qn)qn.textContent=LEADQUOTS.length;
+  qdocsFill();
+  w.alert('Saved as a new quotation: '+fmtMoney(total));
 }
 async function qdocOpenOriginal(quotId,leadId,lang){
   const w=window.open('','_blank');
@@ -994,7 +1013,7 @@ function quoteHtml(q,l,c){
   <button onclick="window.print()">Print</button>
   <button onclick="dlPdf(this)">Download PDF</button>
   <button onclick="dlWord()">Download Word</button>
-  <button id="qd-new" onclick="opener&&opener.qdocSave&&opener.qdocSave(window,false)">Save as new copy</button>
+  <button id="qd-new" onclick="opener&&opener.qdocSave&&opener.qdocSave(window,false)">Save as new quotation</button>
   <button id="qd-upd" style="display:none" onclick="opener&&opener.qdocSave&&opener.qdocSave(window,true)">Save changes</button>
   <b id="qd-label" style="font-size:12px;align-self:center"></b>
   <span style="font-size:11px;color:#555;align-self:center">Every line can be edited. Yellow marks what changes on each quotation.</span>
