@@ -48,7 +48,9 @@ async function renderLists(){
         </tr></thead><tbody id="lsbody">`+LISTROWS.map(r=>`
           <tr data-id="${r.id}" draggable="true" ondragstart="lsDragStart(event)" ondragover="lsDragOver(event)" ondrop="lsDrop(event)" ondragend="lsDragEnd()" class="${r.is_active?'':'lsoff'}">
             <td class="lsdrag" title="Drag to reorder">⋮⋮</td>
-            <td>${LISTKEY==='agent'?`<input class="lsname" value="${esc(r.value)}" title="Change the name" onchange="agentRename('${r.id}',this)" onkeydown="if(event.key==='Enter')this.blur()">`:`<b>${esc(r.value)}</b>`}${LISTFLASH===r.id?'<span class="lssaved">Saved</span>':''}</td>
+            <td>${LISTKEY==='agent'?`<div class="agname" id="agn-${r.id}"><b>${esc(r.value)}</b><button class="btn-mini" onclick="agentEdit('${r.id}',true)">Rename</button></div>
+              <div class="agname" id="age-${r.id}" style="display:none"><input class="lsname" value="${esc(r.value)}" onkeydown="if(event.key==='Enter')agentRename('${r.id}');if(event.key==='Escape')agentEdit('${r.id}',false)">
+                <button class="btn-sun btn-mini" onclick="agentRename('${r.id}')">Save</button><button class="btn-mini" onclick="agentEdit('${r.id}',false)">Cancel</button></div>`:`<b>${esc(r.value)}</b>`}${LISTFLASH===r.id?'<span class="lssaved">Saved</span>':''}</td>
             ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="e.g. Dina, Sok, Vanna" onchange="listDetail('${r.id}',this.value)"></td>`:''}
             ${LISTKEY==='agent'?(()=>{const a=AD[r.value]||{},box=(f,ph,t)=>`<input class="ag-${f}" ${t?`type="${t}"`:''} placeholder="${ph}" value="${esc(a[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)">`;
               return `<td><div class="agbank">${box('phone','0898123456')}${box('contract_date','','date')}</div></td>
@@ -140,10 +142,18 @@ async function agentSave(id,f,v){
 /* an agent's name is fixed in three places: the list, their phone and bank
    details, and every lead that names them - all three move together, or an
    old lead keeps the misspelt name (client, 23 Oct 2026) */
-async function agentRename(id,input){
-  const row=LISTROWS.find(r=>r.id===id);if(!row)return;
+/* Rename shows the box with Save and Cancel; nothing is written until Save */
+function agentEdit(id,on){
+  const n=$('agn-'+id),e=$('age-'+id);if(!n||!e)return;
+  n.style.display=on?'none':'';e.style.display=on?'':'none';
+  const i=e.querySelector('input');
+  if(on){i.focus();i.select();}else{const r=LISTROWS.find(x=>x.id===id);if(r)i.value=r.value;}
+}
+async function agentRename(id){
+  const input=document.querySelector('#age-'+id+' input');
+  const row=LISTROWS.find(r=>r.id===id);if(!row||!input)return;
   const old=row.value, nu=input.value.trim();
-  if(!nu||nu===old){input.value=old;return;}
+  if(!nu||nu===old){agentEdit(id,false);return;}
   if(LISTROWS.some(r=>r.id!==id&&r.value.toLowerCase()===nu.toLowerCase())){toast('"'+nu+'" is already in the list');input.value=old;return;}
   const {count}=await sb.from('leads').select('id',{count:'exact',head:true}).eq('agent_name',old);
   if(!confirm('Rename "'+old+'" to "'+nu+'"?'+(count?'\n\n'+count+' lead'+(count===1?'':'s')+' with this agent will show the new name.':'')))
