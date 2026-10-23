@@ -1248,3 +1248,4 @@ table.caltable td{vertical-align:middle}
 .calwrap .calweek{min-height:112px;border-top:1px solid #b9b2a4}
 .calwrap .calcell{border-left:1px solid #b9b2a4;font-size:13px;font-weight:700;color:var(--ink)}
 .calwrap .calcell.out{color:var(--ink-faint,#aaa);font-weight:500}
+.calwrap .calseg{font-size:12px;font-weight:700;letter-spacing:.01em}

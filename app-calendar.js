@@ -8,7 +8,9 @@
    day only. Lanes are packed once per month, so a customer keeps its lane
    from one week row to the next. */
 let CALMONTH=null, CALTAB='cal', CALTEAM='';
-const CALCOLORS=['var(--viz-2)','var(--viz-1)','var(--viz-good)','var(--viz-3)','var(--viz-4)','#4a6fa5','#b0467a','#2f8f8a'];
+/* deep team colours, each well past 4.5:1 against the white name on the bar,
+   so a name reads at a glance (client, 23 Oct 2026) */
+const CALCOLORS=['#1f5fa8','#2b7a3d','#b3471d','#7b3fa0','#8a6400','#a3305c','#1d6f75','#4b5563'];
 
 const calIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const calDay=s=>{const [y,m,d]=s.slice(0,10).split('-').map(Number);return new Date(y,m-1,d);};
@@ -49,7 +51,7 @@ async function renderCalendar(){
     laneEnd[k]=j.end;j.lane=k;j.letter=j.team?letters[j.team]:'?';
   });
   const teams=[...new Set([...INSTALL_TEAMS,...all.map(j=>j.team).filter(Boolean)])];
-  const teamColor=t=>t&&teams.indexOf(t)>=0?CALCOLORS[teams.indexOf(t)%CALCOLORS.length]:'#9a958c';
+  const teamColor=t=>t&&teams.indexOf(t)>=0?CALCOLORS[teams.indexOf(t)%CALCOLORS.length]:'#6f6a62';
   jobs.forEach(j=>{j.color=teamColor(j.team);});
   const monthWord=CALMONTH.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const bar=`
