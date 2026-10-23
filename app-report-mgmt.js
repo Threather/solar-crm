@@ -45,21 +45,21 @@ const CONV_HISTORY={
 };
 const MG_ACTIVE=['info_gathering','telling_price','pending_quotation','quotation_sent','follow_up','agreement_signoff'];
 
-async function renderMgmtReport(){
-  if(!['manager','admin'].includes(ME.role)){
-    $('main').innerHTML=blank('Not your report','The management dashboard is for the manager and admin.');
-    return;
-  }
+/* THE BOARD'S COUNTING, apart from its drawing (23 Oct 2026): Management draws
+   one window and Reports > Compare draws two whole months from this same
+   function, so the two screens cannot count differently. P is the period
+   word, R its [from,to], PW the word for it. */
+async function mgmtCompute(P,R,PW){
   const rows=await fetchLeads(q=>q);
   const ids=rows.map(l=>l.id);
-  const range=repRange(REPPERIOD);
-  const per=repPeriodWord();
+  const range=R;
+  const per=PW;
   /* THE BOARD'S MONTH FOLLOWS THE DATES PICKED (Kevin, 2 Oct 2026). Pick 1-30
      Sep and it is the September board as it stood on 30 Sep: its boxes, its
      target, its daily trend. Today, This month and All time keep this month.
      `today` is the board's "as of" day - the end picked, never past today. */
   const realToday=localDay(new Date());
-  const today=REPPERIOD!=='all'&&range[1]<realToday?range[1]:realToday;
+  const today=P!=='all'&&range[1]<realToday?range[1]:realToday;
   const mStart=today.slice(0,7)+'-01';
   /* THE BOARD FOLLOWS THE EXACT DATES (client, 7 Oct 2026): pick 1-15 Sep and
      the boxes, the raw lead target, the trend and the conversion are 1-15 Sep,
@@ -69,11 +69,11 @@ async function renderMgmtReport(){
   const addD=(d,n)=>{const x=new Date(d+'T00:00:00');x.setDate(x.getDate()+n);return localDay(x);};
   const lastOfMonth=m=>{const [y,mo]=m.split('-').map(Number);return localDay(new Date(y,mo,0));};
   const spanDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)+1;
-  const firstDay=REPPERIOD==='all'
+  const firstDay=P==='all'
     ?rows.reduce((m,l)=>{const d=localDay(l.lead_date||l.created_at);return d&&d<m?d:m;},realToday):range[0];
   const bA=firstDay>today?today:firstDay, bB=today;
-  const bEnd=REPPERIOD==='month'?lastOfMonth(today.slice(0,7))
-    :REPPERIOD==='week'?addD(range[0],6):REPPERIOD==='all'?bB:(range[1]>bB?range[1]:bB);
+  const bEnd=P==='month'?lastOfMonth(today.slice(0,7))
+    :P==='week'?addD(range[0],6):P==='all'?bB:(range[1]>bB?range[1]:bB);
   const rangeMonths=[];for(let m=bA.slice(0,7);m<=bEnd.slice(0,7);){rangeMonths.push(m);
     const [y,mo]=m.split('-').map(Number);const n=new Date(y,mo,1);m=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');}
   /* one calendar month, whole - then it reads as "September 2026" with its
@@ -104,7 +104,7 @@ async function renderMgmtReport(){
      says. This is the one test the closed-lost split turns on. */
   const wasQuoted=l=>!!quotBy[l.id];
 
-  const inWin=v=>REPPERIOD==='all'||inRange(v,range);
+  const inWin=v=>P==='all'||inRange(v,range);
   /* the day the lead came in, which is the writer's own date and not the
      server's - a lead keyed in at 9pm in Phnom Penh is still that day */
   const dayOf=l=>l.lead_date||l.created_at;
@@ -434,6 +434,15 @@ async function renderMgmtReport(){
       +ledger(parts.map(([k,v,c])=>[k,cash(v),Math.round(v/tot*100)+'%',c]))+`</div>`);};
   const moneyAxis=v=>!v?'$0':v>=1000?'$'+(v/1000)+'k':'$'+v;
 
+  return {bA,byMonth,cash,colOf,collCols,collected,contactAvg,contactedOf,convMonths,dN,dayKey,dayLabel,dayNow,days,dim,disqInWin,expThisSum,expected,feedback,first,flowLabels,fmtDay,got,handled,isNew,lN,leadRow,leadTarget,lostAfter,lostBefore,lostInWin,lostSet,lostUnknown,madeIn,mktDay,mktLeads,moneyPie,monthLong,months,mtdCollected,nameOf,notYet,oneMonth,open,pE,pN,paidIn,pct2,people,per,prevM,prevWord,progSet,qN,qualDay,qualIn,qualLabels,qualSet,qualified,quotRows,range,rangeWord,reasons,remaining,runRate,sheetsOf,split,stageAt,summary,target,tcvBy,tcvPeople,thisM,today,typeOf,typePeople,wE,wN,won,wonSet};
+}
+
+async function renderMgmtReport(){
+  if(!['manager','admin'].includes(ME.role)){
+    $('main').innerHTML=blank('Not your report','The management dashboard is for the manager and admin.');
+    return;
+  }
+  const {bA,byMonth,cash,colOf,collCols,collected,contactAvg,contactedOf,convMonths,dN,dayKey,dayLabel,dayNow,days,dim,disqInWin,expThisSum,expected,feedback,first,flowLabels,fmtDay,got,handled,isNew,lN,leadRow,leadTarget,lostAfter,lostBefore,lostInWin,lostSet,lostUnknown,madeIn,mktDay,mktLeads,moneyPie,monthLong,months,mtdCollected,nameOf,notYet,oneMonth,open,pE,pN,paidIn,pct2,people,per,prevM,prevWord,progSet,qN,qualDay,qualIn,qualLabels,qualSet,qualified,quotRows,range,rangeWord,reasons,remaining,runRate,sheetsOf,split,stageAt,summary,target,tcvBy,tcvPeople,thisM,today,typeOf,typePeople,wE,wN,won,wonSet}=await mgmtCompute(REPPERIOD,repRange(REPPERIOD),repPeriodWord());
   $('main').innerHTML=repBar('Management dashboard')+`
     <div class="mg-head">
       <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">

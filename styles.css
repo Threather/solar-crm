@@ -1224,3 +1224,12 @@ input.ag-contract_date{min-width:132px}
 .caldet .calteams{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 table.caltable{width:100%;min-width:0}
 table.caltable td{vertical-align:middle}
+/* Reports > Compare (23 Oct 2026) */
+.cmppick{display:flex;align-items:center;gap:8px}
+.cmppick span{color:var(--ink-soft);font-size:13px}
+.cmplegend{display:flex;gap:18px;font-size:13px;color:var(--ink-2);margin:4px 0 12px}
+.cmplegend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.cmpgrid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media(max-width:900px){.cmpgrid2{grid-template-columns:1fr}}
+.cmptable table{width:100%;min-width:0}
+.cmptable td.num,.cmptable th.num{text-align:right;font-variant-numeric:tabular-nums}
