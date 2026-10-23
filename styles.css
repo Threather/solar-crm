@@ -1213,3 +1213,9 @@ input.ag-contract_date{min-width:132px}
 .qdoc .qtag{margin-top:0}
 .qdoc-del{color:var(--ink-soft)}
 .qdoc-del:hover{color:var(--bad)}
+/* Sales Report: won deals waiting for admin's approval (23 Oct 2026) */
+.srwait{background:var(--card,#fff);border:1px solid var(--line);border-left:3px solid var(--warn,#c98a00);border-radius:var(--r);padding:12px 16px;margin:10px 0 14px}
+.srwait h4{margin:0 0 6px;font-size:13px}
+.srwait-r{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed var(--line);font-size:13px}
+.srwait-r:first-of-type{border-top:0}
+.srwait-a{margin-left:auto;display:flex;gap:6px}

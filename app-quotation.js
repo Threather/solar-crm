@@ -349,6 +349,17 @@ function imgFor(model,kind,brand,size){
   return k==='panel'?sharedPhoto('panel',''):'';
 }
 const isTallPhoto=src=>/deye-sg05lp/.test(src||'')||(PRODUCTS||[]).some(r=>r.tall&&r.photo_url===src);
+/* the model line, both languages, written the way the client's product list
+   is (23 Oct 2026): code - brand (size). Inverters carry no size except the
+   Urayzero; a product with no code prints its brand alone. */
+function modelLine(code,brand,kind,size){
+  const b=(brand||'').trim();
+  if(!code)return b;
+  const n=Number(size||0);
+  const sz=kind==='panel'&&n?' ('+n+' W)':kind==='battery'&&n?' ('+n+' kWh)'
+    :kind==='inverter'&&n&&/uray/i.test(b)?' ('+n+' kW)':'';
+  return code+(b?' - '+b:'')+sz;
+}
 const KH_LETTERS=['ក','ខ','គ','ឃ'];
 const khLabel=(i,text)=>QT.letters[i]+'. '+String(text).replace(/^([ក-៿]|[A-D])\.\s*/,'');
 const isOnGrid=sys=>/on[\s-]?grid/i.test(sys||'');
@@ -1072,20 +1083,20 @@ function quoteHtml(q,l,c){
       <tr class="comp"><td class="n" rowspan="${onGrid?4:5}">${QT.n2}</td>
           <td class="sec2">${QT.s2}</td><td class="q"></td><td class="im"></td></tr>
           ${grpRow(khLabel(0,QT.s2a)
-             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(QT.brandOnly?esc(q.panel_brand||''):(mPanel||q.panel_brand||''))+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+esc(modelLine(mPanel,q.panel_brand,'panel',q.panel_watt))+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.panelsize+'</span>: '+(q.panel_watt||'')+'Wp</div>',
              (q.panel_pcs||'')+' '+QT.unitPanel,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>'
              +'<span class="wty">'+QT.perfWarranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mPanel,'Panel',q.panel_brand,q.panel_watt),c.base)}
           ${grpRow(khLabel(1,QT.s2b)
-             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(QT.brandOnly?esc(q.inverter_brand||''):(mInv||q.inverter_brand||''))+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+esc(modelLine(mInv,q.inverter_brand,'inverter',q.inverter_kw))+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.invsize+'</span>: '+(c.kwac?c.kwac.toFixed(2):'')+' kWac</div>',
              (q.inverter_pcs||'')+' '+QT.unitPiece,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',
              imgFor(mInv,'Inverter',q.inverter_brand,q.inverter_kw),c.base)}
           ${onGrid?'':grpRow(khLabel(2,QT.s2c)
-             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+(QT.brandOnly?esc(q.battery_brand||''):(mBatt||q.battery_brand||''))+'</span></div>'
+             +'<div class="ind">* <span class="kv">'+QT.model+'</span>: <span class="it">'+esc(modelLine(mBatt,q.battery_brand,'battery',q.battery_kwh_each||q.battery_kwh))+'</span></div>'
              +'<div class="ind">* <span class="kv">'+QT.battcap+'</span>: '+esc(q.battery_kwh_each||q.battery_kwh||'')+' kWh</div>',
              (q.battery_pcs||'')+' '+QT.unitPiece,
              '<span class="wty">'+QT.warranty+': '+qb(16)+' '+QT.yr+'</span>',

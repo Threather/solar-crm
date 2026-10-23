@@ -6,12 +6,12 @@
    lead_payments has somewhere to keep it.
 
    Made easier to read on 7 Oct 2026, when the client found forty columns hard
-   going: a filter in each heading that has a short list of values, a
+   going: a filter in each heading (every column since 23 Oct 2026; dates by month, money by band), a
    scrollbar on top as well as underneath, coloured column groups that can be
    hidden, Ref ID and Customer pinned on the left, the headings pinned on top,
    Remaining read as Paid or owed, and a total row. The export keeps every
    column in the client's own order, whatever is hidden on screen. */
-let SRROWS=[], SRF={q:''}, SRCF={}, SRHIDE=new Set(), SROPEN='';
+let SRROWS=[], SRWAIT=[], SRF={q:''}, SRCF={}, SRHIDE=new Set(), SROPEN='';
 
 const canSalesReport=()=>['admin','manager','finance'].includes(ME.role);
 
@@ -33,7 +33,12 @@ async function renderWonSheet(){
   const finBy=Object.fromEntries((fins||[]).map(f=>[f.lead_id,f]));
   const saleBy=Object.fromEntries((sale||[]).map(f=>[f.lead_id,f.final_sale_usd]));
   const contacts={};(acts||[]).forEach(a=>contacts[a.lead_id]=(contacts[a.lead_id]||0)+1);
-  SRROWS=leads.map(l=>({...l,fin:finBy[l.id]||null,final_sale_usd:saleBy[l.id]??null,
+  /* a new win waits for admin's Approve before it joins the report (client,
+     23 Oct 2026); the deals won before then were approved by SQL. Only this
+     report waits - every other screen counts the win at once. */
+  const waiting=leads.filter(l=>!l.sr_approved_at);
+  SRWAIT=ME.role==='admin'?waiting.map(l=>({...l,final_sale_usd:saleBy[l.id]??null})):[];
+  SRROWS=leads.filter(l=>l.sr_approved_at).map(l=>({...l,fin:finBy[l.id]||null,final_sale_usd:saleBy[l.id]??null,
     payments:(pays||[]).filter(p=>p.lead_id===l.id),
     expected:(expd||[]).filter(p=>p.lead_id===l.id),
     contacts:contacts[l.id]||0}))
@@ -46,6 +51,11 @@ async function renderWonSheet(){
       <div class="srgroups" id="srgroups" role="group" aria-label="Columns"></div>
       <button class="btn-line" onclick="exportSalesReport()">Export Excel</button>
     </div>
+    ${SRWAIT.length?`<div class="srwait"><h4>Waiting for approval (${SRWAIT.length})</h4>
+      ${SRWAIT.map(l=>`<div class="srwait-r"><span class="refid">${esc(l.ref_id||'—')}</span>
+        <b>${esc(l.customer_name||'')}</b>
+        <span class="quiet">won ${fmtDate(l.stage_entered_at)} · ${esc(l.assigned_to?staffName(l.assigned_to):'no salesperson')}${l.final_sale_usd!=null?' · '+esc(fmtMoney(l.final_sale_usd)):''}</span>
+        <span class="srwait-a"><button class="btn-mini" onclick="openLead('${l.id}')">Open</button><button class="btn-sun btn-mini" onclick="srApprove('${l.id}')">Approve</button></span></div>`).join('')}</div>`:''}
     <div id="srsum" class="srsum"></div>
     <div id="srchips"></div>
     <div class="srtop" id="srtop" onscroll="srSync(this)"><div></div></div>
@@ -73,24 +83,24 @@ const SR_GROUPS=[['deal','Deal'],['cust','Customer'],['sys','System'],['inst','I
 function srCols(n){
   const c=[
     {x:0,h:'No',g:'pin',v:(r,i)=>i+1,t:'n'},
-    {x:2,h:'Lead Reference ID',g:'pin',v:r=>r.ref_id||''},
-    {x:8,h:'Customer Name',g:'pin',v:r=>r.customer_name||'',t:'name'},
+    {x:2,h:'Lead Reference ID',g:'pin',v:r=>r.ref_id||'',f:1},
+    {x:8,h:'Customer Name',g:'pin',v:r=>r.customer_name||'',t:'name',f:1},
     {x:1,h:'Month won',g:'deal',v:r=>srMonth(r)?monthName(srMonth(r)):'',f:1},
-    {x:3,h:'Agreement Sign Off Date',g:'deal',v:r=>r.stage_entered_at?localDay(r.stage_entered_at):'',t:'date'},
-    {x:4,h:'Lead Received Date',g:'deal',v:r=>r.lead_date||localDay(r.created_at),t:'date'},
+    {x:3,h:'Agreement Sign Off Date',g:'deal',v:r=>r.stage_entered_at?localDay(r.stage_entered_at):'',t:'date',fv:r=>srMon((r=>r.stage_entered_at?localDay(r.stage_entered_at):'')(r)),f:1},
+    {x:4,h:'Lead Received Date',g:'deal',v:r=>r.lead_date||localDay(r.created_at),t:'date',fv:r=>srMon((r=>r.lead_date||localDay(r.created_at))(r)),f:1},
     {x:4.5,h:'Deal type',g:'deal',v:r=>dealWord(r),fv:r=>isService(r)?'Service only':'Full package',f:1},
     {x:5,h:'Sales Person',g:'deal',v:r=>r.assigned_to?staffName(r.assigned_to):'',f:1},
     {x:6,h:'Referral By',g:'deal',v:r=>r.referrer_name||'',f:1},
     {x:7,h:'Lead Channel',g:'deal',v:r=>(r.lead_channel||'').replace(/_/g,' '),f:1},
-    {x:17,h:'#Days to Closed',g:'deal',v:r=>srDays(r.lead_date||r.created_at,r.stage_entered_at)??'',t:'n'},
-    {x:18,h:'#Times Contacted',g:'deal',v:r=>r.contacts,t:'n'},
-    {x:9,h:'Contact Number',g:'cust',v:r=>r.phone||''},
-    {x:999,h:'Location',g:'cust',v:r=>r.site_link||r.site_address||'',t:'cut'},
-    {x:10,h:'System Size (Pcs)',g:'sys',v:r=>r.panel_pcs??'',t:'n'},
+    {x:17,h:'#Days to Closed',g:'deal',v:r=>srDays(r.lead_date||r.created_at,r.stage_entered_at)??'',t:'n',f:1},
+    {x:18,h:'#Times Contacted',g:'deal',v:r=>r.contacts,t:'n',f:1},
+    {x:9,h:'Contact Number',g:'cust',v:r=>r.phone||'',f:1},
+    {x:999,h:'Location',g:'cust',v:r=>r.site_link||r.site_address||'',t:'cut',f:1},
+    {x:10,h:'System Size (Pcs)',g:'sys',v:r=>r.panel_pcs??'',t:'n',f:1},
     {x:11,h:'Panel brand',g:'sys',v:r=>[r.panel_brand,r.panel_watt?r.panel_watt+'W':''].filter(Boolean).join(' '),f:1},
-    {x:12,h:'Inverter Size (kW)',g:'sys',v:r=>r.inverter_kw_total??r.inverter_kw??'',t:'n'},
+    {x:12,h:'Inverter Size (kW)',g:'sys',v:r=>r.inverter_kw_total??r.inverter_kw??'',t:'n',f:1},
     {x:13,h:'Inverter brand',g:'sys',v:r=>r.inverter_brand||'',f:1},
-    {x:14,h:'Battery Size (kWh)',g:'sys',v:r=>srBattery(r)??'',t:'n'},
+    {x:14,h:'Battery Size (kWh)',g:'sys',v:r=>srBattery(r)??'',t:'n',f:1},
     {x:15,h:'Battery brand',g:'sys',v:r=>r.battery_brand||'',f:1},
     {x:16,h:'Engineering Name',g:'inst',v:r=>r.site_engineer_id?staffName(r.site_engineer_id):'',f:1},
     {x:19,h:'BOQ Released Date',g:'inst',v:r=>r.boq_date||'',t:'date',fv:r=>srMon(r.boq_date),f:1},
@@ -98,30 +108,34 @@ function srCols(n){
     {x:21,h:'Installation Start Date',g:'inst',v:r=>r.installation_start||'',t:'date',fv:r=>srMon(r.installation_start),f:1},
     {x:22,h:'Installation End Date',g:'inst',v:r=>r.installation_end||'',t:'date',fv:r=>srMon(r.installation_end),f:1},
     {x:26,h:'Installer Team',g:'inst',v:r=>r.installation_team||'',f:1},
-    {x:23,h:'EDC Inform',g:'edc',v:r=>srEdcInform(r)||'',t:'date'},
-    {x:24,h:'Inspection Date',g:'edc',v:r=>srInspect(r)||'',t:'date'},
-    {x:25,h:'EAC Inform',g:'edc',v:r=>r.edc_approval_date||'',t:'date'},
-    {x:27,h:'Amount (USD)',g:'money',v:r=>finDue(r),t:'money',sum:1},
-    {x:28,h:'Payment Method',g:'money',v:()=>''},
+    {x:23,h:'EDC Inform',g:'edc',v:r=>srEdcInform(r)||'',t:'date',fv:r=>srMon((r=>srEdcInform(r)||'')(r)),f:1},
+    {x:24,h:'Inspection Date',g:'edc',v:r=>srInspect(r)||'',t:'date',fv:r=>srMon((r=>srInspect(r)||'')(r)),f:1},
+    {x:25,h:'EAC Inform',g:'edc',v:r=>r.edc_approval_date||'',t:'date',fv:r=>srMon((r=>r.edc_approval_date||'')(r)),f:1},
+    {x:27,h:'Amount (USD)',g:'money',v:r=>finDue(r),t:'money',fv:r=>srBand((r=>finDue(r))(r)),f:1,sum:1},
+    {x:28,h:'Payment Method',g:'money',v:()=>'',f:1},
     {x:29,h:'Remaining Amount',g:'money',v:r=>srLeft(r),t:'left',sum:1,
       fv:r=>srLeft(r)>0.005?'Still owing':'Paid in full',f:1},
     {x:30,h:'Estimate Received Month',g:'money',v:r=>srEstimate(r),f:1},
-    {x:1000,h:'Remark',g:'money',v:r=>r.fin?.finance_remark||'',t:'cut'}];
+    {x:1000,h:'Remark',g:'money',v:r=>r.fin?.finance_remark||'',t:'cut',f:1}];
   for(let k=0;k<n;k++){
-    c.push({x:31+k*2,h:`Payment ${k+1} (USD)`,g:'pay',v:r=>r.payments[k]?Number(r.payments[k].amount_usd||0):'',t:'money',sum:1});
-    c.push({x:32+k*2,h:`Payment ${k+1} date`,g:'pay',v:r=>r.payments[k]?localDay(r.payments[k].paid_on):'',t:'date'});
+    c.push({x:31+k*2,h:`Payment ${k+1} (USD)`,g:'pay',v:r=>r.payments[k]?Number(r.payments[k].amount_usd||0):'',t:'money',sum:1,
+      fv:r=>r.payments[k]?srBand(r.payments[k].amount_usd):'(blank)',f:1});
+    c.push({x:32+k*2,h:`Payment ${k+1} date`,g:'pay',v:r=>r.payments[k]?localDay(r.payments[k].paid_on):'',t:'date',
+      fv:r=>srMon(r.payments[k]&&r.payments[k].paid_on),f:1});
   }
   /* Location and Remark close the client's sheet, after the payments */
   c.forEach(o=>{if(o.x===999)o.x=31+n*2;if(o.x===1000)o.x=32+n*2;});
   return c;
 }
+/* money filters by band, so a list of 50 different amounts reads in four ticks */
+const srBand=v=>v===''||v==null?'(blank)':(v=Number(v))<5000?'Under $5,000':v<10000?'$5,000 - $10,000':v<20000?'$10,000 - $20,000':'$20,000 and over';
 /* a date filters by its month, or "Not yet" while empty (as EDC, council 8 Oct) */
 const srMon=d=>d?monthName(String(d).slice(0,7)):'Not yet';
 /* the value a heading filter ticks: the cell's own text, or its word */
 const srFv=(c,r,i)=>{const v=c.fv?c.fv(r):c.v(r,i);return v===''||v==null?'(blank)':String(v);};
 
 function srRows(skip){
-  const q=SRF.q.trim().toLowerCase(), cols=srCols(5);
+  const q=SRF.q.trim().toLowerCase(), cols=srCols(srPayCols(SRROWS));
   return SRROWS.filter(r=>{
     if(q&&![r.customer_name,r.phone,r.ref_id].some(v=>String(v||'').toLowerCase().includes(q)))return false;
     for(const h in SRCF){
@@ -199,4 +213,12 @@ async function exportSalesReport(){
   const ws=XLSX.utils.aoa_to_sheet([cols.map(c=>c.h),...rows.map((r,i)=>cols.map(c=>{const v=c.v(r,i);return v===''?null:v;}))]);
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sales Report');
   XLSX.writeFile(wb,'Sales Report.xlsx');
+}
+
+/* admin's Approve: the deal joins the Sales Report */
+async function srApprove(id){
+  if(ME.role!=='admin')return;
+  const {data,error}=await sb.from('leads').update({sr_approved_at:new Date().toISOString(),sr_approved_by:ME.id}).eq('id',id).select('id');
+  if(error||!data||!data.length){toast('Could not approve. '+(error?why(error):''));return;}
+  toast('Approved - now in the Sales Report');renderWonSheet();
 }
