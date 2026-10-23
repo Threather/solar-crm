@@ -73,7 +73,7 @@ async function renderCalendar(){
     </div>`;
   let body;
   if(CALTAB==='cal'){
-    body=`<div class="section">${calGrid(jobs,y,m,false)}</div>`;
+    body=`<div class="section"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}</div></div>`;
   }else{
     const used=teams.filter(t=>jobs.some(j=>j.team===t));
     const legend=(used.length?used:teams).map(t=>`<div class="calteam"><b style="background:${teamColor(t)};color:#fff">${esc(letters[t])}</b><div><b>${esc(t)}</b><span>${esc(INSTALL_TEAM_DETAIL[t]||'')}</span></div></div>`).join('');
@@ -86,7 +86,7 @@ async function renderCalendar(){
         <td>${j.endKnown?Math.round((calDay(j.end)-calDay(j.start))/864e5)+1:'—'}</td></tr>`).join('')}</tbody></table>`
       :`<div class="sub">No installation in ${esc(monthWord)}.</div>`;
     body=`<div class="caldet">
-      <div class="section"><h4>Installation schedule</h4>${calGrid(jobs,y,m,true)}<div class="calteams">${legend}</div></div>
+      <div class="section"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}<div class="calteams">${legend}</div></div></div>
       <div class="section"><h4>${esc(monthWord)}</h4>${list}</div></div>`;
   }
   $('main').innerHTML=`<h2 style="margin-bottom:12px">Calendar</h2>${bar}${body}`;

@@ -1237,3 +1237,14 @@ table.caltable td{vertical-align:middle}
 .agname b{min-width:0}
 .agname input.lsname{min-width:170px;flex:1;font-weight:600}
 .agname .btn-mini{flex:none}
+/* Calendar like a printed month (client, 23 Oct 2026): not stretched across a
+   wide screen, square-ish days, clear lines, the month as a title */
+.calwrap{max-width:1100px;margin:0 auto}
+.caltitle{text-align:center;font-family:'Source Serif 4',Georgia,serif;font-size:30px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin:4px 0 12px;color:var(--ink)}
+.calwrap .calgrid{border:1px solid #b9b2a4;border-radius:0}
+.calwrap .calhead{background:var(--ink);color:#fff;font-size:12px}
+.calwrap .calhead span{padding:7px 8px;text-align:center;border-left:1px solid rgba(255,255,255,.25)}
+.calwrap .calhead span:first-child{border-left:0}
+.calwrap .calweek{min-height:112px;border-top:1px solid #b9b2a4}
+.calwrap .calcell{border-left:1px solid #b9b2a4;font-size:13px;font-weight:700;color:var(--ink)}
+.calwrap .calcell.out{color:var(--ink-faint,#aaa);font-weight:500}
