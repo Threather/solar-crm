@@ -1252,3 +1252,5 @@ table.caltable td{vertical-align:middle}
 /* the card hugs the calendar instead of floating it in empty space */
 .section.calsec{max-width:1140px;margin-left:auto;margin-right:auto}
 .calsec .calwrap{max-width:none}
+/* one width for everything on the Calendar screen, so edges line up */
+.section.calsec,.caldet>.section{width:100%;max-width:1140px;margin-left:auto;margin-right:auto;box-sizing:border-box}
