@@ -48,7 +48,7 @@ async function renderLists(){
         </tr></thead><tbody id="lsbody">`+LISTROWS.map(r=>`
           <tr data-id="${r.id}" draggable="true" ondragstart="lsDragStart(event)" ondragover="lsDragOver(event)" ondrop="lsDrop(event)" ondragend="lsDragEnd()" class="${r.is_active?'':'lsoff'}">
             <td class="lsdrag" title="Drag to reorder">⋮⋮</td>
-            <td><b>${esc(r.value)}</b>${LISTFLASH===r.id?'<span class="lssaved">Saved</span>':''}</td>
+            <td>${LISTKEY==='agent'?`<input class="lsname" value="${esc(r.value)}" title="Change the name" onchange="agentRename('${r.id}',this)" onkeydown="if(event.key==='Enter')this.blur()">`:`<b>${esc(r.value)}</b>`}${LISTFLASH===r.id?'<span class="lssaved">Saved</span>':''}</td>
             ${LISTKEY==='install_team'?`<td><input value="${esc(r.detail||'')}" placeholder="e.g. Dina, Sok, Vanna" onchange="listDetail('${r.id}',this.value)"></td>`:''}
             ${LISTKEY==='agent'?(()=>{const a=AD[r.value]||{},box=(f,ph,t)=>`<input class="ag-${f}" ${t?`type="${t}"`:''} placeholder="${ph}" value="${esc(a[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)">`;
               return `<td><div class="agbank">${box('phone','0898123456')}${box('contract_date','','date')}</div></td>
@@ -135,4 +135,25 @@ async function agentSave(id,f,v){
   const {error}=await sb.from('agent_details').upsert({name:row.value,[f]:v.trim()||null,updated_at:new Date().toISOString()},{onConflict:'name'});
   if(error){toast('Could not save. '+why(error));return;}
   toast('Saved');
+}
+
+/* an agent's name is fixed in three places: the list, their phone and bank
+   details, and every lead that names them - all three move together, or an
+   old lead keeps the misspelt name (client, 23 Oct 2026) */
+async function agentRename(id,input){
+  const row=LISTROWS.find(r=>r.id===id);if(!row)return;
+  const old=row.value, nu=input.value.trim();
+  if(!nu||nu===old){input.value=old;return;}
+  if(LISTROWS.some(r=>r.id!==id&&r.value.toLowerCase()===nu.toLowerCase())){toast('"'+nu+'" is already in the list');input.value=old;return;}
+  const {count}=await sb.from('leads').select('id',{count:'exact',head:true}).eq('agent_name',old);
+  if(!confirm('Rename "'+old+'" to "'+nu+'"?'+(count?'\n\n'+count+' lead'+(count===1?'':'s')+' with this agent will show the new name.':'')))
+    {input.value=old;return;}
+  const v=await sb.from('vocabularies').update({value:nu}).eq('id',id).select('id');
+  if(v.error||!v.data||!v.data.length){toast('Could not rename. '+(v.error?why(v.error):''));input.value=old;return;}
+  const d=await sb.from('agent_details').update({name:nu}).eq('name',old);
+  if(d.error)console.error('agent details',d.error);
+  const l=await sb.from('leads').update({agent_name:nu}).eq('agent_name',old).select('id');
+  if(l.error){toast('Renamed in the list, but the leads did not follow. '+why(l.error));}
+  else toast('Renamed'+(l.data&&l.data.length?' · '+l.data.length+' lead'+(l.data.length===1?'':'s')+' updated':''));
+  LISTFLASH=id;await loadVocab();renderLists();
 }

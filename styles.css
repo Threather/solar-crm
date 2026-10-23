@@ -1233,3 +1233,5 @@ table.caltable td{vertical-align:middle}
 @media(max-width:900px){.cmpgrid2{grid-template-columns:1fr}}
 .cmptable table{width:100%;min-width:0}
 .cmptable td.num,.cmptable th.num{text-align:right;font-variant-numeric:tabular-nums}
+.lstable input.lsname{font-weight:600;border-color:transparent;background:transparent;padding-left:4px}
+.lstable input.lsname:hover,.lstable input.lsname:focus{border-color:var(--line);background:#fff}
