@@ -75,7 +75,7 @@ async function renderCalendar(){
     </div>`;
   let body;
   if(CALTAB==='cal'){
-    body=`<div class="section"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}</div></div>`;
+    body=`<div class="section calsec"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}</div></div>`;
   }else{
     const used=teams.filter(t=>jobs.some(j=>j.team===t));
     const legend=(used.length?used:teams).map(t=>`<div class="calteam"><b style="background:${teamColor(t)};color:#fff">${esc(letters[t])}</b><div><b>${esc(t)}</b><span>${esc(INSTALL_TEAM_DETAIL[t]||'')}</span></div></div>`).join('');
@@ -88,7 +88,7 @@ async function renderCalendar(){
         <td>${j.endKnown?Math.round((calDay(j.end)-calDay(j.start))/864e5)+1:'—'}</td></tr>`).join('')}</tbody></table>`
       :`<div class="sub">No installation in ${esc(monthWord)}.</div>`;
     body=`<div class="caldet">
-      <div class="section"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}<div class="calteams">${legend}</div></div></div>
+      <div class="section calsec"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}<div class="calteams">${legend}</div></div></div>
       <div class="section"><h4>${esc(monthWord)}</h4>${list}</div></div>`;
   }
   $('main').innerHTML=`<h2 style="margin-bottom:12px">Calendar</h2>${bar}${body}`;
@@ -105,7 +105,7 @@ function calGrid(jobs,y,m,compact){
     const ws=calIso(days[0]), we=calIso(days[6]);
     const segs=jobs.filter(j=>j.start<=we&&j.end>=ws);
     const lanes=segs.length?Math.max(...segs.map(j=>j.lane))+1:0;
-    out+=`<div class="calweek" style="grid-template-rows:${compact?18:24}px repeat(${lanes},${compact?14:22}px) 6px">`+
+    out+=`<div class="calweek" style="grid-template-rows:${compact?18:24}px repeat(${lanes},${compact?14:22}px) minmax(6px,1fr)">`+
       days.map((d,i)=>`<div class="calcell${d.getMonth()!==m?' out':''}${calIso(d)===today?' today':''}" style="grid-column:${i+1};grid-row:1/-1"><span>${d.getDate()}</span></div>`).join('')+
       segs.map(j=>{
         const a=j.start<ws?0:days.findIndex(d=>calIso(d)===j.start);

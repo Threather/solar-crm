@@ -1249,3 +1249,6 @@ table.caltable td{vertical-align:middle}
 .calwrap .calcell{border-left:1px solid #b9b2a4;font-size:13px;font-weight:700;color:var(--ink)}
 .calwrap .calcell.out{color:var(--ink-faint,#aaa);font-weight:500}
 .calwrap .calseg{font-size:12px;font-weight:700;letter-spacing:.01em}
+/* the card hugs the calendar instead of floating it in empty space */
+.section.calsec{max-width:1140px;margin-left:auto;margin-right:auto}
+.calsec .calwrap{max-width:none}
