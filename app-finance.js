@@ -22,7 +22,7 @@ const finDue=r=>finContract(r)+finFees(r);
 /* Han personal account = 'Han': typed once - amount, monthly payment, end date;
    everyone is told on the end date (23 Oct 2026). Han company account =
    'Company': the normal payments. */
-const LOAN_WORD={Han:'Han personal account',Company:'Han company account'};
+const LOAN_WORD={Han:'Loan with Han personal account',Company:'Loan with Han company account'};
 /* the card being looked at, so the derived total can be recomputed as the
    addition is typed */
 let FINROW=null;
@@ -317,10 +317,10 @@ function openFinance(id){
         <div><label>Type of account</label><select id="f-acct">${optList(ACCOUNT_TYPES,f.account_type)}</select></div>
         <div style="grid-column:2/-1"><label>Payment term</label><input id="f-term" value="${esc(f.payment_term||'')}" placeholder="50% deposit, 50% on completion"></div>
         <!-- who lent the money (19 Oct 2026): the database rings the bell when a loan deal reaches $0 -->
-        <div><label>Loan from</label><select id="f-loan" onchange="document.querySelectorAll('.f-hanbox').forEach(e=>e.style.display=this.value==='Han'?'':'none')"><option value="" ${f.loan_from?'':'selected'}>No loan</option>${['Company','Han'].map(v=>`<option value="${v}" ${f.loan_from===v?'selected':''}>${LOAN_WORD[v]}</option>`).join('')}</select></div>
-        <div class="f-hanbox" ${f.loan_from==='Han'?'':'style="display:none"'}><label>Han loan amount (USD)</label>${numBox('f-loanamt',f.loan_amount_usd)}</div>
-        <div class="f-hanbox" ${f.loan_from==='Han'?'':'style="display:none"'}><label>Monthly payment (USD)</label>${numBox('f-loanmon',f.loan_monthly_usd)}</div>
-        <div class="f-hanbox" ${f.loan_from==='Han'?'':'style="display:none"'}><label>End date</label><input id="f-loanend" type="date" value="${f.loan_end_date||''}"></div>
+        <div><label>Payment</label><select id="f-loan" onchange="document.querySelectorAll('.f-hanbox').forEach(e=>e.style.display=this.value?'':'none')"><option value="" ${f.loan_from?'':'selected'}>Pay in full</option>${['Company','Han'].map(v=>`<option value="${v}" ${f.loan_from===v?'selected':''}>${LOAN_WORD[v]}</option>`).join('')}</select></div>
+        <div class="f-hanbox" ${f.loan_from?'':'style="display:none"'}><label>Loan amount (USD)</label>${numBox('f-loanamt',f.loan_amount_usd)}</div>
+        <div class="f-hanbox" ${f.loan_from?'':'style="display:none"'}><label>Monthly payment (USD)</label>${numBox('f-loanmon',f.loan_monthly_usd)}</div>
+        <div class="f-hanbox" ${f.loan_from?'':'style="display:none"'}><label>End date</label><input id="f-loanend" type="date" value="${f.loan_end_date||''}"></div>
         <div style="grid-column:1/-1"><label>Remark</label><textarea id="f-remark" rows="2" placeholder="Anything worth knowing about this contract">${esc(f.finance_remark||'')}</textarea></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="saveFinance('${r.id}')">Save contract</button></div>
@@ -424,9 +424,9 @@ async function saveFinance(id){
     account_type:$('f-acct').value||null,
     payment_term:$('f-term').value.trim()||null,
     loan_from:$('f-loan').value||null,
-    loan_amount_usd:$('f-loan').value==='Han'?(normNum($('f-loanamt').value)||null):null,
-    loan_monthly_usd:$('f-loan').value==='Han'?(normNum($('f-loanmon').value)||null):null,
-    loan_end_date:$('f-loan').value==='Han'?($('f-loanend').value||null):null,
+    loan_amount_usd:$('f-loan').value?(normNum($('f-loanamt').value)||null):null,
+    loan_monthly_usd:$('f-loan').value?(normNum($('f-loanmon').value)||null):null,
+    loan_end_date:$('f-loan').value?($('f-loanend').value||null):null,
     finance_remark:$('f-remark').value.trim()||null,
     follow_up_date:$('f-follow').value||null,
     updated_by:ME.id,updated_at:new Date().toISOString()};
@@ -537,7 +537,7 @@ function exportFinance(){
   downloadCSV('finance',['Ref ID','Customer','Closed-Won month','Received','Sale engineer',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
     'Sale value (USD)','Contract total (USD)','Contract status','Date signed',
-    'Type of account','Payment term','Loan from','Han loan (USD)','Monthly payment (USD)','Loan end date','Remark','Next follow-up',
+    'Type of account','Payment term','Payment','Loan amount (USD)','Monthly payment (USD)','Loan end date','Remark','Next follow-up',
     'Other fees (USD)','What the fees were for',
     'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)','Next expected date','Next expected (USD)'],
     filteredFin().map(r=>[r.ref_id,r.customer_name,
@@ -545,8 +545,8 @@ function exportFinance(){
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
       r.final_sale_usd,r.fin?.contract_total_usd,r.fin?.contract_status,r.fin?.contract_signed_date,
-      r.fin?.account_type,r.fin?.payment_term,(LOAN_WORD[r.fin?.loan_from]||'No loan'),
-      r.fin?.loan_from==='Han'?Number(r.fin.loan_amount_usd||0):'',r.fin?.loan_from==='Han'?Number(r.fin.loan_monthly_usd||0):'',r.fin?.loan_from==='Han'?(r.fin.loan_end_date||''):'',
+      r.fin?.account_type,r.fin?.payment_term,(LOAN_WORD[r.fin?.loan_from]||'Pay in full'),
+      r.fin?.loan_from?Number(r.fin.loan_amount_usd||0):'',r.fin?.loan_from?Number(r.fin.loan_monthly_usd||0):'',r.fin?.loan_from?(r.fin.loan_end_date||''):'',
       r.fin?.finance_remark,
       r.fin?.follow_up_date,finFees(r)||'',
       (r.payments||[]).map(p=>p.other_fee_note).filter(Boolean).join('; '),

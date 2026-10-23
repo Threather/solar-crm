@@ -42,7 +42,7 @@ function popNotice(b){
       :b.kind==='boq'?'BOQ not released'
       :b.kind==='dup'?'Duplicate customer'
       :b.kind==='loan_paid'?'Loan paid in full'
-      :b.kind==='loan_end'?'Han loan ends today':'Notification'}</h5>
+      :b.kind==='loan_end'?'Loan ends today':'Notification'}</h5>
     <p>${esc(b.message)}</p>
     <div class="row">
       ${b.lead_id?`<button class="btn-sun" onclick="hidePop();openLead('${b.lead_id}')">Open the lead</button>`:''}
