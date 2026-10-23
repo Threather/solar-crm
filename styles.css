@@ -1219,3 +1219,8 @@ input.ag-contract_date{min-width:132px}
 .srwait-r{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px dashed var(--line);font-size:13px}
 .srwait-r:first-of-type{border-top:0}
 .srwait-a{margin-left:auto;display:flex;gap:6px}
+/* Installation details: schedule then the full table, both the page's width (23 Oct 2026) */
+.caldet{grid-template-columns:1fr}
+.caldet .calteams{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+table.caltable{width:100%;min-width:0}
+table.caltable td{vertical-align:middle}

@@ -3,8 +3,8 @@
    job is installing) and installation details (the same month smaller, the
    team letters with their members, and the jobs listed). One job list and one
    grid renderer feed both tabs, so they cannot disagree (council, 8 Oct).
-   Bars take one colour per customer, not red: red means danger here, and one
-   red would make three overlapping jobs read as one. No end date = the start
+   Bars take one colour per installer team (client, 23 Oct 2026), never red:
+   red means danger here. A job with no team yet is grey. No end date = the start
    day only. Lanes are packed once per month, so a customer keeps its lane
    from one week row to the next. */
 let CALMONTH=null, CALTAB='cal', CALTEAM='';
@@ -26,6 +26,8 @@ async function renderCalendar(){
   if(!['site_engineer','sales','manager','admin'].includes(ME.role)){
     $('main').innerHTML=blank('No calendar for your role','');return;}
   if(!CALMONTH){const t=new Date();CALMONTH=new Date(t.getFullYear(),t.getMonth(),1);}
+  /* the whole width of the screen (client, 23 Oct 2026) */
+  $('main').style.maxWidth='none';
   $('main').innerHTML='<div class="sub">Loading…</div>';
   const rows=(await fetchLeads(q=>q.eq('stage_code','closed_won')))||[];
   const all=rows.filter(l=>l.installation_start&&hasPart(l,'Installation')).map(l=>({
@@ -44,9 +46,11 @@ async function renderCalendar(){
   const laneEnd=[];
   jobs.forEach((j,i)=>{
     let k=laneEnd.findIndex(e=>e<j.start);if(k<0)k=laneEnd.length;
-    laneEnd[k]=j.end;j.lane=k;j.color=CALCOLORS[i%CALCOLORS.length];j.letter=j.team?letters[j.team]:'?';
+    laneEnd[k]=j.end;j.lane=k;j.letter=j.team?letters[j.team]:'?';
   });
   const teams=[...new Set([...INSTALL_TEAMS,...all.map(j=>j.team).filter(Boolean)])];
+  const teamColor=t=>t&&teams.indexOf(t)>=0?CALCOLORS[teams.indexOf(t)%CALCOLORS.length]:'#9a958c';
+  jobs.forEach(j=>{j.color=teamColor(j.team);});
   const monthWord=CALMONTH.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const bar=`
     <div class="calbar">
@@ -72,12 +76,14 @@ async function renderCalendar(){
     body=`<div class="section">${calGrid(jobs,y,m,false)}</div>`;
   }else{
     const used=teams.filter(t=>jobs.some(j=>j.team===t));
-    const legend=(used.length?used:teams).map(t=>`<div class="calteam"><b>${esc(letters[t])}</b><div><b>${esc(t)}</b><span>${esc(INSTALL_TEAM_DETAIL[t]||'')}</span></div></div>`).join('');
-    const list=jobs.length?`<div class="tablewrap"><table><thead><tr><th></th><th>Customer</th><th>Team</th><th>Start</th><th>End</th></tr></thead><tbody>${
+    const legend=(used.length?used:teams).map(t=>`<div class="calteam"><b style="background:${teamColor(t)};color:#fff">${esc(letters[t])}</b><div><b>${esc(t)}</b><span>${esc(INSTALL_TEAM_DETAIL[t]||'')}</span></div></div>`).join('');
+    const list=jobs.length?`<table class="caltable"><thead><tr><th></th><th>Customer</th><th>Ref ID</th><th>Team</th><th>Members</th><th>Start</th><th>End</th><th>Days</th></tr></thead><tbody>${
       jobs.map(j=>`<tr class="calrow" onclick="openLead('${j.id}')"><td><i class="calsw" style="background:${j.color}"></i></td>
-        <td><span class="nm">${esc(j.name)}</span><span class="days">${esc(j.ref)}</span></td>
-        <td>${esc(j.letter)}${j.team?' · '+esc(j.team):''}</td><td class="nowrap">${fmtDate(j.start)}</td>
-        <td class="nowrap">${j.endKnown?fmtDate(j.end):'—'}</td></tr>`).join('')}</tbody></table></div>`
+        <td><b>${esc(j.name)}</b></td><td class="refid">${esc(j.ref||'—')}</td>
+        <td>${esc(j.letter)}${j.team?' · '+esc(j.team):' · no team yet'}</td><td>${esc(INSTALL_TEAM_DETAIL[j.team]||'—')}</td>
+        <td class="nowrap">${fmtDate(j.start)}</td>
+        <td class="nowrap">${j.endKnown?fmtDate(j.end):'—'}</td>
+        <td>${j.endKnown?Math.round((calDay(j.end)-calDay(j.start))/864e5)+1:'—'}</td></tr>`).join('')}</tbody></table>`
       :`<div class="sub">No installation in ${esc(monthWord)}.</div>`;
     body=`<div class="caldet">
       <div class="section"><h4>Installation schedule</h4>${calGrid(jobs,y,m,true)}<div class="calteams">${legend}</div></div>
