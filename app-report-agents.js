@@ -46,3 +46,53 @@ async function renderAgentReport(){
       <th>Closed-Won</th><th>Closed-Lost</th><th>Contract value</th><th>Payment collected</th></tr></thead>
       <tbody>${body}</tbody></table></div>`:blank('No agent leads in these dates','')}</div>`;
 }
+
+/* ---------------- THIRD PARTY (26 Oct 2026, client's drawing) ----------------
+   Sales > Third Party: Staff, Non-Staff and Agent, each by the month the lead
+   came in (lead date), within the report dates. Agent adds the agent's name.
+   Leads received, qualified, Closed-Won, contract value of the won deals
+   (contract + interest) and what those customers have paid. Replaces the
+   separate Agents report. */
+async function thirdPartyHtml(){
+  const range=repRange(REPPERIOD);
+  const all=await fetchLeads(q=>q.eq('lead_channel','Third_Party'));
+  const day=l=>localDay(l.lead_date||l.created_at);
+  const rows=all.filter(l=>{const d=day(l);return d>=range[0]&&d<=range[1];});
+  const ids=rows.map(l=>l.id);
+  const [fins,finrows,pays]=ids.length?await Promise.all([
+    repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,interest_usd').order('lead_id'),ids),
+    repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd').order('id'),ids)]):[[],[],[]];
+  const sale={},contract={},paid={};
+  fins.forEach(f=>sale[f.lead_id]=Number(f.final_sale_usd||0));
+  finrows.forEach(f=>{if(f.contract_total_usd!=null)contract[f.lead_id]=Number(f.contract_total_usd)+Number(f.interest_usd||0);});
+  pays.forEach(p=>paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0));
+  const won=l=>l.stage_code===WON;
+  const sum=set=>({n:set.length,q:set.filter(l=>qualText(l)==='Qualified').length,won:set.filter(won).length,
+    value:set.filter(won).reduce((a,l)=>a+(contract[l.id]??sale[l.id]??0),0),
+    paid:set.reduce((a,l)=>a+(paid[l.id]||0),0)});
+  const cells=s=>`<td>${s.n}</td><td>${s.q}</td><td>${s.won}</td>
+    <td class="nowrap">${repCash(s.value)}</td><td class="nowrap">${repCash(s.paid)}</td>`;
+  const head=`<th>Lead received</th><th>Qualified</th><th>Closed-Won</th><th>Contract value</th><th>Payment collection</th>`;
+  const monthsOf=set=>[...new Set(set.map(l=>day(l).slice(0,7)))].sort();
+  const inM=(set,m)=>set.filter(l=>day(l).startsWith(m));
+  const xl=set=>set.map(l=>({Ref:l.ref_id||'',Customer:l.customer_name||'',Sub:l.lead_sub_channel||'',Agent:l.agent_name||'',
+    'Lead date':day(l),Qualified:qualText(l),Stage:stageName(l.stage_code),
+    'Contract value':won(l)?(contract[l.id]??sale[l.id]??0):'',Paid:paid[l.id]||0}));
+  const byMonth=(title,sub)=>{const set=rows.filter(l=>l.lead_sub_channel===sub);xrows({[title]:xl(set)});
+    return repPanel(title,set.length?`<div class="tablewrap"><table class="table-compact"><thead><tr><th>Month</th>${head}</tr></thead>
+      <tbody>${monthsOf(set).map(m=>`<tr><td class="nowrap">${esc(monthName(m))}</td>${cells(sum(inM(set,m)))}</tr>`).join('')}</tbody>
+      <tfoot><tr class="srtotal"><td><b>Total</b></td>${cells(sum(set))}</tr></tfoot></table></div>`
+      :blank('No '+title+' leads in these dates',''));};
+  const ag=rows.filter(l=>l.lead_sub_channel==='Agent');
+  const names=[...new Set(ag.map(l=>l.agent_name||'(no agent picked)'))].sort();
+  xrows({Agent:xl(ag)});
+  const agent=repPanel('Agent',ag.length?`<div class="tablewrap"><table class="table-compact"><thead><tr><th>Month</th><th>Agent name</th>${head}</tr></thead>
+    <tbody>${monthsOf(ag).map(m=>{const inm=inM(ag,m);return names.filter(a=>inm.some(l=>(l.agent_name||'(no agent picked)')===a))
+      .map(a=>`<tr><td class="nowrap">${esc(monthName(m))}</td><td><b class="nm">${esc(a)}</b></td>${cells(sum(inm.filter(l=>(l.agent_name||'(no agent picked)')===a)))}</tr>`).join('');}).join('')}</tbody>
+    <tfoot><tr class="srtotal"><td colspan="2"><b>Total</b></td>${cells(sum(ag))}</tr></tfoot></table></div>`
+    :blank('No agent leads in these dates',''));
+  return `<h3 class="sechead">Third Party</h3><p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${esc(repWindowSentence())}</p>
+    <div>${byMonth("Staff","Staff")}</div><div style="margin-top:16px">${byMonth("Non Staff","Non-Staff")}</div>
+    <div style="margin-top:16px">${agent}</div>`;
+}

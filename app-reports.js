@@ -131,7 +131,7 @@ function repScopes(){
      dashboards; operations is a different team and stays out */
   if(['marketing','manager','admin'].includes(ME.role))s.push(['mkt','Marketing']);
   /* Third Party agents (8 Oct 2026) */
-  if(['manager','admin'].includes(ME.role))s.push(['agents','Agents']);
+  /* Agents moved into Sales > Third Party (26 Oct 2026) */
   /* two whole months of Management side by side (23 Oct 2026) */
   if(['manager','admin'].includes(ME.role))s.push(['compare','Compare']);
   return s.filter(([k])=>typeof window[REP_RENDER[k]]==='function');

@@ -319,7 +319,10 @@ async function renderSalesReport(){
   const monthWin=m=>{const [y,mm]=m.split('-').map(Number);
     return [m+'-01',m+'-'+String(new Date(y,mm,0).getDate()).padStart(2,'0')];};
 
-  const VIEWS=[['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']];
+  const VIEWS=[['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']]
+    .concat(['admin','manager'].includes(ME.role)?[['third','Third Party']]:[]);
+  if(SALEVIEW==='third'&&!['admin','manager'].includes(ME.role))SALEVIEW='daily';
+  const third=SALEVIEW==='third'?await thirdPartyHtml():'';
   const tabs=`<div class="scope saleview" role="group" aria-label="View">${VIEWS.map(([k,l])=>
     `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;
   const show=v=>SALEVIEW===v;
@@ -339,6 +342,7 @@ async function renderSalesReport(){
 
   $('main').innerHTML=repBar('Sales report',personFilter)+tabs+`
    <div class="salerep">
+   ${third}
    ${show('daily')?`
     <h3 class="sechead">1. Daily Sales Performance</h3>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${esc(repWindowSentence())}</p>
