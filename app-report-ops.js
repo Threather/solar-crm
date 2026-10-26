@@ -70,6 +70,13 @@ async function renderOpsReport(){
   /* the four turnaround targets the manager sets each month, in days. Read for
      the month being shown, like every other target in the app. */
   const tg=await loadTargets(monthStart());
+  /* after-sale cases raised in the window (site engineer and admin can read them) */
+  const {data:asAll}=await rowsOf(()=>sb.from('after_sales').select('id,lead_id,issue_date,status,cause,level1_date,level2_date,level3_date,more_levels').order('issue_date').order('id'));
+  const asIn=(asAll||[]).filter(r=>r.issue_date&&inW(r.issue_date));
+  const asSolved=asIn.filter(r=>(r.status||'Pending')==='Solved');
+  const asTat=avgDays(asSolved.map(r=>{const t=asTurn(r);return t?t.days:null;}));
+  const asCnt={};asIn.forEach(r=>{const c=r.cause||'Not recorded';asCnt[c]=(asCnt[c]||0)+1;});
+  const asCauses=Object.keys(asCnt).sort((a,b)=>asCnt[b]-asCnt[a]);
   const sla={boq:Number(tg.company.sla_boq||0),install:Number(tg.company.sla_install||0),
              inform:Number(tg.company.sla_edcinform||0),inspect:Number(tg.company.sla_edcinspect||0),
              deliv:Number(tg.company.sla_delivery||0)};
@@ -175,13 +182,11 @@ async function renderOpsReport(){
     </div>
 
     <div class="homegrid level mgrid">
+      ${/* the boxes above already carry BOQ released, pending installation,
+           installation done and EDC waiting (client, 26 Oct 2026) */''}
       ${repPanel('Project Status Pipeline',`<div class="pipe">
-        ${bar('BOQ released',pBoq.length,pMax)}
-        ${bar('Installation scheduled',pSched.length,pMax)}
-        ${bar('Installation in progress',pRun.length,pMax)}
-        ${bar('Installation completed',pDone.length,pMax,' won')}
-        ${bar('Waiting EDC inspection',pWait.length,pMax)}
-        ${bar('EDC inspected',pSeen.length,pMax)}
+        ${bar('Installation in progress',pRun.length,Math.max(1,pRun.length,pSeen.length))}
+        ${bar('EDC inspected',pSeen.length,Math.max(1,pRun.length,pSeen.length))}
       </div>`)}
 
       ${repPanel('Active installation teams',
@@ -219,30 +224,21 @@ async function renderOpsReport(){
       })()}
     </div>
 
-    <div class="homegrid mgrid opwide">
-    ${repPanel('Execution health',ledger([
-      ['Total in flight',active.length,'project'+(active.length===1?'':'s')],
-      ['Avg end-to-end',endToEnd.avg==='\u2014'?'\u2014':endToEnd.avg+' days',
-        endToEnd.n+' measured'],
-      ['Slowest against target',behind?'+'+behind.over+' days':'\u2014',
-        behind?behind.step
-          :!Object.values(sla).some(Boolean)?'no targets set'
-          :endToEnd.n?'nothing is behind':'nothing measured yet']]))}
-    </div>
-
-    ${f.length?`<div class="homegrid mgrid opwide">${repPanel('Projects',`<div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Ref ID</th><th>Customer</th><th>Team</th><th>BOQ</th><th>Install start</th>
-      <th>Finished</th><th>EDC sent</th><th>EDC inspected</th>
-    </tr></thead><tbody>`+f.map(l=>`
-      <tr class="rowlink" onclick="openLead('${l.id}')">
-        <td class="refid">${esc(l.ref_id||'—')}</td>
-        <td><b>${esc(l.customer_name)}</b></td>
-        <td>${l.installation_team?esc(l.installation_team):'<span class="pooltag">NONE</span>'}</td>
-        <td>${l.boq_status==='Done'?`<span class="mark mark-done">${fmtDate(l.boq_date)}</span>`:'<span class="mark mark-wait">pending</span>'}</td>
-        <td class="nowrap">${fmtDate(l.installation_start)}</td>
-        <td class="nowrap">${instDoneOn(l)?`<span class="mark mark-done">${fmtDate(instDoneOn(l))}</span>`:'<span class="mark mark-open">not yet</span>'}</td>
-        <td class="nowrap">${edcApplies(l)?fmtDate(edcSentOn(l)):'<span class="quiet">exempt</span>'}</td>
-        <td class="nowrap">${edcApplies(l)?fmtDate(edcSeenOn(l)):'<span class="quiet">—</span>'}</td>
-      </tr>`).join('')+`</tbody></table></div>`)}</div>`
-    :blank('No won deals yet','A project appears here once a deal is marked Closed-Won.')}`;
+    ${/* the report only: Execution health and the Projects table came out
+         (client, 26 Oct 2026). After-sale came in: cases raised in the
+         window by issue date, solved and pending, by cause, and the
+         turnaround of the solved ones - the After-sale list's own rule. */''}
+    <div class="homegrid level mgrid">
+      ${repPanel('After-sale',`<div class="kpis seven ops asops">
+          ${kpi({label:'Problems raised',value:asIn.length})}
+          ${kpi({label:'Solved',value:asSolved.length})}
+          ${kpi({label:'Pending',value:asIn.length-asSolved.length})}
+          ${kpi({label:'Avg turnaround (solved)',value:asTat.avg==='\u2014'?'\u2014':asTat.avg+' d',note:'n='+asTat.n})}
+        </div>`)}
+      ${asCauses.length?groupChart(asCauses,
+        [{name:'Solved',color:'var(--viz-good)',values:asCauses.map(c=>asSolved.filter(r=>(r.cause||'Not recorded')===c).length)},
+         {name:'Pending',color:'var(--viz-4)',values:asCauses.map(c=>asIn.filter(r=>(r.cause||'Not recorded')===c&&(r.status||'Pending')!=='Solved').length)}],
+        {title:'What kind of problem',stacked:true,compact:true})
+        :emptyChart('What kind of problem','No after-sale case '+per,'')}
+    </div>`;
 }

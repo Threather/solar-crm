@@ -62,6 +62,10 @@ async function renderCompareReport(){
   const conv=(F,m)=>{if(CONV_HISTORY[m]){const [r,q]=CONV_HISTORY[m];return q/r*100;}
     const r=F.madeIn(m).length;return r?F.qualIn(m).length/r*100:0;};
   const cA=conv(A,CMPA), cB=conv(B,CMPB);
+  /* every month from the earlier pick to the later one (client, 26 Oct 2026) */
+  const convSpan=(()=>{const [a,b]=CMPA<=CMPB?[CMPA,CMPB]:[CMPB,CMPA];const out=[];
+    for(let m=a;m<=b;){out.push(m);const [y,mo]=m.split('-').map(Number);const n=new Date(y,mo,1);
+      m=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');}return out;})();
   const notYet=F=>F.notYet.length;
   const quotSent=F=>F.quotRows.reduce((a,r)=>a+r[1],0);
 
@@ -74,6 +78,14 @@ async function renderCompareReport(){
   const unA=(A.collCols.find(c=>c.name==='Unassigned')||{}).v||0, unB=(B.collCols.find(c=>c.name==='Unassigned')||{}).v||0;
   const collLabels=pn.concat(unA||unB?['Unassigned']:[]);
   const collVals=F=>byId(F,collOf).concat(unA||unB?[(F.collCols.find(c=>c.name==='Unassigned')||{}).v||0]:[]);
+  /* one colour per person, the same in both pies and the same as Management */
+  const pcol=people.map(p=>A.colOf[p.id]||B.colOf[p.id]||'var(--viz-mute)');
+  const pies=(title,labels,va,vb)=>{
+    const one=(name,vals)=>{const parts=labels.map((k,i)=>[k,Number(vals[i]||0),labels[i]==='Unassigned'?'var(--viz-mute)':pcol[i]]);
+      const t=parts.reduce((a,p)=>a+p[1],0);
+      return `<div class="cmppie"><div class="cmppie-m">${esc(name)}</div>`+(t?gPie(parts,'Total '+cash(t))
+        +ledger(parts.map(([k,v,c])=>[k,cash(v),Math.round(v/t*100)+'%',c])):'<div class="sub">Nothing</div>')+`</div>`;};
+    return repPanel(title,`<div class="cmppies">${one(nA,va)}${one(nB,vb)}</div>`);};
   const activeOf=(F,p)=>F.progSet.filter(l=>l.assigned_to===p.id).length;
   const wonOf=(F,p)=>F.wonSet.filter(l=>l.assigned_to===p.id).length;
   const tcvOf=(F,p)=>F.tcvBy[p.id]||0;
@@ -92,6 +104,8 @@ async function renderCompareReport(){
   /* ---- the daily trend, day 1 to 31 ---- */
   const dd=Array.from({length:31},(_,i)=>String(i+1).padStart(2,'0'));
   const dayVals=(F,m,map)=>dd.map(d=>{const k=m+'-'+d;if(k>cmpLast(m)||k>F.today)return null;return map[k]||0;});
+  /* the month's total beside its name, so nobody adds the days up by hand */
+  const tot=(F,m,map)=>dayVals(F,m,map).reduce((a,v)=>a+(v||0),0);
 
   $('main').innerHTML=`
     <h2 style="margin-bottom:4px">Compare</h2>
@@ -107,6 +121,57 @@ async function renderCompareReport(){
       <button class="btn-line" onclick="repExportPdf()" style="margin-left:auto">Export PDF</button>
     </div>
     <div class="cmplegend"><span><i style="background:${CMP_COL[0]}"></i>${esc(nA)}</span><span><i style="background:${CMP_COL[1]}"></i>${esc(nB)}</span></div>
+
+    <div class="homegrid three mgrid">
+      ${two('Raw lead target vs actual',['Raw Lead Target','Raw Lead'],[A.leadTarget,A.mktLeads],[B.leadTarget,B.mktLeads])}
+      ${two('Lead stage distribution',['Raw Lead','Qualified','Disqualified','Not yet qualify'],
+        [A.got.length,A.qN,A.dN,notYet(A)],[B.got.length,B.qN,B.dN,notYet(B)])}
+      ${two('Qualified leads',['Qualified','Closed-Won','Closed-Lost','In progress'],
+        [A.qN,A.wN+A.wE,A.lN,A.pN+A.pE],[B.qN,B.wN+B.wE,B.lN,B.pN+B.pE])}
+    </div>
+
+    <div class="homegrid three mgrid">
+      ${lineChart(dd.map(d=>String(+d)),
+        [{name:'Raw '+nA+' · '+tot(A,CMPA,A.mktDay),color:CMP_COL[0],values:dayVals(A,CMPA,A.mktDay)},
+         {name:'Raw '+nB+' · '+tot(B,CMPB,B.mktDay),color:CMP_COL[1],values:dayVals(B,CMPB,B.mktDay)}],
+        {title:'Lead trend from marketing - raw',compact:true})}
+      ${lineChart(dd.map(d=>String(+d)),
+        [{name:'Qualified '+nA+' · '+tot(A,CMPA,A.qualDay),color:CMP_COL[0],values:dayVals(A,CMPA,A.qualDay)},
+         {name:'Qualified '+nB+' · '+tot(B,CMPB,B.qualDay),color:CMP_COL[1],values:dayVals(B,CMPB,B.qualDay)}],
+        {title:'Lead trend from marketing - qualified',compact:true})}
+      ${lineChart(convSpan.map(monthName),[{name:'Conversion',color:CMP_COL[1],values:convSpan.map(m=>+conv(A,m).toFixed(2))}],
+        {title:'Conversion % from raw lead to qualified lead',compact:true,values:true,fmt:v=>v.toFixed(2)+'%'})}
+    </div>
+
+    <div class="homegrid mgrid cmpgrid2">
+      ${pies('Payment collection by each sales',collLabels,collVals(A),collVals(B))}
+      ${pies('Total contract value (USD) by each sales',pn,byId(A,tcvOf),byId(B,tcvOf))}
+    </div>
+
+    <div class="homegrid three mgrid">
+      ${two('# of quotation sent',pn,byId(A,quotOf),byId(B,quotOf))}
+      ${two('Sales and lead summary - # of Active Lead',pn,byId(A,activeOf),byId(B,activeOf))}
+      ${two('Sales and lead summary - # Closed Won',pn,byId(A,wonOf),byId(B,wonOf))}
+    </div>
+
+    <div class="homegrid three mgrid">
+      ${two('Active pipeline stage',MG_ACTIVE.map(stageName),MG_ACTIVE.map(c=>pipeOf(A,c)),MG_ACTIVE.map(c=>pipeOf(B,c)))}
+      ${topR.length?two('Closed-lost status',topR,topR.map(r=>A.reasons[r]||0),topR.map(r=>B.reasons[r]||0))
+        :emptyChart('Closed-lost status','Nothing lost in either month','')}
+      ${two('Closed-lost, before or after a quotation',['After a quotation','Before any quotation'],
+        [A.lostAfter.length,A.lostBefore.length],[B.lostAfter.length,B.lostBefore.length])}
+    </div>
+
+    <div class="homegrid three mgrid">
+      ${two('Avg. daily contact to customer',pn,byId(A,avgOf),byId(B,avgOf),{fmt:v=>v.toFixed(2)})}
+      ${two('# of leads held (received)',pn,byId(A,heldOf),byId(B,heldOf))}
+    </div>
+
+    <div class="homegrid three mgrid">
+      ${two('# of Customer Contacted',pn,byId(A,contOf),byId(B,contOf))}
+      ${two('Residential',pn,byId(A,typeOf('Residential')),byId(B,typeOf('Residential')))}
+      ${two('C & I',pn,byId(A,typeOf('C & I')),byId(B,typeOf('C & I')))}
+    </div>
 
     <div class="homegrid mgrid cmpgrid2">
       ${tbl('Sales & pipeline',[
@@ -131,55 +196,5 @@ async function renderCompareReport(){
         ['Quotations sent',quotSent(A),quotSent(B),'n'],
         ['Lost after a quotation',A.lostAfter.length,B.lostAfter.length,'n'],
         ['Lost before any quotation',A.lostBefore.length,B.lostBefore.length,'n']])}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${two('Raw lead target vs actual',['Raw Lead Target','Raw Lead'],[A.leadTarget,A.mktLeads],[B.leadTarget,B.mktLeads])}
-      ${two('Lead stage distribution',['Raw Lead','Qualified','Disqualified','Not yet qualify'],
-        [A.got.length,A.qN,A.dN,notYet(A)],[B.got.length,B.qN,B.dN,notYet(B)])}
-      ${two('Qualified leads',['Qualified','Closed-Won','Closed-Lost','In progress'],
-        [A.qN,A.wN+A.wE,A.lN,A.pN+A.pE],[B.qN,B.wN+B.wE,B.lN,B.pN+B.pE])}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${lineChart(dd.map(d=>String(+d)),
-        [{name:'Raw '+nA,color:CMP_COL[0],values:dayVals(A,CMPA,A.mktDay)},
-         {name:'Raw '+nB,color:CMP_COL[1],values:dayVals(B,CMPB,B.mktDay)}],
-        {title:'Lead trend from marketing - raw',compact:true})}
-      ${lineChart(dd.map(d=>String(+d)),
-        [{name:'Qualified '+nA,color:CMP_COL[0],values:dayVals(A,CMPA,A.qualDay)},
-         {name:'Qualified '+nB,color:CMP_COL[1],values:dayVals(B,CMPB,B.qualDay)}],
-        {title:'Lead trend from marketing - qualified',compact:true})}
-      ${two('Conversion % from raw lead to qualified lead',['Conversion'],[+cA.toFixed(2)],[+cB.toFixed(2)],{fmt:v=>v.toFixed(2)+'%'})}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${two('Payment collection by each sales',collLabels,collVals(A),collVals(B),{fmt:v=>cash(v)})}
-      ${two('Total contract value (USD) by each sales',pn,byId(A,tcvOf),byId(B,tcvOf),{fmt:v=>cash(v)})}
-      ${two('# of quotation sent',pn,byId(A,quotOf),byId(B,quotOf))}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${two('Sales and lead summary - # of Active Lead',pn,byId(A,activeOf),byId(B,activeOf))}
-      ${two('Sales and lead summary - # Closed Won',pn,byId(A,wonOf),byId(B,wonOf))}
-      ${two('Active pipeline stage',MG_ACTIVE.map(stageName),MG_ACTIVE.map(c=>pipeOf(A,c)),MG_ACTIVE.map(c=>pipeOf(B,c)))}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${topR.length?two('Closed-lost status',topR,topR.map(r=>A.reasons[r]||0),topR.map(r=>B.reasons[r]||0))
-        :emptyChart('Closed-lost status','Nothing lost in either month','')}
-      ${two('Closed-lost, before or after a quotation',['After a quotation','Before any quotation'],
-        [A.lostAfter.length,A.lostBefore.length],[B.lostAfter.length,B.lostBefore.length])}
-      ${two('Avg. daily contact to customer',pn,byId(A,avgOf),byId(B,avgOf),{fmt:v=>v.toFixed(2)})}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${two('# of leads held (received)',pn,byId(A,heldOf),byId(B,heldOf))}
-      ${two('# of Customer Contacted',pn,byId(A,contOf),byId(B,contOf))}
-      ${two('Residential',pn,byId(A,typeOf('Residential')),byId(B,typeOf('Residential')))}
-    </div>
-
-    <div class="homegrid three mgrid">
-      ${two('C & I',pn,byId(A,typeOf('C & I')),byId(B,typeOf('C & I')))}
     </div>`;
 }

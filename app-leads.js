@@ -238,6 +238,11 @@ const COLSPEC={
     :(l.lead_sub_channel||'No sub-channel')+((l.agent_name||l.referrer_name)?' · '+(l.agent_name||l.referrer_name):''),
   wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
 };
+/* the channel a lead came in by, its sub-channel under it (client, 26 Oct 2026) */
+function chanCell(l){
+  const c=(l.lead_channel||l.lead_source||'').replace(/_/g,' ');
+  return c?`${esc(c)}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}`:'<span class="quiet">—</span>';
+}
 function refCell(l){
   if(l.lead_channel!=='Third_Party')return '<span class="quiet">—</span>';
   const who=l.agent_name||l.referrer_name;
@@ -472,7 +477,7 @@ function goPage(n){
 function drawActiveTable(rows){
   const pick=isBoss();
   $('tablewrap').innerHTML=`<table class="${showRemarks()?'with-rem':''}"><thead><tr>
-    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
+    ${pick?`<th class="pickcol"><input type="checkbox" title="Select this page" ${rows.length&&rows.every(l=>SEL.has(l.id))?'checked':''} onchange="toggleSelPage(this.checked)"></th>`:''}<th class="rowno">No</th><th>Ref ID</th>${th('Customer','ctype')}${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Channel','chan')}${th('Stage','stage')}${th('Qualified','qual')}${ME.role==='sales'?'<th>Quotation</th>':th('Sale engineer','eng')}${th('Follow-up','fu')}<th>Aging</th>${showRemarks()?th('Remarks','rem'):''}
   </tr></thead><tbody>`+rows.map((l,i)=>{
     const od=l.next_follow_up&&new Date(l.next_follow_up)<new Date().setHours(0,0,0,0);
     return `<tr class="rowlink ${SEL.has(l.id)?'picked':''}" onclick="openLead('${l.id}')">
@@ -481,6 +486,7 @@ function drawActiveTable(rows){
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${refCell(l)}</td>
+      <td>${chanCell(l)}</td>
       <td>${stagePill(l.stage_code)}</td>
       <td>${qualPill(l)}</td>
       <td>${ME.role==='sales'
@@ -550,13 +556,14 @@ function toggleRemarks(box){
 /* Won deals are a build schedule, not a pipeline, so the columns change */
 function drawWonTable(rows){
   $('tablewrap').innerHTML=`<table><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th>${th('Phone','hasphone')}${th('Referred<br>by','ref')}${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th>${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Channel','chan')}${canSeeMoney()?'<th>Sale value</th>':''}${th('Sale engineer','eng')}${th('Site engineer','site')}${th('BOQ','boq')}${th('Schedule','sched')}${ME.role==='admin'?'<th>EDC</th>':''}${th('Closed-Won','wonm')}
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>
       <td><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${refCell(l)}</td>
+      <td>${chanCell(l)}</td>
       ${canSeeMoney()?`<td><b>${fmtMoney(l.final_sale_usd)}</b></td>`:''}
       <td>${'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>'}</td>
       <td>${l.site_engineer_id?'<span class="nm">'+esc(staffName(l.site_engineer_id))+'</span>':'<span class="pooltag">NONE</span>'}<span class="days">${esc(l.installation_team||'no team')}</span></td>
@@ -597,7 +604,7 @@ function drawLostTable(rows){
       <td class="lcust"><b>${esc(l.customer_name)}</b></td>
       <td class="phone">${l.phone?(/[a-z@]/i.test(l.phone)?`<span class="handle">${esc(l.phone)}</span>`:phoneCell(l.phone)):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${refCell(l)}</td>
-      <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}</td>
+      <td>${chanCell(l)}</td>
       <td class="nowrap">${isClosedLost(l)?'<span class="badge b-off" style="white-space:nowrap">Closed-Lost</span>':'<span class="badge" style="white-space:nowrap">Disqualified</span>'}</td>
       <td>${qcell(l)}</td>
       <td>${l.assigned_to?'<span class="nm">'+esc(staffName(l.assigned_to))+'</span>':'—'}</td>
