@@ -320,9 +320,10 @@ async function renderSalesReport(){
     return [m+'-01',m+'-'+String(new Date(y,mm,0).getDate()).padStart(2,'0')];};
 
   const VIEWS=[['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']]
-    .concat(['admin','manager'].includes(ME.role)?[['third','Third Party']]:[]);
-  if(SALEVIEW==='third'&&!['admin','manager'].includes(ME.role))SALEVIEW='daily';
-  const third=SALEVIEW==='third'?await thirdPartyHtml():'';
+  ;
+  if(SALEVIEW==='third')SALEVIEW='mom';
+  /* Third Party sits under MoM, below Performance by Channel (26 Oct 2026) */
+  const third=SALEVIEW==='mom'&&['admin','manager'].includes(ME.role)?await thirdPartyHtml():'';
   const tabs=`<div class="scope saleview" role="group" aria-label="View">${VIEWS.map(([k,l])=>
     `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;
   const show=v=>SALEVIEW===v;
@@ -342,7 +343,6 @@ async function renderSalesReport(){
 
   $('main').innerHTML=repBar('Sales report',personFilter)+tabs+`
    <div class="salerep">
-   ${third}
    ${show('daily')?`
     <h3 class="sechead">1. Daily Sales Performance</h3>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${esc(repWindowSentence())}</p>
@@ -527,7 +527,8 @@ async function renderSalesReport(){
           <td><b>${esc(f(grid[i].reduce((a,b)=>a+b,0)))}</b></td></tr>`).join('')
         +`</tbody><tfoot><tr><td><b>Total</b></td>${cols.map((c,j)=>`<td><b>${esc(f(grid.reduce((a,r)=>a+r[j],0)))}</b></td>`).join('')}
           <td><b>${esc(f(grid.flat().reduce((a,b)=>a+b,0)))}</b></td></tr></tfoot></table></div>`;})()
-      :blank('No months to show yet','This fills in as leads accumulate.')}`:''}
+      :blank('No months to show yet','This fills in as leads accumulate.')}
+    <div style="margin-top:22px">${third}</div>`:''}
    </div>
   `;
 }
