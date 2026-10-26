@@ -556,7 +556,11 @@ function quotInUse(q,l,fin){
   if(l.chosen_quotation_id)return l.chosen_quotation_id===q.id;
   if(!fin||fin.final_sale_usd==null)return false;
   if(Number(fin.final_sale_usd)!==Number(q.price_usd))return false;
-  return q.panel_pcs==null||Number(q.panel_pcs)===Number(l.panel_pcs);
+  /* the brands too: a matching price on a different inverter is not the one
+     the lead follows (Veng Sreng Seak, 26 Oct 2026) */
+  const same=(a,b)=>!a||String(a).trim().toLowerCase()===String(b||'').trim().toLowerCase();
+  return (q.panel_pcs==null||Number(q.panel_pcs)===Number(l.panel_pcs))
+    &&same(q.inverter_brand,l.inverter_brand)&&same(q.battery_brand,l.battery_brand);
 }
 function quotCard(q,leadId,canUse,inUse,canDelete){
   return `<div class="qcard${inUse?' qcard-on':''}"><b>${fmtMoney(q.price_usd)}</b> · ${esc(q.system_type||'—')} · ${q.panel_pcs??'—'} pcs ${esc(q.panel_brand||'')} · inv ${q.inverter_pcs??'—'} × ${q.inverter_kw??'—'}kW ${esc(q.inverter_brand||'')} · batt ${esc(q.battery_kwh||'—')} ${esc(q.battery_brand||'')}
