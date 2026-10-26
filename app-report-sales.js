@@ -454,6 +454,18 @@ async function renderSalesReport(){
 
    ${show('mom')?`
     <h3 class="sechead">MoM — Sale stage by month</h3>
+    ${/* every salesperson together, first (client, 26 Oct 2026) */''}
+    ${months.length?(()=>{
+      const allSt=(a,b)=>STAGE_COLS.map((_,i)=>shown.reduce((x,p)=>x+stageRow(mine(p.id),a,b)[i],0));
+      const allC=(a,b)=>shown.reduce((x,p)=>x+contactedIn(p.id,a,b),0);
+      const rows=months.map(m=>{const [a,b]=monthWin(m);return [m,allC(a,b),allSt(a,b)];});
+      return `<div style="margin-bottom:14px"><div class="person">All sales</div>
+        <div class="tablewrap"><table class="table-compact"><thead>
+          <tr><th>Month</th><th>#Lead Contact</th>${STAGE_COLS.map(([code,n])=>`<th class="st-${code}">${esc(n)}</th>`).join('')}</tr>
+        </thead><tbody>${rows.map(([m,c,r])=>`<tr><td><b>${esc(monthName(m))}</b></td><td>${c}</td>
+          ${r.map((v,i)=>`<td class="st-${STAGE_COLS[i][0]}${v?' nz':''}">${v}</td>`).join('')}</tr>`).join('')}
+        </tbody><tfoot><tr><td><b>Total</b></td><td><b>${rows.reduce((x,r)=>x+r[1],0)}</b></td>
+          ${STAGE_COLS.map((_,i)=>`<td><b>${rows.reduce((x,r)=>x+r[2][i],0)}</b></td>`).join('')}</tr></tfoot></table></div></div>`;})():''}
     ${months.length?shown.map(p=>`
       <div style="margin-bottom:14px">
         <div class="person">${esc(p.full_name)}</div>
@@ -467,6 +479,19 @@ async function renderSalesReport(){
       :blank('No months to show yet','This fills in as leads accumulate.')}
 
     <h3 class="sechead">MoM — Monthly Sales Performance</h3>
+    ${months.length?(()=>{
+      const rows=months.map(m=>{const [a,b]=monthWin(m);return [m,
+        shown.reduce((x,p)=>x+mine(p.id).filter(l=>within(dayOf(l),a,b)).length,0),
+        shown.reduce((x,p)=>x+mine(p.id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b)).length,0),
+        shown.reduce((x,p)=>x+contractOf(p.id,a,b),0),
+        shown.reduce((x,p)=>x+collectedOf(p.id,a,b),0)];});
+      const t=i=>rows.reduce((x,r)=>x+r[i],0);
+      return `<div style="margin-bottom:14px">${repPanel('All sales',`<div class="tablewrap"><table class="table-compact"><thead>
+        <tr><th>Month</th><th>Lead Received</th><th>#Closed-Won</th><th>Contract Value</th><th>Collection</th></tr>
+      </thead><tbody>${rows.map(r=>`<tr><td>${esc(monthName(r[0]))}</td><td>${r[1]}</td><td>${r[2]}</td>
+        <td>${esc(cash(r[3]))}</td><td>${esc(cash(r[4]))}</td></tr>`).join('')}
+      </tbody><tfoot><tr><td><b>Total</b></td><td><b>${t(1)}</b></td><td><b>${t(2)}</b></td>
+        <td><b>${esc(cash(t(3)))}</b></td><td><b>${esc(cash(t(4)))}</b></td></tr></tfoot></table></div>`)}</div>`;})():''}
     ${months.length?`<div class="homegrid three">${shown.map(p=>`
       ${repPanel(p.full_name,`<div class="tablewrap"><table class="table-compact"><thead>
         <tr><th>Month</th><th>Lead Received</th><th>#Closed-Won</th><th>Contract Value</th><th>Collection</th></tr>
