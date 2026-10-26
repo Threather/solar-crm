@@ -36,6 +36,13 @@ async function renderCompareReport(){
   const two=(title,labels,va,vb,o)=>groupChart(labels,
     [{name:nA,color:CMP_COL[0],values:va},{name:nB,color:CMP_COL[1],values:vb}],
     {title,compact:true,...(o||{})});
+  /* lying down, so long names read in full (client, 26 Oct 2026) */
+  const hbars=(title,labels,va,vb)=>{
+    const max=Math.max(1,...va.map(Number),...vb.map(Number));
+    xpend('Figures',['Item',nA,nB],labels.map((l,i)=>[l,va[i]||0,vb[i]||0]));
+    const bar=(v,c)=>`<div class="hb-b"><i style="width:${Number(v||0)/max*100}%;background:${c}"></i><span>${v||0}</span></div>`;
+    return repPanel(title,`<div class="hb-leg"><span><i style="background:${CMP_COL[0]}"></i>${esc(nA)}</span><span><i style="background:${CMP_COL[1]}"></i>${esc(nB)}</span></div>
+      <div class="hb">${labels.map((l,i)=>`<div class="hb-k">${esc(l)}</div><div>${bar(va[i],CMP_COL[0])}${bar(vb[i],CMP_COL[1])}</div>`).join('')}</div>`);};
 
   /* the change column: money and counts as a difference with its percentage,
      a percentage as points */
@@ -81,11 +88,15 @@ async function renderCompareReport(){
   /* one colour per person, the same in both pies and the same as Management */
   const pcol=people.map(p=>A.colOf[p.id]||B.colOf[p.id]||'var(--viz-mute)');
   const pies=(title,labels,va,vb)=>{
-    const one=(name,vals)=>{const parts=labels.map((k,i)=>[k,Number(vals[i]||0),labels[i]==='Unassigned'?'var(--viz-mute)':pcol[i]]);
+    /* the % beside its figure, and on the second month an arrow against the
+       first for the same person: green up, red down (client, 26 Oct 2026) */
+    const one=(name,vals,prev)=>{const parts=labels.map((k,i)=>[k,Number(vals[i]||0),labels[i]==='Unassigned'?'var(--viz-mute)':pcol[i]]);
       const t=parts.reduce((a,p)=>a+p[1],0);
+      const arrow=i=>{if(!prev)return '';const a=Number(prev[i]||0),b=parts[i][1];
+        return b>a?'<span class="cmpup">▲</span>':b<a?'<span class="cmpdown">▼</span>':'<span class="cmpeq"></span>';};
       return `<div class="cmppie"><div class="cmppie-m">${esc(name)}</div>`+(t?gPie(parts,'Total '+cash(t))
-        +ledger(parts.map(([k,v,c])=>[k,cash(v),Math.round(v/t*100)+'%',c])):'<div class="sub">Nothing</div>')+`</div>`;};
-    return repPanel(title,`<div class="cmppies">${one(nA,va)}${one(nB,vb)}</div>`);};
+        +ledger(parts.map(([k,v,c],i)=>[k,cash(v)+`<span class="cmppct">${Math.round(v/t*100)}%</span>`+arrow(i),'',c])):'<div class="sub">Nothing</div>')+`</div>`;};
+    return repPanel(title,`<div class="cmppies">${one(nA,va)}${one(nB,vb,va)}</div>`);};
   const activeOf=(F,p)=>F.progSet.filter(l=>l.assigned_to===p.id).length;
   const wonOf=(F,p)=>F.wonSet.filter(l=>l.assigned_to===p.id).length;
   const tcvOf=(F,p)=>F.tcvBy[p.id]||0;
@@ -155,8 +166,8 @@ async function renderCompareReport(){
     </div>
 
     <div class="homegrid three mgrid">
-      ${two('Active pipeline stage',MG_ACTIVE.map(stageName),MG_ACTIVE.map(c=>pipeOf(A,c)),MG_ACTIVE.map(c=>pipeOf(B,c)))}
-      ${topR.length?two('Closed-lost status',topR,topR.map(r=>A.reasons[r]||0),topR.map(r=>B.reasons[r]||0))
+      ${hbars('Active pipeline stage',MG_ACTIVE.map(stageName),MG_ACTIVE.map(c=>pipeOf(A,c)),MG_ACTIVE.map(c=>pipeOf(B,c)))}
+      ${topR.length?hbars('Closed-lost status',topR,topR.map(r=>A.reasons[r]||0),topR.map(r=>B.reasons[r]||0))
         :emptyChart('Closed-lost status','Nothing lost in either month','')}
       ${two('Closed-lost, before or after a quotation',['After a quotation','Before any quotation'],
         [A.lostAfter.length,A.lostBefore.length],[B.lostAfter.length,B.lostBefore.length])}
