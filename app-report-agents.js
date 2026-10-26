@@ -11,11 +11,11 @@ async function renderAgentReport(){
   const ids=rows.map(l=>l.id);
   const [fins,finrows,pays]=ids.length?await Promise.all([
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
-    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd').order('lead_id'),ids),
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,interest_usd').order('lead_id'),ids),
     repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd').order('id'),ids)]):[[],[],[]];
   const sale={},contract={},paid={};
   fins.forEach(f=>sale[f.lead_id]=Number(f.final_sale_usd||0));
-  finrows.forEach(f=>{if(f.contract_total_usd!=null)contract[f.lead_id]=Number(f.contract_total_usd);});
+  finrows.forEach(f=>{if(f.contract_total_usd!=null)contract[f.lead_id]=Number(f.contract_total_usd)+Number(f.interest_usd||0);});
   pays.forEach(p=>paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0));
   const won=l=>l.stage_code===WON;
   const sum=set=>({n:set.length,q:set.filter(l=>qualText(l)==='Qualified').length,

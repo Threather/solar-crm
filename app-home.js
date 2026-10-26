@@ -165,7 +165,7 @@ async function homeFinance(){
   (pays||[]).forEach(p=>{paidBy[p.lead_id]=(paidBy[p.lead_id]||0)+Number(p.amount_usd||0);});
 
   const rows=leads.map(l=>{
-    const total=Number(saleBy[l.id]||0), paid=paidBy[l.id]||0;
+    const fb=finBy[l.id]||{}, total=Number(fb.contract_total_usd??saleBy[l.id]??0)+Number(fb.interest_usd||0), paid=paidBy[l.id]||0;
     return {...l,total,paid,due:total-paid,fin:finBy[l.id]||{}};
   });
   /* a deal only counts as due while money is still outstanding, so a fully
