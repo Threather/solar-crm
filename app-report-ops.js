@@ -92,6 +92,15 @@ async function renderOpsReport(){
      All time lets every step through, as before. */
   /* BOQ released to the kit arriving on site (27 Sep 2026); a delivery date still
      ahead is a booking, as with installation */
+  /* the rows behind each figure, for Export Excel */
+  const xl=l=>({Ref:l.ref_id||'',Customer:l.customer_name||'',Team:l.installation_team||'',
+    'BOQ date':l.boq_date||'','Delivery':l.delivery_date||'','Installation start':l.installation_start?localDay(l.installation_start):'',
+    'Installation done':instDoneOn(l)?localDay(instDoneOn(l)):'','EDC submitted':edcSentOn(l)?localDay(edcSentOn(l)):'',
+    'EDC inspected':edcSeenOn(l)?localDay(edcSeenOn(l)):''});
+  const xstep=(test,a,b)=>{const out=f.filter(test).map(l=>{const d=daysBetween(a(l),b(l));
+      return d==null?null:{Ref:l.ref_id||'',Customer:l.customer_name||'',From:a(l)?localDay(a(l)):'',To:b(l)?localDay(b(l)):'',Days:d};}).filter(Boolean);
+    if(out.length)out.push({Customer:'Average',Days:+(out.reduce((x,r)=>x+r.Days,0)/out.length).toFixed(1),From:'n='+out.length});
+    return out;};
   const tatDeliv =avgDays(f.map(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date)?daysBetween(l.boq_date,l.delivery_date):null));
   const tatBoq   =avgDays(f.map(l=>started(l)&&inW(l.installation_start)?daysBetween(l.boq_date,l.installation_start):null));
   const tatInst  =avgDays(f.map(l=>started(l)&&inW(instDoneOn(l))?daysBetween(l.installation_start,instDoneOn(l)):null));
@@ -172,24 +181,25 @@ async function renderOpsReport(){
     <div class="mg-band">${esc(opBand)} PROJECT EXECUTION DASHBOARD</div>
     <!-- his five boxes, in his order and his wording -->
     <div class="kpis seven ops">
-      ${kpi({label:'Active Projects',value:active.length,lead:true})}
-      ${kpi({label:'BOQ Released',value:boqInPeriod.length})}
-      ${kpi({label:'Pending Installation',value:pendingInst.length})}
-      ${kpi({label:'Installation Done',value:doneInPeriod.length,
+      ${kpi({label:'Active Projects',value:active.length,lead:true,x:active.map(xl)})}
+      ${kpi({label:'BOQ Released',value:boqInPeriod.length,x:boqInPeriod.map(xl)})}
+      ${kpi({label:'Pending Installation',value:pendingInst.length,x:pendingInst.map(xl)})}
+      ${kpi({label:'Installation Done',value:doneInPeriod.length,x:doneInPeriod.map(xl),
         delta:momPct(doneIn(thisM),doneIn(prevM)),deltaOf:prevWord})}
-      ${kpi({label:'EDC Pending Submit',value:edcSubmit.length})}
-      ${kpi({label:'EDC Pending Inspection',value:edcInspect.length})}
+      ${kpi({label:'EDC Pending Submit',value:edcSubmit.length,x:edcSubmit.map(xl)})}
+      ${kpi({label:'EDC Pending Inspection',value:edcInspect.length,x:edcInspect.map(xl)})}
     </div>
 
     <div class="homegrid level mgrid">
       ${/* the boxes above already carry BOQ released, pending installation,
            installation done and EDC waiting (client, 26 Oct 2026) */''}
-      ${repPanel('Project Status Pipeline',`<div class="pipe">
+      ${repPanel('Project Status Pipeline',xrows({'Installation in progress':pRun.map(xl),'EDC inspected':pSeen.map(xl)})+`<div class="pipe">
         ${bar('Installation in progress',pRun.length,Math.max(1,pRun.length,pSeen.length))}
         ${bar('EDC inspected',pSeen.length,Math.max(1,pRun.length,pSeen.length))}
       </div>`)}
 
-      ${repPanel('Active installation teams',
+      ${repPanel('Active installation teams',xrows({Projects:teamJobs.filter(l=>teamRows.some(r=>r[0]===(l.installation_team||'No team yet')))
+          .map(l=>({...xl(l),Team:l.installation_team||'No team yet','Still on site':instDoneOn(l)?'':'yes - no end date or confirmation'}))})+(
         teamRows.length
           /* pie beside its ledger rather than above it, so the card is no
              taller than the pipeline next to it (Kevin, 27 Sep 2026) */
@@ -197,11 +207,16 @@ async function renderOpsReport(){
               teamTotal+' project'+(teamTotal===1?'':'s')+' · '+teamRows.filter(r=>r[0]!=='No team yet').length+' teams')
            +ledger(teamRows.map((r,i)=>[r[0],r[1],
               Math.round(r[1]/teamTotal*100)+'%',TEAM_HUE[i%TEAM_HUE.length]]))+`</div>`
-          :blank('No team picked yet','A team is set on a won deal by the site engineer.'))}
+          :blank('No team picked yet','A team is set on a won deal by the site engineer.')))}
     </div>
 
     <div class="homegrid level mgrid">
-      ${repPanel('Turn Around Time Vs Target',gPair([
+      ${repPanel('Turn Around Time Vs Target',xrows({
+        'BOQ to delivery':xstep(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date),l=>l.boq_date,l=>l.delivery_date),
+        'BOQ to installation':xstep(l=>started(l)&&inW(l.installation_start),l=>l.boq_date,l=>l.installation_start),
+        'Installation duration':xstep(l=>started(l)&&inW(instDoneOn(l)),l=>l.installation_start,instDoneOn),
+        'Installation to EDC submission':xstep(l=>inW(edcSentOn(l)),instDoneOn,edcSentOn),
+        'EDC submission to inspection':xstep(l=>inW(edcSeenOn(l)),edcSentOn,edcSeenOn)})+gPair([
         ['BOQ to delivery',tatDeliv.avg,sla.deliv||null,tatDeliv.n],
         ['BOQ to installation',tatBoq.avg,sla.boq||null,tatBoq.n],
         ['Installation duration',tatInst.avg,sla.install||null,tatInst.n],
@@ -229,7 +244,9 @@ async function renderOpsReport(){
          window by issue date, solved and pending, by cause, and the
          turnaround of the solved ones - the After-sale list's own rule. */''}
     <div class="homegrid level mgrid">
-      ${repPanel('After-sale',`<div class="kpis seven ops asops">
+      ${repPanel('After-sale',xrows({Cases:asIn.map(r=>{const t=asTurn(r),l=f.find(x=>x.id===r.lead_id)||{};
+          return {Ref:l.ref_id||'',Customer:l.customer_name||'','Issue date':r.issue_date,Cause:r.cause||'Not recorded',
+            Status:r.status||'Pending','Turnaround (days)':t?t.days:''};})})+`<div class="kpis seven ops asops">
           ${kpi({label:'Problems raised',value:asIn.length})}
           ${kpi({label:'Solved',value:asSolved.length})}
           ${kpi({label:'Pending',value:asIn.length-asSolved.length})}

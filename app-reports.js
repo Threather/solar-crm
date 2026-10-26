@@ -216,7 +216,7 @@ async function renderReports(quiet){
 }
 /* the switch bar every report sits under */
 function repBar(title,extra){
-  ZOOMS=[];
+  ZOOMS=[];XREG=[];XPEND=[];
   const scopes=repScopes();
   return `<h2 style="margin-bottom:4px">${esc(title)}</h2>
     <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${esc(repWindowSentence())}</div>
@@ -231,7 +231,8 @@ function repBar(title,extra){
         <input type="date" value="${REPTO}" onchange="setRepDates('to',this.value)" title="To" aria-label="To">
       </div>
       ${extra||''}
-      <button class="btn-line" onclick="repExportPdf()" style="margin-left:auto">Export PDF</button>
+      <button class="btn-line" onclick="repExportXlsx()" style="margin-left:auto">Export Excel</button>
+      <button class="btn-line" onclick="repExportPdf()">Export PDF</button>
     </div>`;
 }
 /* Every dashboard exports the same way: landscape A4, photographed the way the
@@ -349,6 +350,7 @@ async function repExportPdf(){
 /* a labelled block of figures, the shape every section of the client's
    document takes */
 function repPanel(title,body,wide){
+  if(XPEND.length)XREG.push({title,tables:XPEND.splice(0)});
   return `<div class="panel${wide?' wide':''}"><h4>${esc(title)}</h4>${body}</div>`;
 }
 function repFigs(pairs){
@@ -464,6 +466,7 @@ function gSplit(parts,left,right){
    slices only have to show the proportion. Slices are drawn as SVG paths with
    a thin card-coloured gap between them. */
 function gPie(parts,caption){
+  xpend('Figures',['Item','Value'],(parts||[]).map(r=>[r[0],r[1]]));
   const P=parts.filter(p=>Number(p[1])>0);
   const total=P.reduce((a,p)=>a+Number(p[1]),0);
   if(!total)return '';
@@ -485,6 +488,7 @@ function gPie(parts,caption){
    an empty one is a fact about the pipeline, not a row to leave out. `order`
    keeps the list as given and `keepZero` keeps the empty rungs on it. */
 function gRank(items,opts){
+  xpend('Figures',['Item','Value'],(items||[]).map(r=>[r[0],r[1]]));
   const o=opts||{};
   let rows=[...items];
   if(!o.keepZero)rows=rows.filter(r=>Number(r[1]||0)>0);
@@ -530,6 +534,7 @@ const colMax=(rows,pick)=>Math.max(0,...rows.map(r=>Number(pick(r)||0)));
    A snapshot — how many leads are open right now — has no history and gets no
    chip, because inventing one is how a report starts lying. */
 function kpi(o){
+  XREG.push({box:true,title:o.label,value:o.value,rows:o.x||null});
   const d=o.delta;
   const chip=d==null?'' :
     `<span class="chip ${d>0?'up':d<0?'down':''}" title="this month against ${esc(o.deltaOf||'last month')} — the figure above follows the window, this does not">${d>0?'+':''}${d}% <span style="font-weight:500;opacity:.75">vs ${esc(o.deltaOf||'last')}</span></span>`;
@@ -612,6 +617,7 @@ function gBullet(label,value,target,opts){
    and it is what the operations sheet draws. Both bars share one scale, so a
    step that is twice another's is twice as long on the page. */
 function gPair(rows,opts){
+  xpend('Figures',['Step','Actual','Target','n'],(rows||[]).map(r=>[r[0],r[1],r[2]==null?'':r[2],r[3]==null?'':r[3]]));
   const o=opts||{};
   const has=rows.filter(r=>r[1]!=null&&r[1]!=='\u2014');
   if(!has.length)return blank('No turnaround yet',o.emptyWhy||'This needs a date at both ends of a step.');
@@ -1154,4 +1160,68 @@ function drawQuots(){
       <td>${fmtDate(q.released_date)}</td>
       <td>${esc(staffName(q.provided_by))}</td>
       <td class="nowrap"><button class="btn-line" onclick="printQuote('${q.id}',null,'km')">ខ្មែរ</button> <button class="btn-line" onclick="printQuote('${q.id}',null,'en')">English</button></td></tr>`).join('')+`</tbody></table>`;
+}
+
+/* ---------------- Export Excel (26 Oct 2026, council) ----------------
+   One workbook for the dashboard and window on screen: a Summary sheet with
+   every box, then one sheet per chart - the figures it draws, and under them
+   the rows behind each bar wherever the chart was given them (o.sheets, or
+   xrows in a panel). Nothing is re-counted here: the sheets read what the
+   screen was drawn from, so they cannot disagree with it. */
+let XREG=[], XPEND=[];
+function xpend(name,head,rows){XPEND.push({name,head,rows});}
+/* rows behind a panel that has no chart helper of its own: {name:[{col:val}]} */
+function xrows(sets){Object.entries(sets).forEach(([k,v])=>XPEND.push({name:k,objs:v||[]}));return '';}
+function xlsxLoad(){
+  if(window.XLSX)return Promise.resolve(true);
+  return new Promise(ok=>{const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=()=>ok(true);s.onerror=()=>ok(false);document.head.appendChild(s);});
+}
+async function repExportXlsx(){
+  if(!(await xlsxLoad())){toast('Could not load the Excel writer');return;}
+  const wb=XLSX.utils.book_new(), used=new Set();
+  const nameOf=t=>{let b=String(t||'Sheet').replace(/[\[\]:*?\/\\]/g,' ').trim().slice(0,28)||'Sheet',n=b,i=2;
+    while(used.has(n.toLowerCase()))n=b.slice(0,25)+' ('+(i++)+')';used.add(n.toLowerCase());return n;};
+  const title=(document.querySelector('#main h2')||{}).textContent||'Report';
+  const when=(document.querySelector('#main .sub')||{}).textContent||'';
+  const aoaObjs=objs=>{if(!objs.length)return [['0 rows']];const h=[...new Set(objs.flatMap(o=>Object.keys(o)))];
+    return [h,...objs.map(o=>h.map(k=>o[k]==null?'':o[k]))];};
+  const summary=[[title],[when],['Exported '+new Date().toLocaleString('en-GB')+' by '+(ME.full_name||'')+' ('+ME.role+')'],[],['Sheet','Figure','Value','Rows behind it']];
+  const sheets=[];
+  /* the boxes */
+  XREG.filter(e=>e.box).forEach(e=>{
+    let sh='';if(e.rows&&e.rows.length!=null){sh=nameOf(e.title);sheets.push([sh,aoaObjs(e.rows)]);}
+    summary.push([sh||'—',e.title,e.value,e.rows?e.rows.length:'']);});
+  /* the charts, in the order they were drawn */
+  ZOOMS.forEach(z=>{
+    const o=z.o||{}, t=o.title||'Chart', sh=nameOf(t), aoa=[[t],[]];
+    if(z.kind==='col'){aoa.push(['Item','Value']);(z.labels||[]).forEach((l,i)=>aoa.push([l,z.data[i]]));}
+    else{aoa.push(['Item',...z.data.map(s=>s.name)]);(z.labels||[]).forEach((l,i)=>aoa.push([l,...z.data.map(s=>s.values[i]==null?'':s.values[i])]));}
+    let rows=0;
+    if(typeof o.sheets==='function'){Object.entries(o.sheets()).forEach(([k,v])=>{rows+=v.length;aoa.push([],[k+' ('+v.length+')'],...aoaObjs(v));});}
+    sheets.push([sh,aoa]);summary.push([sh,t,'chart',o.sheets?rows:'']);});
+  /* panels drawn with lists and pies */
+  XREG.filter(e=>e.tables).forEach(e=>{
+    const sh=nameOf(e.title), aoa=[[e.title]];let rows=0;
+    e.tables.forEach(tb=>{aoa.push([]);
+      if(tb.objs){rows+=tb.objs.length;aoa.push([tb.name+' ('+tb.objs.length+')'],...aoaObjs(tb.objs));}
+      else aoa.push(tb.head,...tb.rows);});
+    sheets.push([sh,aoa]);summary.push([sh,e.title,'panel',rows||'']);});
+  /* plain tables (Sales, Agents) go in as they read on screen */
+  const taken=new Set(sheets.map(x=>String(x[0]).toLowerCase().slice(0,20)));
+  document.querySelectorAll('#main table').forEach(tb=>{
+    if(tb.closest('.vatbox')||!tb.rows.length)return;
+    /* its heading: the nearest one above it, inside its card or before it */
+    let h=null;for(let n=tb;n&&n.id!=='main'&&!h;n=n.parentElement)
+      for(let p=n.previousElementSibling;p&&!h;p=p.previousElementSibling)
+        h=p.matches('h2,h3,h4,.sechead,.ptitle')?p:p.querySelector&&[...p.querySelectorAll('h2,h3,h4,.sechead,.ptitle')].pop()||null;
+    const t=(h&&h.textContent.trim())||'Table';
+    if(taken.has(t.toLowerCase().slice(0,20)))return;
+    const sh=nameOf(t), aoa=[[t],[],...[...tb.rows].map(r=>[...r.cells].map(c=>c.innerText.trim()))];
+    sheets.push([sh,aoa]);summary.push([sh,t,'table',tb.rows.length-1]);});
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(summary),'Summary');
+  sheets.forEach(([n,aoa])=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),n));
+  XLSX.writeFile(wb,title+' - '+(typeof repPeriodWord==='function'?repPeriodWord():'')+'.xlsx');
+  toast('Exported '+(sheets.length+1)+' sheets');
 }

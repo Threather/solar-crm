@@ -25,7 +25,7 @@ async function renderCompareReport(){
   const ms=cmpMonths();
   if(!CMPB)CMPB=ms[0];
   if(!CMPA)CMPA=ms[1];
-  const gen=NAVGEN;ZOOMS=[];
+  const gen=NAVGEN;ZOOMS=[];XREG=[];XPEND=[];
   const [A,B]=await Promise.all([
     mgmtCompute('custom',[CMPA+'-01',cmpLast(CMPA)],monthName(CMPA)),
     mgmtCompute('custom',[CMPB+'-01',cmpLast(CMPB)],monthName(CMPB))]);
@@ -118,7 +118,7 @@ async function renderCompareReport(){
         <span>vs</span>
         <select onchange="setCmp('b',this.value)">${ms.map(m=>`<option value="${m}" ${m===CMPB?'selected':''}>${esc(monthName(m))}</option>`).join('')}</select>
       </div>
-      <button class="btn-line" onclick="repExportPdf()" style="margin-left:auto">Export PDF</button>
+      <button class="btn-line" onclick="repExportXlsx()" style="margin-left:auto">Export Excel</button> <button class="btn-line" onclick="repExportPdf()">Export PDF</button>
     </div>
     <div class="cmplegend"><span><i style="background:${CMP_COL[0]}"></i>${esc(nA)}</span><span><i style="background:${CMP_COL[1]}"></i>${esc(nB)}</span></div>
 
