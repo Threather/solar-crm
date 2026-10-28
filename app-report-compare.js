@@ -92,10 +92,13 @@ async function renderCompareReport(){
        first for the same person: green up, red down (client, 26 Oct 2026) */
     const one=(name,vals,prev)=>{const parts=labels.map((k,i)=>[k,Number(vals[i]||0),labels[i]==='Unassigned'?'var(--viz-mute)':pcol[i]]);
       const t=parts.reduce((a,p)=>a+p[1],0);
+      /* share of the team before the figure; on the second month, the change
+         against the person's own first month after it (client, 28 Oct 2026) */
       const arrow=i=>{if(!prev)return '';const a=Number(prev[i]||0),b=parts[i][1];
-        return b>a?'<span class="cmpup">▲</span>':b<a?'<span class="cmpdown">▼</span>':'<span class="cmpeq"></span>';};
+        const pc=a?`${Math.round(Math.abs(b-a)/a*100)}%`:'';
+        return b>a?`<span class="cmppct cmpup">${pc}▲</span>`:b<a?`<span class="cmppct cmpdown">${pc}▼</span>`:'<span class="cmpeq"></span>';};
       return `<div class="cmppie"><div class="cmppie-m">${esc(name)}</div>`+(t?gPie(parts,'Total '+cash(t))
-        +ledger(parts.map(([k,v,c],i)=>[k,cash(v)+`<span class="cmppct">${Math.round(v/t*100)}%</span>`+arrow(i),'',c])):'<div class="sub">Nothing</div>')+`</div>`;};
+        +ledger(parts.map(([k,v,c],i)=>[k,`<span class="cmppct" style="margin:0 6px 0 0">${Math.round(v/t*100)}%</span>`+cash(v)+arrow(i),'',c])):'<div class="sub">Nothing</div>')+`</div>`;};
     return repPanel(title,`<div class="cmppies">${one(nA,va)}${one(nB,vb,va)}</div>`);};
   const activeOf=(F,p)=>F.progSet.filter(l=>l.assigned_to===p.id).length;
   const wonOf=(F,p)=>F.wonSet.filter(l=>l.assigned_to===p.id).length;

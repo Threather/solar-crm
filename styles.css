@@ -1280,4 +1280,5 @@ table.caltable td{vertical-align:middle}
 .cmppie .ledger .row{gap:6px}
 .cmppie .ledger .v{gap:4px;font-size:var(--t-meta)}
 .cmppie .cmppct{min-width:0}
+.cmppct.cmpup,.cmppct.cmpdown{width:auto;font-size:var(--t-cap);margin-left:6px}
 .cmppie .ledger .sw{margin-right:4px}
