@@ -1322,3 +1322,4 @@ table.sctable tr.scch td{background:color-mix(in srgb,var(--ink) 4%,transparent)
 table.sctable .scsub{padding-left:16px;color:var(--ink-2)}
 .sclegend{display:inline-flex;gap:3px;margin-right:6px;vertical-align:middle}
 .sclegend i{width:8px;height:8px;border-radius:2px;display:block}
+table.sctable td:first-child{white-space:nowrap}

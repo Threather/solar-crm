@@ -146,18 +146,18 @@ async function renderMktReport(){
   const line=(name,set,all,cls)=>{const s=cnt(set);
     const qa=all.filter(l=>inMonth(l,prevM)&&everQ(l)).length,qb=all.filter(l=>inMonth(l,thisM)&&everQ(l)).length;
     return `<tr class="${cls}"><td>${cls==='scch'?`<b>${esc(name)}</b>`:`<span class="scsub">${esc(name)}</span>`}</td>
-      <td><b>${s.n}</b></td><td>${z(s.ph)}${pc(s.ph,s.n)}</td><td>${z(s.q)}${pc(s.q,s.n)}</td><td>${z(s.c)}</td><td>${z(s.d)}</td><td>${z(s.y)}</td>
+      <td><b>${s.n}</b></td><td>${z(s.ph)}</td><td>${z(s.q)}</td><td>${z(s.c)}</td><td>${z(s.d)}</td><td>${z(s.y)}</td><td><b>${s.n?Math.round(s.q/s.n*100)+'%':ZERO}</b></td>
       <td class="nowrap">${trend(qa,qb)}</td><td>${mix(s)}</td></tr>`;};
   xrows({'Channel scorecard':scoreRows.flatMap(([c,set,all,subsOf])=>[[c.replace(/_/g,' '),'',set,all]].concat(subsOf.map(([n,s,a])=>[c.replace(/_/g,' '),n,s,a])))
     .map(([c,n,set,all])=>{const s=cnt(set);return {Channel:c,'Sub-channel':n||'(all)',Leads:s.n,'With phone':s.ph,Qualified:s.q,'Closed-Lost':s.c,Disqualified:s.d,'Not yet':s.y,
       ['Qualified '+prevWord]:all.filter(l=>inMonth(l,prevM)&&everQ(l)).length,['Qualified '+monthName(thisM)]:all.filter(l=>inMonth(l,thisM)&&everQ(l)).length};})});
   const T=cnt(got);
   const scorecard=got.length?`<div class="tablewrap"><table class="table-compact sctable"><thead><tr>
-      <th>Channel / Sub-channel</th><th>Leads</th><th>With phone</th><th>Qualified</th><th>Closed-Lost</th><th>Disqualified</th><th>Not yet</th>
+      <th>Channel / Sub-channel</th><th>Leads</th><th>With phone</th><th>Qualified</th><th>Closed-Lost</th><th>Disqualified</th><th>Not yet</th><th>Qualified %</th>
       <th>Qualified ${esc(prevWord)} → ${esc(monthName(thisM))}</th>
       <th><span class="sclegend">${MIX.map(([k,c])=>`<i style="background:${c}" title="${k}"></i>`).join('')}</span>Mix</th></tr></thead><tbody>`
     +scoreRows.map(([c,set,all,subsOf])=>line(c.replace(/_/g,' '),set,all,'scch')+subsOf.map(([n,s,a])=>line(n,s,a,'scsubrow')).join('')).join('')
-    +`</tbody><tfoot><tr class="srtotal"><td><b>Total</b></td><td><b>${T.n}</b></td><td><b>${T.ph}</b></td><td><b>${T.q}</b></td><td><b>${T.c}</b></td><td><b>${T.d}</b></td><td><b>${T.y}</b></td>
+    +`</tbody><tfoot><tr class="srtotal"><td><b>Total</b></td><td><b>${T.n}</b></td><td><b>${T.ph}</b></td><td><b>${T.q}</b></td><td><b>${T.c}</b></td><td><b>${T.d}</b></td><td><b>${T.y}</b></td><td><b>${T.n?Math.round(T.q/T.n*100)+'%':''}</b></td>
       <td class="nowrap"><b>${qPrev.length} → ${qThis.length}</b></td><td></td></tr></tfoot></table></div>`
     :blank('No leads in this window','');
 
