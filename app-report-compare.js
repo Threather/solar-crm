@@ -179,10 +179,10 @@ async function renderCompareReport(){
     <div class="homegrid three mgrid">
       ${two('Avg. daily contact to customer',pn,byId(A,avgOf),byId(B,avgOf),{fmt:v=>v.toFixed(2)})}
       ${two('# of leads held (received)',pn,byId(A,heldOf),byId(B,heldOf))}
+      ${two('# of Customer Contacted',pn,byId(A,contOf),byId(B,contOf))}
     </div>
 
     <div class="homegrid three mgrid">
-      ${two('# of Customer Contacted',pn,byId(A,contOf),byId(B,contOf))}
       ${two('Residential',pn,byId(A,typeOf('Residential')),byId(B,typeOf('Residential')))}
       ${two('C & I',pn,byId(A,typeOf('C & I')),byId(B,typeOf('C & I')))}
     </div>

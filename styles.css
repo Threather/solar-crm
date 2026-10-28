@@ -758,7 +758,7 @@ td.numcell b{font-weight:600}
 .gpair .bars{display:flex;flex-direction:column;gap:3px}
 .gpair .b{display:block;height:9px;border-radius:0 3px 3px 0;min-width:2px}
 .gpair .b.act{background:var(--viz-1)}
-.gpair .b.act.over{background:var(--bad)}
+.gpair .b.act.over{background:var(--viz-1)}
 /* --line is 1.33:1 against the card - a target bar drawn in it is not
    visible, which defeats the comparison the panel exists for. */
 .gpair .b.tgt{background:var(--viz-mute);height:7px}
@@ -1282,3 +1282,9 @@ table.caltable td{vertical-align:middle}
 .cmppie .cmppct{min-width:0}
 .cmppct.cmpup,.cmppct.cmpdown{width:auto;font-size:var(--t-cap);margin-left:6px}
 .cmppie .ledger .sw{margin-right:4px}
+
+/* Marketing dashboard (28 Oct 2026): five boxes (four for marketing) fill the row; the two tables run full width */
+.kpis.seven.mk5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.kpis.seven.mk4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:700px){.kpis.seven.mk5,.kpis.seven.mk4{grid-template-columns:repeat(2,1fr)}}
+.homegrid.mkwide{grid-template-columns:1fr;margin-top:16px}

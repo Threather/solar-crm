@@ -20,7 +20,9 @@ const finContract=r=>r.fin?.contract_extra_usd==null&&r.fin?.contract_total_usd!
 /* interest on a loan (26 Oct 2026): the contract stays as signed, the customer
    owes contract + interest, and every report reads that */
 const finInterest=r=>Number(r.fin?.interest_usd||0);
-const finWithInterest=r=>finContract(r)+finInterest(r);
+/* VAT on the deal (28 Oct 2026): typed by finance, the customer pays it on top */
+const finVat=r=>Number(r.fin?.vat_usd||0);
+const finWithInterest=r=>finContract(r)+finInterest(r)+finVat(r);
 const finDue=r=>finWithInterest(r)+finFees(r);
 /* a Han loan is its own debt, customer to Han (19 Oct 2026) */
 /* Han personal account = 'Han': typed once - amount, monthly payment, end date;
@@ -317,7 +319,8 @@ function openFinance(id){
         <div><label>Date signed</label><input id="f-signed" type="date" value="${f.contract_signed_date||''}"></div>
         <div><label>Contract total (USD)</label><input id="f-total" value="${fmtMoney(finContract(r))}" disabled title="The sale value at closing, plus anything additional"></div>
         <div><label>Interest (USD)</label>${numBox('f-int',f.interest_usd,{then:'finIntNow()',attrs:'placeholder="Only on a loan"'})}</div>
-        <div><label>Contract + interest (USD)</label><input id="f-withint" value="${fmtMoney(finWithInterest(r))}" disabled></div>
+        <div><label>VAT (USD)</label>${numBox('f-vat',f.vat_usd,{then:'finIntNow()',attrs:'placeholder="Only if charged"'})}</div>
+        <div><label>Customer pays (USD)</label><input id="f-withint" value="${fmtMoney(finWithInterest(r))}" disabled></div>
         <div><label>Additional (USD)</label>${numBox('f-extra',f.contract_extra_usd,{then:'finTotal()',attrs:'placeholder="Only if there is more"'})}</div>
         <div style="grid-column:2/-1"><label>What it is for</label><input id="f-extranote" value="${esc(f.contract_extra_note||'')}" placeholder="Optional"></div>
         <div><label>Type of account</label><select id="f-acct">${optList(ACCOUNT_TYPES,f.account_type)}</select></div>
@@ -422,7 +425,7 @@ function openFinance(id){
 }
 /* the read-only Contract + interest follows the boxes as they are typed */
 function finIntNow(){const t=$('f-withint');if(!t)return;
-  t.value=fmtMoney(finTotalNow()+Number(normNum($('f-int').value)||0));}
+  t.value=fmtMoney(finTotalNow()+Number(normNum($('f-int').value)||0)+Number(normNum($('f-vat').value)||0));}
 async function saveFinance(id){
   const row={lead_id:id,
     contract_status:$('f-status').value||null,
@@ -433,6 +436,7 @@ async function saveFinance(id){
     account_type:$('f-acct').value||null,
     payment_term:$('f-term').value.trim()||null,
     interest_usd:normNum($('f-int').value)||null,
+    vat_usd:normNum($('f-vat').value)||null,
     loan_from:$('f-loan').value||null,
     loan_amount_usd:$('f-loan').value?(normNum($('f-loanamt').value)||null):null,
     loan_monthly_usd:$('f-loan').value?(normNum($('f-loanmon').value)||null):null,
@@ -546,7 +550,7 @@ async function deletePayment(pid,leadId){
 function exportFinance(){
   downloadCSV('finance',['Ref ID','Customer','Closed-Won month','Received','Sale engineer',
     'Channel','Sub-channel','System type','Panel kWp','Inverter total kW',
-    'Sale value (USD)','Contract total (USD)','Interest (USD)','Contract + interest (USD)','Contract status','Date signed',
+    'Sale value (USD)','Contract total (USD)','Interest (USD)','VAT (USD)','Customer pays (USD)','Contract status','Date signed',
     'Type of account','Payment term','Payment','Loan amount (USD)','Monthly payment (USD)','Loan end date','Remark','Next follow-up',
     'Other fees (USD)','What the fees were for',
     'Payments','Paid (USD)','Total due (USD)','Outstanding (USD)','Next expected date','Next expected (USD)'],
@@ -554,7 +558,7 @@ function exportFinance(){
       r.stage_entered_at?localDay(r.stage_entered_at).slice(0,7):'',
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
-      r.final_sale_usd,r.fin?.contract_total_usd,finInterest(r)||'',finWithInterest(r),r.fin?.contract_status,r.fin?.contract_signed_date,
+      r.final_sale_usd,r.fin?.contract_total_usd,finInterest(r)||'',finVat(r)||'',finWithInterest(r),r.fin?.contract_status,r.fin?.contract_signed_date,
       r.fin?.account_type,r.fin?.payment_term,(LOAN_WORD[r.fin?.loan_from]||'Pay in full'),
       r.fin?.loan_from?Number(r.fin.loan_amount_usd||0):'',r.fin?.loan_from?Number(r.fin.loan_monthly_usd||0):'',r.fin?.loan_from?(r.fin.loan_end_date||''):'',
       r.fin?.finance_remark,

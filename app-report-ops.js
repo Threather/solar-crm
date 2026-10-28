@@ -257,5 +257,22 @@ async function renderOpsReport(){
          {name:'Pending',color:'var(--viz-4)',values:asCauses.map(c=>asIn.filter(r=>(r.cause||'Not recorded')===c&&(r.status||'Pending')!=='Solved').length)}],
         {title:'What kind of problem',stacked:true,compact:true})
         :emptyChart('What kind of problem','No after-sale case '+per,'')}
-    </div>`;
+    </div>
+    ${/* customers who raised 2 or more problems in the window (client, 28 Oct 2026) */(()=>{
+      const by={};asIn.forEach(r=>(by[r.lead_id]=by[r.lead_id]||[]).push(r));
+      const rep=Object.entries(by).filter(([,c])=>c.length>=2)
+        .sort((a,b)=>b[1].length-a[1].length||String(b[1].at(-1).issue_date).localeCompare(String(a[1].at(-1).issue_date)));
+      const kinds=c=>{const n={};c.forEach(r=>{const k=r.cause||'Not recorded';n[k]=(n[k]||0)+1;});
+        return Object.entries(n).sort((a,b)=>b[1]-a[1]).map(([k,v])=>v>1?k+' ×'+v:k).join(', ');};
+      const last=c=>c.map(r=>r.issue_date||'').sort().at(-1);
+      const pend=c=>c.filter(r=>(r.status||'Pending')!=='Solved').length;
+      xrows({'Repeat problems':rep.map(([id,c])=>{const l=f.find(x=>x.id===id)||{};
+        return {Ref:l.ref_id||'',Customer:l.customer_name||'','Times raised':c.length,'What kind of problem':kinds(c),'Last raised':last(c),Pending:pend(c)};})});
+      return `<div style="margin-top:16px">${repPanel('Customers raising problems again',rep.length?`<div class="tablewrap"><table class="table-compact">
+        <thead><tr><th>Ref ID</th><th>Customer</th><th>Times raised</th><th>What kind of problem</th><th>Last raised</th><th>Pending</th></tr></thead>
+        <tbody>${rep.map(([id,c])=>{const l=f.find(x=>x.id===id)||{};
+          return `<tr class="clickable" onclick="openLead('${id}')"><td class="mono">${esc(l.ref_id||'')}</td><td><b class="nm">${esc(l.customer_name||'')}</b></td>
+            <td><b>${c.length}</b></td><td>${esc(kinds(c))}</td><td class="nowrap">${esc(fmtDate(last(c)))}</td>
+            <td>${pend(c)?`<b style="color:var(--bad)">${pend(c)}</b>`:'0'}</td></tr>`;}).join('')}</tbody></table></div>`
+        :blank('No customer raised 2 or more problems '+per,''))}</div>`;})()}`;
 }

@@ -100,32 +100,51 @@ async function renderMktReport(){
   const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m).length;
   const prevWord=monthName(prevM);
 
-  $('main').innerHTML=repBar('Marketing report')+`
-    <!-- his five boxes, in his order -->
-    <div class="kpis six">
-      ${kpi({label:'Total Leads',value:got.length,lead:true,
-        delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord,
-        note:leadTarget?mtd.length+' of '+leadTarget+' this month':'no lead target set'})}
-      ${kpi({label:'Digital Leads',value:digital.length,
-        note:pct(digital.length,got.length)+' of total'})}
-      ${noStage?'':kpi({label:'Qualification Rate',value:qualRate===null?'\u2014':qualRate+'%',
-        note:qualified.length+' of '+got.length})}
-      ${kpi({label:'Spend',value:spend==null?'\u2014':fmtMoney(spend),
-        note:budget==null?'no budget set':'of '+fmtMoney(budget)+' budget'})}
-      ${kpi({label:'Cost per Lead',value:cash(cpl),
-        note:targetCpl==null?'no target CPL':'target '+cash(targetCpl)})}
+  /* laid out like Management and Operations (council, 28 Oct 2026): logo and
+     facts, dark band, the boxes, then panels with big headings */
+  const xl=l=>({Ref:l.ref_id||'',Customer:l.customer_name||'',Channel:String(chOf(l)).replace(/_/g,' '),Sub:l.lead_sub_channel||'','Lead date':localDay(dayOf(l))});
+  const mkEnd=range[1]<localDay(new Date())?range[1]:localDay(new Date());
+  const mkStart=REPPERIOD==='all'?(rows.map(l=>localDay(dayOf(l))).filter(Boolean).sort()[0]||mkEnd):range[0];
+  const mkDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)+1;
+  const mkFmt=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const mkOne=mkStart.slice(8)==='01'&&mkStart.slice(0,7)===mkEnd.slice(0,7);
+  const mkBand=(mkOne?new Date(mkStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})
+    :mkFmt(mkStart)+' - '+mkFmt(mkEnd)).toUpperCase();
+  $('main').innerHTML=repBar('Marketing dashboard')+`
+    <div class="mg-head">
+      <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">
+      <div class="mg-facts">
+        <span>Start date</span><b>${esc(mkFmt(mkStart))}</b>
+        <span>Today</span><b>${esc(mkFmt(mkEnd))}</b>
+        <span>Days passed</span><b>${mkDays(mkStart,mkEnd)}</b>
+      </div>
     </div>
-    ${missing.length?`<div class="hint">
-      <b>${esc(missing.join(' and '))} not set for ${esc(monthName(mStart.slice(0,7)))}.</b>
-      Set under Targets.
-    </div>`:''}
+    <div class="mg-band">${esc(mkBand)} MARKETING DASHBOARD</div>
+    <!-- his five boxes, in his order -->
+    <div class="kpis seven mk${noStage?4:5}">
+      ${kpi({label:'Total Leads',value:got.length,lead:true,x:got.map(xl),
+        delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord})}
+      ${kpi({label:'Digital Leads',value:digital.length,x:digital.map(xl)})}
+      ${noStage?'':kpi({label:'Qualification Rate',value:qualRate===null?'\u2014':qualRate+'%',x:qualified.map(xl)})}
+      ${kpi({label:'Spend',value:spend==null?'\u2014':fmtMoney(spend)})}
+      ${kpi({label:'Cost per Lead',value:cash(cpl)})}
+    </div>
 
-    <div class="homegrid">
+    <div class="homegrid three mgrid">
+      ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
+        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
+      ${leadTarget&&days.length>1
+        ?lineChart(days.map(String),
+          [{name:'Actual',color:'var(--viz-1)',values:cumActual},
+           {name:'Target',color:'var(--viz-2)',values:cumTarget}],
+          {title:'MTD trend, target vs actual',compact:true})
+        : repPanel('MTD trend, target vs actual',
+            blank('No lead target set',''))}
       ${noStage||!subs.length
         ?repPanel('Leads by sub-channel',
           subs.length?gRank(subs.map(s=>[s,got.filter(l=>l.lead_sub_channel===s).length]),
             {color:'var(--viz-1)'})
-          :blank('No sub-channel recorded','Marketing pick one on the New lead form.'))
+          :blank('No sub-channel recorded',''))
         :groupChart(subs,
           [{name:'Qualified',color:'var(--viz-good)',values:subs.map(subQ)},
            {name:'Not qualified',color:'var(--viz-s5)',values:subs.map(subD)}],
@@ -137,23 +156,7 @@ async function renderMktReport(){
              {color:'var(--viz-2)',order:true,keepZero:true,limit:capture.length,
               fmt:v=>v+'%'})
            +ledger(capture.map(r=>[r[0],r[2]+'/'+r[1],'have a phone number']))
-          :blank('Nothing to count yet','This fills in as leads are created.'))}
-    </div>
-
-    <div class="homegrid">
-      ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
-        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
-      ${leadTarget&&days.length>1
-        ?lineChart(days.map(String),
-          [{name:'Actual',color:'var(--viz-1)',values:cumActual},
-           {name:'Target',color:'var(--viz-2)',values:cumTarget}],
-          {title:'MTD trend, target vs actual',compact:true,
-           cap:'Cumulative, by day of '+monthName(thisM)})
-        : repPanel('MTD trend, target vs actual',
-            blank('No lead target set','The line needs a target for '+monthName(thisM)+', set under Targets.'))}
-    </div>
-
-    <div class="homegrid">
+          :blank('Nothing to count yet',''))}
       ${noStage?'':repPanel('Conversion funnel',gFunnel([
         /* one hue darkening down the funnel. It used to run s2, s4, viz-1,
            and s4 against viz-1 is a colourblind delta of 1.1 - the same
@@ -178,12 +181,13 @@ async function renderMktReport(){
       ]))}
     </div>
 
-    <h3 style="font-size:15px;margin:22px 0 8px">Leads by channel, last twelve months</h3>
-    ${months.length?barChart(months,counts,used)
-      :blank('Nothing to chart yet','The breakdown by channel appears once leads have been created.')}
-
-    <h3 style="font-size:15px;margin:22px 0 8px">Channel detail ${esc(per==='ever'?'':per)}</h3>
-    ${got.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
+    <div class="homegrid mgrid mkwide">
+      ${months.length?barChart(months,counts,used)
+        :repPanel('Leads by channel, last twelve months',blank('Nothing to chart yet',''))}
+    </div>
+    <div class="homegrid mgrid mkwide">
+      ${repPanel('Channel detail '+(per==='ever'?'':per),
+        got.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
       <th>Channel</th><th>Leads</th>${noStage?'':`<th>Qualified</th><th>Qualification rate</th>
       <th>Quotation sent</th><th>Closed-Won</th><th>Lead to won</th>`}
     </tr></thead><tbody>`+[...MKT_CH,'Other'].map(c=>{
@@ -196,5 +200,6 @@ async function renderMktReport(){
         ${noStage?'':`<td>${q.length}</td><td>${pct(q.length,set.length)}</td>
         <td>${qt.length}</td><td>${w.length}</td><td>${pct(w.length,set.length)}</td>`}</tr>`;
     }).join('')+`</tbody></table></div>`
-    :blank('No leads in this window','Widen the period to see the channel breakdown.')}`;
+    :blank('No leads in this window',''))}
+    </div>`;
 }

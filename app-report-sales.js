@@ -92,7 +92,7 @@ async function renderSalesReport(){
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
     repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month').order('id'),ids),
-    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date,interest_usd').order('lead_id'),ids)
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date,interest_usd,vat_usd').order('lead_id'),ids)
   ]);
 
   const byId={}; rows.forEach(l=>byId[l.id]=l);
@@ -162,7 +162,7 @@ async function renderSalesReport(){
   const contactedIn=(id,a,b)=>stageRow(mine(id),a,b).reduce((x,y)=>x+y,0);
 
   const pct=repPct, cash=repCash;
-  const dueOf=l=>(Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0))+(feeBy[l.id]||0);
+  const dueOf=l=>(Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)+Number(finBy[l.id]?.vat_usd||0))+(feeBy[l.id]||0);
   const owedOf=l=>Math.max(0,dueOf(l)-(paidBy[l.id]||0));
 
   /* ---- the windows the sheet works in ---- */
@@ -188,7 +188,7 @@ async function renderSalesReport(){
   /* the contract, NOT dueOf: dueOf adds the payment fees on top because it
      answers "how much is owed". Total Contract Value is what was signed. */
   const contractOf=(id,a,b)=>mine(id).filter(l=>l.stage_code===WON&&within(l.stage_entered_at,a,b))
-    .reduce((x,l)=>x+(Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)),0);
+    .reduce((x,l)=>x+(Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)+Number(finBy[l.id]?.vat_usd||0)),0);
 
   /* ---- by channel (council, 8 Oct 2026): one row per channel, five columns
      each on its own scale, for the dates picked. Raw = leads that came in;
@@ -208,7 +208,7 @@ async function renderSalesReport(){
   const chQual=chRaw.filter(l=>qualText(l)==='Qualified'&&localDay(qualOnS[l.id]||dayOf(l))<=chEnd);
   const chWon=rows.filter(l=>chScope(l)&&l.stage_code===WON&&within(l.stage_entered_at,chWin[0],chWin[1]));
   const chPays=pays.filter(p=>byId[p.lead_id]&&chScope(byId[p.lead_id])&&within(countDay(p),chWin[0],chWin[1]));
-  const chContractOf=l=>(Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0));
+  const chContractOf=l=>(Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)+Number(finBy[l.id]?.vat_usd||0));
   const chKeys=[...new Set([...CH_ORDER,...[...chRaw,...chWon,...chPays.map(p=>byId[p.lead_id])].map(chOf)])]
     .sort((a,b)=>(a==='none')-(b==='none')||((CH_ORDER.indexOf(a)+1||99)-(CH_ORDER.indexOf(b)+1||99))||a.localeCompare(b));
   const chRows=chKeys.map(c=>({c,raw:chRaw.filter(l=>chOf(l)===c).length,qual:chQual.filter(l=>chOf(l)===c).length,
@@ -323,7 +323,7 @@ async function renderSalesReport(){
   ;
   if(SALEVIEW==='third')SALEVIEW='mom';
   /* Third Party sits under MoM, below Performance by Channel (26 Oct 2026) */
-  const third=SALEVIEW==='mom'&&['admin','manager'].includes(ME.role)?await thirdPartyHtml():'';
+  const third=SALEVIEW==='mom'&&['admin','manager'].includes(ME.role)?await thirdPartyHtml(months):'';
   const tabs=`<div class="scope saleview" role="group" aria-label="View">${VIEWS.map(([k,l])=>
     `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;
   const show=v=>SALEVIEW===v;

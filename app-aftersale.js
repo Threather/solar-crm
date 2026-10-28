@@ -10,7 +10,18 @@
 let AS_CAUSES=['Installation issue','Sale error','Customer issue','Product issue',
                  'Internal issue','Technical issue','Learn more'];
 const AS_STATUS=['Pending','Solved'];
-let ASROWS=[], ASFOUND=[], ASPICK=null, ASFILTER={q:'',status:'',cause:''};
+let ASROWS=[], ASFOUND=[], ASPICK=null, ASFILTER={q:''};
+/* heading filters (28 Oct 2026): one reader per column, ticks in ASHF */
+const asLeadMonth=r=>{const d=r.leads?.lead_date||r.leads?.created_at;return d?monthName(localDay(d).slice(0,7)):'Not recorded';};
+const AS_COLS={
+  lm:['Lead month',asLeadMonth],
+  im:['Issue date',r=>r.issue_date?monthName(r.issue_date.slice(0,7)):'Not recorded'],
+  lvl:['Level',r=>{const n=asLevelN(r);return n?ordWord(n):'None yet';}],
+  st:['Status',r=>r.status||'Pending'],
+  ca:['Caused by',r=>r.cause||'Not recorded'],
+  pic:['PIC',r=>asPicOf(r)||'Not recorded'],
+  sb:['Solved by',r=>r.solved_by||'Not recorded']};
+let ASHF={};
 
 async function renderAfterSale(){
   if(!['admin','sales','site_engineer','manager'].includes(ME.role)){
@@ -19,7 +30,7 @@ async function renderAfterSale(){
   /* leads and after_sales have one foreign key between them, but naming it
      keeps this safe if a second one is ever added */
   const {data,error}=await rowsOf(()=>sb.from('after_sales')
-    .select('*, leads!after_sales_lead_id_fkey(ref_id,customer_name,phone,site_address,commune,district,province,city_province,assigned_to,site_engineer_id,system_type,panel_kwp,inverter_kw,inverter_pcs,stage_entered_at)')
+    .select('*, leads!after_sales_lead_id_fkey(ref_id,lead_date,created_at,customer_name,phone,site_address,commune,district,province,city_province,assigned_to,site_engineer_id,system_type,panel_kwp,inverter_kw,inverter_pcs,stage_entered_at)')
     .order('issue_date',{ascending:false}).order('id'));
   if(error){$('main').innerHTML=blank('Could not load after-sale cases',why(error));console.error(error);return;}
   ASROWS=data||[];
@@ -27,8 +38,7 @@ async function renderAfterSale(){
 }
 function asFiltered(){
   let rows=ASROWS;
-  if(ASFILTER.status)rows=rows.filter(r=>(r.status||'Pending')===ASFILTER.status);
-  if(ASFILTER.cause)rows=rows.filter(r=>r.cause===ASFILTER.cause);
+  Object.entries(ASHF).forEach(([k,v])=>{if(v&&v.length)rows=rows.filter(r=>v.includes(AS_COLS[k][1](r)));});
   if(ASFILTER.q){const q=ASFILTER.q.toLowerCase();
     rows=rows.filter(r=>(r.leads?.customer_name||'').toLowerCase().includes(q)
       ||(r.leads?.ref_id||'').toLowerCase().includes(q)
@@ -61,38 +71,34 @@ function paintAfterSale(){
 
     <div class="toolbar">
       <input placeholder="Search a case by customer, ref or phone…" value="${esc(ASFILTER.q||'')}" oninput="ASFILTER.q=this.value;asDraw()">
-      <select onchange="ASFILTER.status=this.value;asDraw()">
-        <option value="">Any status</option>
-        ${AS_STATUS.map(v=>`<option value="${esc(v)}" ${ASFILTER.status===v?'selected':''}>${esc(v)}</option>`).join('')}
-      </select>
-      <select onchange="ASFILTER.cause=this.value;asDraw()">
-        <option value="">Any cause</option>
-        ${AS_CAUSES.map(v=>`<option value="${esc(v)}" ${ASFILTER.cause===v?'selected':''}>${esc(v)}</option>`).join('')}
-      </select>
-      <button class="btn-line" onclick="ASFILTER={q:'',status:'',cause:''};paintAfterSale()">Clear</button>
+      <button class="btn-line" onclick="ASFILTER={q:''};ASHF={};paintAfterSale()">Clear</button>
       <span class="spacer"></span>
       <button class="btn-line" onclick="exportAfterSale()">Export CSV</button>
     </div>
+    <div id="as-chips"></div>
     <div class="tablewrap" id="as-wrap"></div>`;
   asDraw();
 }
 function asDraw(){
   const rows=asFiltered();
-  if(!rows.length){$('as-wrap').innerHTML=(ASFILTER.q||ASFILTER.status||ASFILTER.cause)
+  $('as-chips').innerHTML=hfChips(Object.keys(AS_COLS).map(k=>[AS_COLS[k][0],ASHF[k],`asHfSet('${k}',[])`]),'ASHF={};asDraw()');
+  if(!rows.length){$('as-wrap').innerHTML=(ASFILTER.q||Object.values(ASHF).some(v=>v&&v.length))
     ?blank('No matches','No case fits the current search and filters.')
     :blank('No cases yet','Find a customer above to raise the first one.');return;}
   /* how far it got, read off the dates rather than stored twice */
   const lvl=r=>{const n=asLevelN(r);return n?ordWord(n):'—';};
   $('as-wrap').innerHTML=`<table class="table-compact"><thead><tr>
-    <th style="width:104px">Ref ID</th><th>Customer</th><th style="width:110px">Phone</th><th style="width:110px">Issue date</th>
-    <th style="width:80px">Level</th><th style="width:104px">Status</th>
-    <th style="width:140px">Caused by</th><th style="width:130px">PIC</th>
-    <th style="width:130px">Solved by</th><th style="width:110px">Turnaround</th><th>Problem</th>
+    <th style="width:104px">Ref ID</th><th>Customer</th><th style="width:110px">Phone</th>
+    <th style="width:104px">${asHead('lm')}</th><th style="width:110px">${asHead('im')}</th>
+    <th style="width:80px">${asHead('lvl')}</th><th style="width:104px">${asHead('st')}</th>
+    <th style="width:140px">${asHead('ca')}</th><th style="width:130px">${asHead('pic')}</th>
+    <th style="width:130px">${asHead('sb')}</th><th style="width:110px">Turnaround</th><th>Problem</th>
   </tr></thead><tbody>`+rows.map(r=>`
     <tr class="rowlink" onclick="asOpen('${r.id}')">
       <td class="refid">${esc(r.leads?.ref_id||'—')}</td>
       <td><b class="asclamp">${esc(r.leads?.customer_name||'—')}</b></td>
       <td class="phone">${r.leads?.phone?phoneCell(r.leads.phone):'<span class="quiet">—</span>'}</td>
+      <td class="nowrap">${esc(asLeadMonth(r))}</td>
       <td class="nowrap">${fmtDate(r.issue_date)}</td>
       <td>${esc(lvl(r))}</td>
       <td>${(r.status||'Pending')==='Solved'
@@ -105,6 +111,14 @@ function asDraw(){
       <td class="rem"><span class="asclamp" title="${esc([r.problem_detail,r.status_remark].filter(Boolean).join(' — '))}">${esc(r.problem_detail||'')}</span></td>
     </tr>`).join('')+`</tbody></table>`;
 }
+function asHead(k){return hfHead(AS_COLS[k][0],(ASHF[k]||[]).length,`asHfOpen(event,'${k}')`);}
+/* values counted from the rows the other filters leave, Excel style */
+function asHfOpen(ev,k){
+  const keep=ASHF[k];ASHF[k]=[];const base=asFiltered();ASHF[k]=keep;
+  const n={};base.forEach(r=>{const v=AS_COLS[k][1](r);n[v]=(n[v]||0)+1;});
+  hfOpen(ev,{title:AS_COLS[k][0],values:Object.entries(n).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))),
+    selected:ASHF[k]||[],apply:v=>asHfSet(k,v)});}
+function asHfSet(k,v){ASHF[k]=v;asDraw();}
 /* the same lookup the repeat-customer flow uses: nobody remembers a reference
    from a year ago, but the customer knows their own number */
 async function asFind(){
@@ -249,10 +263,10 @@ async function asDelete(id){
 function exportAfterSale(){
   const rows=asFiltered();
   if(!rows.length){toast('Nothing to export');return;}
-  downloadCSV('after-sale',['Ref ID','Customer','Phone','Issue date','Status','Why pending',
+  downloadCSV('after-sale',['Ref ID','Customer','Phone','Lead month','Issue date','Status','Why pending',
     'Caused by','Occurred from','Problem','Solution',
     'First level','Second level','Third level','Solved by','PIC','Later levels','Turnaround (days)','Raised'],
-    rows.map(r=>[r.leads?.ref_id,r.leads?.customer_name,r.leads?.phone,r.issue_date,
+    rows.map(r=>[r.leads?.ref_id,r.leads?.customer_name,r.leads?.phone,asLeadMonth(r),r.issue_date,
       r.status||'Pending',r.status_remark,r.cause,r.cause_from,r.problem_detail,r.solution,
       r.level1_date,r.level2_date,r.level3_date,r.solved_by,
       asPicOf(r),asLevels(r).map((x,n)=>ordWord(n+2)+': '+[x.date,x.by,x.pic,x.solution].filter(Boolean).join(' · ')).join(' | '),asTurn(r)?.days??'',localDay(r.created_at)]));

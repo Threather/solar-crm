@@ -86,7 +86,7 @@ async function mgmtCompute(P,R,PW){
     repByIds(()=>sb.from('quotations').select('lead_id,price_usd,provided_by,released_date,created_at').order('created_at').order('id'),ids),
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
     repByIds(()=>sb.from('lead_payments').select('lead_id,amount_usd,other_fee_usd,paid_on,count_month,created_at').order('id'),ids),
-    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date,interest_usd').order('lead_id'),ids),
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd,follow_up_date,interest_usd,vat_usd').order('lead_id'),ids),
     /* what customers have promised to pay, keyed in by admin on Finance */
     rowsOf(()=>sb.from('lead_expected_payments').select('lead_id,expected_on,amount_usd,created_at').order('expected_on').order('id')).then(r=>r.data||[])
   ]);
@@ -118,7 +118,7 @@ async function mgmtCompute(P,R,PW){
   const disqInWin=rows.filter(l=>isDisqualified(l)&&inWin(l.stage_entered_at));
 
   /* ---- the KPI row: collection ---- */
-  const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)+(feeBy[l.id]||0);
+  const dueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)+Number(finBy[l.id]?.vat_usd||0)+(feeBy[l.id]||0);
   const owedOf=l=>Math.max(0,dueOf(l)-(paidBy[l.id]||0));
   const collected=pays.filter(p=>inWin(countDay(p))).reduce((a,p)=>a+Number(p.amount_usd||0),0);
   const outstanding=won.reduce((a,l)=>a+owedOf(l),0);
@@ -395,7 +395,7 @@ async function mgmtCompute(P,R,PW){
 
   /* Total contract value by each sales: deals won in the window, at the
      contract figure where finance has one and the sale value where not */
-  const valueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0);
+  const valueOf=l=>Number(finBy[l.id]?.contract_total_usd??saleBy[l.id]??0)+Number(finBy[l.id]?.interest_usd||0)+Number(finBy[l.id]?.vat_usd||0);
   const tcvBy={}; wonInWin.forEach(l=>{if(l.assigned_to)tcvBy[l.assigned_to]=(tcvBy[l.assigned_to]||0)+valueOf(l);});
   const tcvPeople=people;
 

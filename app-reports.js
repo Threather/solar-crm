@@ -640,7 +640,7 @@ function gPair(rows,opts){
     </div>`;}).join('')+`</div>
     <div class="legend" style="margin:10px 0 0">
       <span><i style="background:var(--viz-1)"></i>Actual</span>
-      <span><i style="background:var(--line)"></i>Target</span></div>`;
+      <span><i style="background:var(--viz-mute)"></i>Target</span></div>`;
 }
 /* the one figure a report leads with, and the sentence under it */
 function leadFig(label,value,note,warn){
