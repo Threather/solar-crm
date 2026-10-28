@@ -107,12 +107,15 @@ async function renderIncentive(){
       :type==='num'?numBox('inc-'+f+'-'+id,v,{then:`incSaveStaff('${id}','${f}',normNum(this.value))`,attrs:'placeholder="—" style="width:60px"'})
       :`<input value="${esc(v||'')}" onchange="incSaveStaff('${id}','${f}',this.value)">`)
     :type==='check'?(v?'Yes':'—'):esc(type==='date'?(v?fmtDate(v):'—'):(v??'—'));
+  const hid=incHidden(),shown=profs.filter(p=>INC_SHOWHID||!hid.includes(p.id)),nHid=profs.length-profs.filter(p=>!hid.includes(p.id)).length;
   const staffT=`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
-      <th>Name</th><th>Position</th><th>Joined</th><th>Probation until</th><th>Probation pay %</th><th>Exclude</th><th>Active</th></tr></thead><tbody>`
-    +profs.map(p=>`<tr${p.is_active?'':' class="quietrow"'}><td>${box(p.id,'full_name',p.full_name)}</td><td>${box(p.id,'position',p.position)}</td>
+      <th>Name</th><th>Position</th><th>Joined</th><th>Probation until</th><th>Probation pay %</th><th>Exclude</th><th>Active</th><th></th></tr></thead><tbody>`
+    +shown.map(p=>`<tr${p.is_active?'':' class="quietrow"'}><td>${box(p.id,'full_name',p.full_name)}</td><td>${box(p.id,'position',p.position)}</td>
       <td>${box(p.id,'joined_date',p.joined_date,'date')}</td><td>${box(p.id,'probation_until',p.probation_until,'date')}</td>
       <td>${box(p.id,'probation_pct',p.probation_pct,'num')}</td><td>${box(p.id,'incentive_exclude',p.incentive_exclude,'check')}</td>
-      <td>${box(p.id,'is_active',p.is_active,'check')}</td></tr>`).join('')+`</tbody></table></div>`;
+      <td>${box(p.id,'is_active',p.is_active,'check')}</td>
+      <td><button class="btn-line lgq" onclick="incHide('${p.id}')">${hid.includes(p.id)?'Show':'Hide'}</button></td></tr>`).join('')+`</tbody></table></div>`
+    +(nHid?`<button class="btn-line" style="margin-top:8px" onclick="INC_SHOWHID=!INC_SHOWHID;renderIncentive()">${INC_SHOWHID?'Hide them again':'Show hidden ('+nHid+')'}</button>`:'');
 
   const T=k=>inSheet.reduce((a,r)=>a+(r[k]||0),0);
   const payT=`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
@@ -157,6 +160,11 @@ async function renderIncentive(){
 
 /* the REF sheet on screen: every deal paid in the month, each payment under
    its number on the deal (1st, 2nd...), the same rows the export writes */
+/* names admin hides from Sales staff, e.g. the sample Sale Engineer A-D (29 Oct 2026) */
+let INC_SHOWHID=false;
+function incHidden(){try{return JSON.parse(localStorage.getItem('inchidden')||'[]');}catch(e){return [];}}
+function incHide(id){const h=new Set(incHidden());h.has(id)?h.delete(id):h.add(id);
+  try{localStorage.setItem('inchidden',JSON.stringify([...h]));}catch(e){}renderIncentive();}
 function incRef(m,pays,byLead){
   const mm=m.slice(0,7);
   const inM=pays.filter(p=>localDay(countDay(p)).slice(0,7)===mm);
