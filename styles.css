@@ -1323,3 +1323,12 @@ table.sctable .scsub{padding-left:16px;color:var(--ink-2)}
 .sclegend{display:inline-flex;gap:3px;margin-right:6px;vertical-align:middle}
 .sclegend i{width:8px;height:8px;border-radius:2px;display:block}
 table.sctable td:first-child{white-space:nowrap}
+
+/* Leads column groups (28 Oct 2026) */
+.lgbar{display:flex;flex-wrap:wrap;gap:8px;padding:10px 12px 4px}
+.lgchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px;font-size:var(--t-meta);font-weight:600;color:var(--ink);cursor:pointer}
+.lgchip i{width:8px;height:8px;border-radius:50%;display:block}
+.lgchip.off{opacity:.45;text-decoration:line-through;font-weight:400}
+.lgq{padding:2px 10px;font-size:var(--t-meta)}
+tr.lgqrow>td{background:color-mix(in srgb,var(--ink) 3%,transparent);padding:6px 12px 12px}
+table.lgqt{min-width:0;width:100%}

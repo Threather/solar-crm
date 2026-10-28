@@ -16,7 +16,7 @@ async function renderLeads(scope){
     fins:()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),
     rem:()=>sb.from('lead_activities').select('lead_id,note,note_date,created_at,actor_id')
       .not('note','is',null).order('created_at',{ascending:false}).order('id'),
-    qs:()=>sb.from('quotations').select('lead_id,price_usd,created_at')
+    qs:()=>sb.from('quotations').select('id,lead_id,price_usd,created_at,released_date,provided_by,system_type,panel_pcs,panel_brand,panel_watt,inverter_pcs,inverter_kw,inverter_brand,battery_pcs,battery_kwh,battery_kwh_each,battery_brand')
       .order('created_at',{ascending:false}).order('id')};
   /* admin and the manager see every lead, so byLeadIds will read these tables
      whole and needs no ids from them - start the downloads now, beside the
@@ -58,8 +58,8 @@ async function renderLeads(scope){
     /* the last price quoted, for the column that replaces the salesperson's
        own name when they are looking at their own list */
     const qby={};
-    qs.forEach(q=>{if(!qby[q.lead_id])qby[q.lead_id]=q;});
-    LEADS.forEach(l=>{l.last_quot=qby[l.id]||null;});
+    qs.forEach(q=>{(qby[q.lead_id]=qby[q.lead_id]||[]).push(q);});
+    LEADS.forEach(l=>{l.quots=qby[l.id]||[];l.last_quot=l.quots[0]||null;});
     await loadQuotedLog().catch(e=>console.error(e));
   }
   paintLeads();
@@ -454,8 +454,69 @@ function drawTable(){
   else if(LEADSCOPE==='won')drawWonTable(rows);
   else if(LEADSCOPE==='lost')drawLostTable(rows);
   else drawActiveTable(rows);
+  if(!mktOnly())leadGroups(rows);
   $('tablewrap').insertAdjacentHTML('beforeend',pager(all.length,pages));
   drawBulkBar();
+}
+
+/* ---------------- column groups (client, 28 Oct 2026) ----------------
+   Like the Sales Report: coloured buttons above the table hide the groups a
+   person does not need, remembered per person. The tables keep their own
+   columns; each heading is put in a group by its name, so no table had to be
+   rewritten. Quotations is its own group: how many, the latest, the range and
+   the one in use, and a click on the count opens every package in place. */
+const LEAD_GROUPS=[['contact','Contact','#1a7aa8'],['source','Source','#7b57b3'],['progress','Progress','#e07000'],
+  ['remarks','Remarks','#3f8a5a'],['quots','Quotations','#b3823d']];
+const LG_OF={'phone':'contact','referred by':'source','channel':'source','stage':'progress','qualified':'progress',
+  'sale engineer':'progress','follow-up':'progress','aging':'progress','quotation':'progress','sale value':'progress',
+  'site engineer':'progress','boq':'progress','schedule':'progress','edc':'progress','closed-won':'progress','type':'progress',
+  'lost':'progress','remarks':'remarks','remark':'remarks','revised remark':'remarks'};
+const lgKey=()=>'leadgroups:'+(ME&&ME.id);
+function lgHidden(){try{return JSON.parse(localStorage.getItem(lgKey())||'[]');}catch(e){return [];}}
+function lgToggle(g){const h=new Set(lgHidden());h.has(g)?h.delete(g):h.add(g);
+  try{localStorage.setItem(lgKey(),JSON.stringify([...h]));}catch(e){}drawTable();}
+const qPack=q=>[q.panel_pcs!=null?q.panel_pcs+' pcs '+(q.panel_brand||'')+(q.panel_watt?' '+q.panel_watt+'W':''):q.panel_brand,
+  q.inverter_brand||q.inverter_kw?(q.inverter_pcs>1?q.inverter_pcs+' × ':'')+(q.inverter_brand||'')+(q.inverter_kw?' '+q.inverter_kw+'kW':''):'',
+  q.battery_brand||q.battery_kwh?(q.battery_brand||'')+' '+(q.battery_kwh_each&&q.battery_pcs>1?q.battery_pcs+' × '+q.battery_kwh_each:q.battery_kwh||'')+'kWh':'']
+  .map(x=>String(x||'').trim()).filter(Boolean).join(' · ')||(q.system_type||'—');
+const qUse=(q,l)=>typeof quotInUse==='function'&&quotInUse(q,l,{final_sale_usd:l.final_sale_usd});
+function leadGroups(rows){
+  const t=$('tablewrap').querySelector('table');if(!t)return;
+  const byId=Object.fromEntries(rows.map(l=>[l.id,l]));
+  /* the Quotations group: four columns at the end */
+  const qhead=['Quotations','Latest','Price range','In use'];
+  t.tHead.rows[0].insertAdjacentHTML('beforeend',qhead.map(h=>`<th data-g="quots">${h}</th>`).join(''));
+  [...t.tBodies[0].rows].forEach(tr=>{
+    const id=(tr.getAttribute('onclick')||'').match(/'([^']+)'/);const l=id&&byId[id[1]];
+    const qs=(l&&l.quots)||[];const ps=qs.map(q=>Number(q.price_usd||0));
+    const use=l&&qs.find(q=>qUse(q,l));
+    tr.insertAdjacentHTML('beforeend',[
+      qs.length?`<td data-g="quots" onclick="event.stopPropagation();lgOpenQuots(this,'${l.id}')"><button class="btn-line lgq">${qs.length} ▾</button></td>`:'<td data-g="quots"><span class="quiet">—</span></td>',
+      qs.length?`<td data-g="quots" class="nowrap"><b>${fmtMoney(qs[0].price_usd)}</b><span class="days">${fmtDate(qs[0].released_date||qs[0].created_at)}</span></td>`:'<td data-g="quots"></td>',
+      `<td data-g="quots" class="nowrap">${qs.length>1?fmtMoney(Math.min(...ps))+' – '+fmtMoney(Math.max(...ps)):qs.length?fmtMoney(ps[0]):''}</td>`,
+      `<td data-g="quots" class="nowrap">${use?'<b>'+fmtMoney(use.price_usd)+'</b>':qs.length?'<span class="quiet">—</span>':''}</td>`].join(''));
+  });
+  /* every other heading goes into its group by name */
+  const heads=[...t.tHead.rows[0].cells];
+  heads.forEach((th,i)=>{if(th.dataset.g)return;
+    const name=th.textContent.toLowerCase().replace(/[^a-z]/g,'');const g=Object.entries(LG_OF).find(([k])=>k.replace(/[^a-z]/g,'')===name)?.[1];
+    if(!g)return;th.dataset.g=g;[...t.tBodies[0].rows].forEach(tr=>{if(tr.cells[i])tr.cells[i].dataset.g=g;});});
+  const hide=new Set(lgHidden());
+  t.querySelectorAll('[data-g]').forEach(c=>{if(hide.has(c.dataset.g))c.style.display='none';});
+  const present=new Set(heads.map(h=>h.dataset.g).filter(Boolean));
+  $('tablewrap').insertAdjacentHTML('afterbegin',`<div class="lgbar">${LEAD_GROUPS.filter(([g])=>present.has(g)).map(([g,l,c])=>
+    `<button class="lgchip${hide.has(g)?' off':''}" onclick="lgToggle('${g}')" aria-pressed="${!hide.has(g)}"><i style="background:${c}"></i>${l}</button>`).join('')}</div>`);
+}
+/* the packages of one lead, opened under its row */
+function lgOpenQuots(td,id){
+  const tr=td.closest('tr'),nx=tr.nextElementSibling;
+  if(nx&&nx.classList.contains('lgqrow')){nx.remove();return;}
+  const l=LEADS.find(x=>x.id===id);if(!l)return;
+  const n=[...tr.cells].filter(c=>c.style.display!=='none').length;
+  tr.insertAdjacentHTML('afterend',`<tr class="lgqrow"><td colspan="${n}"><table class="table-compact lgqt"><thead><tr><th>#</th><th>Date</th><th>By</th><th>System</th><th>Price</th><th></th></tr></thead><tbody>`
+    +[...l.quots].reverse().map((q,i)=>`<tr class="rowlink" onclick="openLead('${id}')"><td>${i+1}</td><td class="nowrap">${fmtDate(q.released_date||q.created_at)}</td>
+      <td class="nowrap">${esc(staffName(q.provided_by))}</td><td>${esc(qPack(q))}</td><td class="nowrap"><b>${fmtMoney(q.price_usd)}</b></td>
+      <td>${qUse(q,l)?'<span class="mark mark-done">In use</span>':''}</td></tr>`).join('')+`</tbody></table></td></tr>`);
 }
 function pager(total,pages){
   if(pages<2)return '';
