@@ -127,6 +127,12 @@ async function renderMktReport(){
   const qThis=rows.filter(l=>inMonth(l,thisM)&&everQ(l));
   const qPrev=rows.filter(l=>inMonth(l,prevM)&&everQ(l));
   const cpqlM=spend!=null&&qThis.length?spend/qThis.length:null;
+  /* the boxes count marketing's own two channels only (client, 29 Oct 2026) */
+  const isMk=l=>['Digital_Marketing','Offline_Marketing'].includes(chOf(l));
+  const kG=got.filter(isMk),kPh=withPhone.filter(isMk),kQ=qualAll.filter(isMk),kD=disq.filter(isMk);
+  const kT=qThis.filter(isMk),kP=qPrev.filter(isMk);
+  const kMade=m=>rows.filter(l=>isMk(l)&&inMonth(l,m)).length;
+  const kCpql=spend!=null&&kT.length?spend/kT.length:null;
   const cnt=set=>{const q=set.filter(everQ).length,c=set.filter(isClosedLost).length,d=set.filter(isDisqualified).length;
     return {n:set.length,ph:set.filter(l=>l.phone).length,q,c,d,y:set.length-q-d};};
   const ZERO='<span class="quiet">—</span>';
@@ -182,14 +188,14 @@ async function renderMktReport(){
     </div>
     <div class="mg-band">${esc(mkBand)} MARKETING DASHBOARD</div>
     <div class="kpis seven mk6">
-      ${kpi({label:'Leads Received',value:got.length,lead:true,x:got.map(xl),
-        delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord})}
-      ${kpi({label:'With Phone',value:withPhone.length+(got.length?' ('+Math.round(withPhone.length/got.length*100)+'%)':''),x:withPhone.map(xl)})}
-      ${kpi({label:'Qualified',value:qualAll.length+(got.length?' ('+Math.round(qualAll.length/got.length*100)+'%)':''),x:qualAll.map(xl)})}
-      ${kpi({label:'Disqualified',value:disq.length,x:disq.map(xl)})}
-      ${kpi({label:'Qualified '+monthName(thisM),value:qThis.length,x:qThis.map(xl),
-        delta:momPct(qThis.length,qPrev.length),deltaOf:prevWord})}
-      ${kpi({label:'Cost per Qualified Lead',value:cash(cpqlM)})}
+      ${kpi({label:'Leads Received',value:kG.length,lead:true,x:kG.map(xl),
+        delta:momPct(kMade(thisM),kMade(prevM)),deltaOf:prevWord})}
+      ${kpi({label:'With Phone',value:kPh.length+(kG.length?' ('+Math.round(kPh.length/kG.length*100)+'%)':''),x:kPh.map(xl)})}
+      ${kpi({label:'Qualified',value:kQ.length+(kG.length?' ('+Math.round(kQ.length/kG.length*100)+'%)':''),x:kQ.map(xl)})}
+      ${kpi({label:'Disqualified',value:kD.length,x:kD.map(xl)})}
+      ${kpi({label:'Qualified '+monthName(thisM),value:kT.length,x:kT.map(xl),
+        delta:momPct(kT.length,kP.length),deltaOf:prevWord})}
+      ${kpi({label:'Cost per Qualified Lead',value:cash(kCpql)})}
     </div>
 
     <div class="homegrid mgrid mkwide">
