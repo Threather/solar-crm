@@ -69,6 +69,8 @@ async function renderLeads(scope){
    no sales follow-up, and no Won/Lost tabs — those are stage by another name. */
 const mktOnly=()=>ME.role==='marketing';
 function paintLeads(){
+  /* the full width, like the Sales Report (client, 28 Oct 2026) */
+  if(!mktOnly())$('main').style.maxWidth='none';
   const rows=scopeLeads();
   $('main').innerHTML=(mktOnly()?mktStats(rows):LEADSCOPE==='all'?allStats(rows):LEADSCOPE==='active'?activeStats():LEADSCOPE==='won'?wonStats(rows):lostStats(rows))
     +(isBoss()&&LEADSCOPE==='active'?teamPanel():'')+`
@@ -96,6 +98,7 @@ function paintLeads(){
       </select>`:''}
       <button class="btn-line" onclick="FILTER={q:'',from:'',to:'',channel:'',by:''};COLF={};LEADPAGE=0;SEL.clear();paintLeads()">Clear</button>
       <span class="spacer"></span>
+      <div class="srgroups" id="lgchips" role="group" aria-label="Columns"></div>
       <button class="btn-line" onclick="exportLeads()" title="Exports the rows currently shown">Export CSV</button>
     </div>
     ${isBoss()?'<div class="bulkbar" id="bulkbar" style="display:none"></div>':''}
@@ -465,8 +468,9 @@ function drawTable(){
    columns; each heading is put in a group by its name, so no table had to be
    rewritten. Quotations is its own group: how many, the latest, the range and
    the one in use, and a click on the count opens every package in place. */
-const LEAD_GROUPS=[['contact','Contact','#1a7aa8'],['source','Source','#7b57b3'],['progress','Progress','#e07000'],
-  ['remarks','Remarks','#3f8a5a'],['quots','Quotations','#b3823d']];
+/* the Sales Report's own look: its chips, its coloured band, its pins */
+const LEAD_GROUPS=[['contact','Contact','cust'],['source','Source','deal'],['progress','Progress','edc'],
+  ['remarks','Remarks','inst'],['quots','Quotations','money']];
 const LG_OF={'phone':'contact','referred by':'source','channel':'source','stage':'progress','qualified':'progress',
   'sale engineer':'progress','follow-up':'progress','aging':'progress','quotation':'progress','sale value':'progress',
   'site engineer':'progress','boq':'progress','schedule':'progress','edc':'progress','closed-won':'progress','type':'progress',
@@ -504,9 +508,27 @@ function leadGroups(rows){
   const hide=new Set(lgHidden());
   t.querySelectorAll('[data-g]').forEach(c=>{if(hide.has(c.dataset.g))c.style.display='none';});
   const present=new Set(heads.map(h=>h.dataset.g).filter(Boolean));
-  $('tablewrap').insertAdjacentHTML('afterbegin',`<div class="lgbar">${LEAD_GROUPS.filter(([g])=>present.has(g)).map(([g,l,c])=>
-    `<button class="lgchip${hide.has(g)?' off':''}" onclick="lgToggle('${g}')" aria-pressed="${!hide.has(g)}"><i style="background:${c}"></i>${l}</button>`).join('')}</div>`);
+  const chips=$('lgchips');
+  if(chips)chips.innerHTML=LEAD_GROUPS.filter(([g])=>present.has(g)).map(([g,l,c])=>
+    `<button class="${hide.has(g)?'':'on'} srg-${c}" aria-pressed="${!hide.has(g)}" onclick="lgToggle('${g}')"><i></i>${l}</button>`).join('');
+  /* the band above the headings, one cell per run of a group */
+  const cls=g=>(LEAD_GROUPS.find(x=>x[0]===g)||[])[2]||'pin';
+  const runs=[];heads.filter(h=>h.style.display!=='none').forEach(h=>{const g=h.dataset.g||'';const L=runs[runs.length-1];
+    if(L&&L.g===g)L.n++;else runs.push({g,n:1});});
+  t.tHead.insertAdjacentHTML('afterbegin',`<tr class="srband">${runs.map(x=>`<th colspan="${x.n}" class="srg-${x.g?cls(x.g):'pin'}${x.g?'':' srpin srpin0'}">${x.g?esc((LEAD_GROUPS.find(y=>y[0]===x.g)||[])[1]):''}</th>`).join('')}</tr>`);
+  t.classList.add('srtable','lgtable');$('tablewrap').classList.add('srwrap');
+  /* the scrollbar on top as well, kept in step with the table's own */
+  let top=$('lgtop');
+  if(!top){$('tablewrap').insertAdjacentHTML('beforebegin','<div class="srtop" id="lgtop" onscroll="lgSync(this)"><div></div></div>');top=$('lgtop');}
+  $('tablewrap').onscroll=()=>lgSync($('tablewrap'));
+  requestAnimationFrame(()=>{const w=$('tablewrap');if(!w||!top)return;top.firstElementChild.style.width=w.scrollWidth+'px';
+    top.style.display=w.scrollWidth>w.clientWidth?'':'none';});
+  /* No, Ref ID and Customer stay on the left while the rest scrolls - not
+     when the manager's tick column is first, which would shift them */
+  if(!t.querySelector('th.pickcol'))[...t.tHead.rows[1].cells,...[...t.tBodies[0].rows].filter(r=>!r.classList.contains('lgqrow')).flatMap(r=>[...r.cells])]
+    .forEach(c=>{const i=c.cellIndex;if(i<3)c.classList.add('srpin','srpin'+i);});
 }
+function lgSync(el){const o=el.id==='lgtop'?$('tablewrap'):$('lgtop');if(o&&o.scrollLeft!==el.scrollLeft)o.scrollLeft=el.scrollLeft;}
 /* the packages of one lead, opened under its row */
 function lgOpenQuots(td,id){
   const tr=td.closest('tr'),nx=tr.nextElementSibling;
