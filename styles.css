@@ -1292,10 +1292,11 @@ table.caltable td{vertical-align:middle}
 /* Marketing: leads by sub-channel, grouped under the channel (28 Oct 2026) */
 .sqgrp{font-size:var(--t-cap);font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-mute);margin:12px 0 6px}
 .sqgrp:first-of-type{margin-top:0}
-.sqrow{display:grid;grid-template-columns:130px 1fr 300px;gap:10px;align-items:center;padding:3px 0}
+.sqrow{display:grid;grid-template-columns:110px 1fr 44px;gap:4px 10px;align-items:center;padding:4px 0}
 .sqn{font-size:var(--t-meta);color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sqbar{display:flex;height:10px;border-radius:0 3px 3px 0;overflow:hidden;background:var(--line)}
 .sqbar i{display:block;height:100%}
 .sqv{font-size:var(--t-meta);text-align:right;font-variant-numeric:tabular-nums}
-.sqv span{margin-left:10px;font-size:var(--t-cap);color:var(--ink-mute)}
+.sqt{grid-column:2/-1;font-size:var(--t-cap);color:var(--ink-mute);margin-top:-2px}
 .sqv em{font-style:normal}
+.homegrid.mgrid>.panel>.sqlist{margin-top:0}
