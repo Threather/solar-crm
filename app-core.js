@@ -453,7 +453,7 @@ async function boot(){
   $('login-view').style.display='none';$('app-view').style.display='flex';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
   if(ME.role==='site_engineer')LEADSCOPE='won';
-  buildNav();go('home');followUpToday();
+  buildNav();go(routeRead()||'home');followUpToday();
 }
 
 /* What is waiting on you, shown once at login: leads due for follow-up today,
@@ -595,7 +595,45 @@ function go(v){
     pool:renderPool,dups:renderDups,new:renderNew,quots:renderQuots,reports:renderReports,
     edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
     targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderWonSheet,cal:renderCalendar}[v])();
+  if(v!=='reports')routeWrite();
 }
+
+/* ---------------- the page in the address (28 Oct 2026) ----------------
+   A refresh used to drop everyone back on Today. The screen, and for Reports
+   the tab, window and dates, now ride in the hash - #reports/mgmt/month - so
+   a refresh reopens the same page, Back works and a page can be bookmarked.
+   Each render still checks the role, so a typed hash opens nothing new. */
+const ROUTES=['home','leads','pool','dups','new','quots','reports','edc','fin','aftersale','users','targets','inc','lists','salesrep','cal'];
+let ROUTE_NOW='';
+function routeWrite(){
+  let h=VIEW||'home';
+  if(VIEW==='reports'){
+    h+='/'+(REPSCOPE||'')+'/'+(REPPERIOD||'month');
+    if(REPFROM||REPTO)h+='/'+(REPFROM||'')+'/'+(REPTO||'');
+    if(REPSCOPE==='sales'&&typeof SALEVIEW!=='undefined')h+='~'+SALEVIEW;
+  }
+  ROUTE_NOW=h;
+  if(location.hash.slice(1)!==h)history.pushState(null,'','#'+h);
+}
+/* reads the hash into the report state and returns the screen to open */
+function routeRead(){
+  const raw=decodeURIComponent(location.hash.slice(1));
+  if(!raw)return '';
+  const [path,sv]=raw.split('~');
+  const [v,scope,period,from,to]=path.split('/');
+  if(!ROUTES.includes(v))return '';
+  if(v==='reports'){
+    if(scope)REPSCOPE=scope;
+    REPPERIOD=period==='custom'||REP_PERIODS.some(x=>x[0]===period)?period:'month';
+    REPFROM=from||'';REPTO=to||'';
+    if(sv&&typeof SALEVIEW!=='undefined')SALEVIEW=sv;
+  }
+  return v;
+}
+window.addEventListener('popstate',()=>{
+  if(typeof ME==='undefined'||!ME||decodeURIComponent(location.hash.slice(1))===ROUTE_NOW)return;
+  const v=routeRead();if(v)go(v);
+});
 
 /* ---------------- editable lists ---------------- */
 /* Which dropdowns admin may edit, and the global each one fills. Only lists

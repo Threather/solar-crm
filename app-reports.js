@@ -205,6 +205,7 @@ async function renderReports(quiet){
   if(!scopes.length){$('main').innerHTML=blank('No report for your team',
     'Reports are built per team and yours does not have one yet.');return;}
   if(!scopes.find(([k])=>k===REPSCOPE))REPSCOPE=scopes[0][0];
+  routeWrite();
   /* a new scope, period or date range is a new screen: whatever the last one
      was still loading must not land on top of it */
   NAVGEN++;
