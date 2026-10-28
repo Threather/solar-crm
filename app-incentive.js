@@ -67,7 +67,7 @@ async function incLoadSettings(){
 async function renderIncentive(){
   if(!['admin','manager'].includes(ME.role)){
     $('main').innerHTML=blank('Incentive is admin and manager only','Ask an admin if you need the figures.');return;}
-  $('main').innerHTML=SKEL;
+  $('main').innerHTML=SKEL;$('main').style.maxWidth='none';
   await incLoadSettings();
   if(INCTAB==='agent')return renderAgentIncentive();
   if(!INCMONTH)INCMONTH=monthStart();
@@ -139,11 +139,53 @@ async function renderIncentive(){
       <div class="stat"><div class="n">${cash2(cur.override)}</div><div class="l">Override ${INCSET.override_pct}%</div></div>
       <div class="stat"><div class="n">${cash2(cur.rest)}</div><div class="l">Remaining</div></div>
     </div>
-    <h3 class="sechead">Sales incentive payout as of ${esc(monthName(m.slice(0,7)))}</h3>${payT}
+    <div class="incsheet">
+      <div class="mg-band">SALES INCENTIVE PAYOUT AS OF ${esc(monUpper(m).slice(0,3)+'-'+m.slice(0,4))}</div>
+      ${payT}
+      <div class="incpool">${[['Incentive Pool',cash2(cur.pool),cur.tier.name+(cur.tier.pct?' · '+cur.tier.pool+'% of collection':'')],
+        ['Override '+INCSET.override_pct+'%',cash2(cur.override),''],['Remaining',cash2(cur.rest),'']]
+        .map(([k,v,n])=>`<div><span>${esc(k)}</span><b>${v}</b>${n?`<i>${esc(n)}</i>`:''}</div>`).join('')}</div>
+    </div>
+    <div class="toolbar"><span class="spacer"></span><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
+    <div class="incsheet">
+      <h3 class="increfh">INCENTIVE REFERENCE</h3>
+      ${incRefHtml(m,pays,byLead)}
+    </div>
     <h3 class="sechead" style="margin-top:22px">Sales staff</h3>${staffT}
     ${incSettingsHtml(admin)}`;
 }
 
+/* the REF sheet on screen: every deal paid in the month, each payment under
+   its number on the deal (1st, 2nd...), the same rows the export writes */
+function incRef(m,pays,byLead){
+  const mm=m.slice(0,7);
+  const inM=pays.filter(p=>localDay(countDay(p)).slice(0,7)===mm);
+  const ord={},byL={};
+  pays.forEach(p=>(byL[p.lead_id]=byL[p.lead_id]||[]).push(p));
+  Object.values(byL).forEach(ps=>ps.sort((a,b)=>String(a.paid_on).localeCompare(String(b.paid_on))).forEach((p,i)=>ord[p.id]=i+1));
+  const ids=[...new Set(inM.map(p=>p.lead_id))];
+  const maxOrd=Math.max(1,...inM.map(p=>ord[p.id]||1));
+  return {maxOrd,rows:ids.map(id=>({l:byLead[id]||{},pays:inM.filter(p=>p.lead_id===id).map(p=>({...p,ord:ord[p.id]||1}))})),
+    total:inM.reduce((a,p)=>a+Number(p.amount_usd||0),0)};
+}
+const ORDW=['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
+function incRefHtml(m,pays,byLead){
+  const R=incRef(m,pays,byLead);
+  if(!R.rows.length)return blank('No payment counted in this month','');
+  const nm=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'';
+  const colT=o=>R.rows.reduce((a,r)=>a+r.pays.filter(p=>p.ord===o).reduce((x,p)=>x+Number(p.amount_usd||0),0),0);
+  const ords=Array.from({length:R.maxOrd},(_,i)=>i+1);
+  return `<div class="tablewrap"><table class="table-compact inctable incref"><thead><tr><th>No</th><th>Lead reference ID</th><th>Agreement sign off date</th><th>Lead received date</th>
+    <th>Sales person</th><th>Referral by</th><th>Lead channel</th><th>Customer name</th><th>Contact number</th><th>Installation end date</th>
+    ${ords.map(o=>`<th>${ORDW[o-1]} payment collection</th><th>Date</th>`).join('')}</tr></thead><tbody>`
+    +R.rows.map(({l,pays},i)=>`<tr class="rowlink" onclick="openLead('${l.id}')"><td>${i+1}</td><td class="refid">${esc(l.ref_id||'')}</td>
+      <td class="nowrap">${l.stage_code===WON?fmtDate(l.stage_entered_at):''}</td><td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td>
+      <td class="nowrap">${esc(nm(l.assigned_to))}</td><td>${esc(agentOf(l)||l.referrer_name||'')}</td><td class="nowrap">${esc(l.lead_channel||'')}</td>
+      <td><b class="nm">${esc(l.customer_name||'')}</b></td><td class="nowrap">${esc(l.phone||'')}</td><td class="nowrap">${l.installation_end?fmtDate(l.installation_end):''}</td>
+      ${ords.map(o=>{const p=pays.find(x=>x.ord===o);return p?`<td class="nowrap">${cash2(p.amount_usd)}</td><td class="nowrap">${fmtDate(p.paid_on)}</td>`:'<td></td><td></td>';}).join('')}</tr>`).join('')
+    +`</tbody><tfoot><tr class="srtotal"><td colspan="10"><b>Total payment collection ${cash2(R.total)}</b></td>
+      ${ords.map(o=>`<td class="nowrap"><b>${cash2(colT(o))}</b></td><td></td>`).join('')}</tr></tfoot></table></div>`;
+}
 function incHead(tab){
   return `<h2 style="margin-bottom:4px">Incentive</h2>
     <div class="scope" role="group" aria-label="Which incentive" style="margin:10px 0 14px">
@@ -230,22 +272,30 @@ async function renderAgentIncentive(){
       <span class="datepair"><input type="date" value="${AGFROM}" onchange="AGFROM=this.value;renderIncentive()"> to
         <input type="date" value="${AGTO}" onchange="AGTO=this.value;renderIncentive()"></span>
       <span class="spacer"></span><button class="btn-line" onclick="exportAgentIncentive()">Export Excel</button></div>
-    <h3 class="sechead">Agent commission from ${esc(fmtDate(AGFROM))} to ${esc(fmtDate(AGTO))}</h3>
+    <div class="incsheet">
+    <div class="mg-band">AGENT COMMISSION FROM ${esc(monUpper(AGFROM).slice(0,3)+'-'+AGFROM.slice(0,4)+' TO '+monUpper(AGTO).slice(0,3)+'-'+AGTO.slice(0,4))}</div>
     ${rows.length?`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
       <th>No</th><th>Name</th><th># of case closed</th><th>Total amount</th><th>Commission %</th><th>Incentive received</th>
-      <th>Bank name</th><th>Account name</th><th>Account number</th></tr></thead><tbody>`
+      <th>Bank name</th><th>Account name</th><th>Account number</th><th>Remark</th></tr></thead><tbody>`
       +rows.map((r,i)=>`<tr><td>${i+1}</td><td><b class="nm">${esc(r.name)}</b></td><td>${r.cases}</td><td>${cash2(r.total)}</td>
-        <td class="nowrap">${rateBox(r)}</td><td><b>${cash2(r.earned)}</b></td><td>${esc(r.bank||'—')}</td><td>${esc(r.acct||'—')}</td><td>${esc(r.num||'—')}</td></tr>`).join('')
+        <td class="nowrap">${rateBox(r)}</td><td><b>${cash2(r.earned)}</b></td><td>${esc(r.bank||'—')}</td><td>${esc(r.acct||'—')}</td><td>${esc(r.num||'—')}</td><td></td></tr>`).join('')
       +`</tbody><tfoot><tr class="srtotal"><td colspan="2"><b>Total</b></td><td><b>${tot('cases')}</b></td><td><b>${cash2(tot('total'))}</b></td><td></td>
-        <td><b>${cash2(tot('earned'))}</b></td><td colspan="3"></td></tr></tfoot></table></div>`
+        <td><b>${cash2(tot('earned'))}</b></td><td colspan="4"></td></tr></tfoot></table></div>`
       :blank('No agent deal won in these dates','')}
-    <h3 class="sechead" style="margin-top:22px">Incentive reference</h3>
-    ${won.length?`<div class="tablewrap"><table class="table-compact"><thead><tr><th>Lead ref</th><th>Sign off</th><th>Lead date</th>
-      <th>Sales person</th><th>Referral by</th><th>Customer</th><th>Amount</th></tr></thead><tbody>`
+    </div>
+    <div class="incsheet">
+    <h3 class="increfh">Incentive reference from ${esc(fmtDate(AGFROM))} to ${esc(fmtDate(AGTO))}</h3>
+    ${won.length?`<div class="tablewrap"><table class="table-compact inctable incref"><thead><tr><th>Lead reference ID</th><th>Agreement sign off date</th><th>Lead received date</th>
+      <th>Sales person</th><th>Referral by</th><th>Lead channel</th><th>Customer name</th><th>Contact number</th><th>System size (pcs)</th><th>Brand</th>
+      <th>Inverter size (kW)</th><th>Brand</th><th>Battery size (kWh)</th><th>Brand</th><th>Engineering name</th><th>Amount (USD)</th></tr></thead><tbody>`
       +won.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')"><td class="refid">${esc(l.ref_id||'')}</td><td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
-        <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td><td>${esc(nameOf(l.assigned_to))}</td><td>${esc(agentOf(l))}</td>
-        <td><b class="nm">${esc(l.customer_name||'')}</b></td><td>${cash2(amt[l.id]||0)}</td></tr>`).join('')
-      +`</tbody><tfoot><tr class="srtotal"><td colspan="6"><b>Total</b></td><td><b>${cash2(won.reduce((a,l)=>a+(amt[l.id]||0),0))}</b></td></tr></tfoot></table></div>`:''}`;
+        <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td><td class="nowrap">${esc(nameOf(l.assigned_to))}</td><td class="nowrap">${esc(agentOf(l))}</td>
+        <td class="nowrap">${esc(l.lead_channel||'')}</td><td><b class="nm">${esc(l.customer_name||'')}</b></td><td class="nowrap">${esc(l.phone||'')}</td>
+        <td>${l.panel_pcs??''}</td><td class="nowrap">${esc([l.panel_brand,l.panel_watt?'('+l.panel_watt+'W)':''].filter(Boolean).join(' '))}</td>
+        <td>${l.inverter_kw??''}</td><td class="nowrap">${esc(l.inverter_brand||'')}</td><td>${l.battery_kwh??''}</td><td class="nowrap">${esc(l.battery_brand||'')}</td>
+        <td class="nowrap">${esc(nameOf(l.site_engineer_id))}</td><td class="nowrap">${cash2(amt[l.id]||0)}</td></tr>`).join('')
+      +`</tbody><tfoot><tr class="srtotal"><td colspan="15"><b>Total</b></td><td><b>${cash2(won.reduce((a,l)=>a+(amt[l.id]||0),0))}</b></td></tr></tfoot></table></div>`:''}
+    </div>`;
 }
 async function agSaveRate(name,v){
   const {error}=await sb.from('agent_details').upsert({name,rate:v===''?null:Number(v),updated_at:new Date().toISOString()},{onConflict:'name'});

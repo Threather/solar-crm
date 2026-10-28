@@ -1355,3 +1355,12 @@ table.lgqt{min-width:0;width:100%}
 .srtable.lgtable td.rem{max-width:280px}
 .srtable.lgtable th,.srtable.lgtable td{white-space:nowrap!important}
 .srtable.lgtable td.rem{white-space:nowrap!important}
+
+/* Incentive sheets on screen, like her Excel (28 Oct 2026) */
+.incsheet{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0 0 18px}
+.incsheet .mg-band{margin:0 0 12px}
+.increfh{font-size:13px;font-weight:700;letter-spacing:.04em;text-decoration:underline;margin:0 0 10px}
+.incpool{display:flex;flex-wrap:wrap;gap:22px;margin-top:12px;font-size:13px}
+.incpool div{display:flex;gap:8px;align-items:baseline}.incpool span{color:var(--ink-soft)}.incpool i{font-style:normal;color:var(--ink-mute);font-size:12px}
+table.incref th,table.incref td{white-space:nowrap}
+table.inctable thead th{background:#1f2328;color:#fff}
