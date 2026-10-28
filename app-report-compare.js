@@ -122,7 +122,7 @@ async function renderCompareReport(){
   const tot=(F,m,map)=>dayVals(F,m,map).reduce((a,v)=>a+(v||0),0);
 
   $('main').innerHTML=`
-    <h2 style="margin-bottom:4px">Compare</h2>
+    <h2 style="margin-bottom:4px">Sales report</h2>
     <div class="sub" style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">${esc(nA)} against ${esc(nB)}.</div>
     <div class="toolbar">
       <div class="scope" role="group" aria-label="Which report">${repScopes().map(([k,l])=>
@@ -211,4 +211,6 @@ async function renderCompareReport(){
         ['Lost after a quotation',A.lostAfter.length,B.lostAfter.length,'n'],
         ['Lost before any quotation',A.lostBefore.length,B.lostBefore.length,'n']])}
     </div>`;
+  /* it lives under Sales now: the Sales tabs sit under the toolbar, Compare lit */
+  const tb=$('main').querySelector('.toolbar');if(tb)tb.insertAdjacentHTML('afterend',saleTabs());
 }

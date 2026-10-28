@@ -1,249 +1,399 @@
-/* ---------------- SALES INCENTIVE ----------------
-   The client's scheme, worked monthly on payment actually collected. This
-   screen calculates and shows; it never marks anything paid and never writes
-   to commissions. Check it against your own sheet before trusting it.
+/* ---------------- INCENTIVE ----------------
+   Two tabs (client, 28 Oct 2026): Sales and Agent. Calculates and shows; it
+   never marks anything paid. Everything in the scheme is admin's to edit:
+   the tiers, the override, the held part, and per person the position,
+   joining date, probation and whether they are in the scheme at all.
 
-   The scheme, in their words:
-     pool comes from a tier table on the month's total collection
-     the sales manager takes a 20% override off the top
-     the remaining 80% is split by each person's share of collection
-     the manager also earns their own share of that 80%
-     15% of everyone's incentive is held and released 60 days later
-     anyone inside 90 days of joining earns 70% of standard */
-const INCENTIVE_TIERS=[
-  {name:'Starter', min:0,      pool:c=>c*0.003, label:'0.3% of collection'},
-  {name:'Bronze',  min:160000, pool:()=>1500,   label:'$1,500'},
-  {name:'Silver',  min:180000, pool:()=>2250,   label:'$2,250'},
-  {name:'Gold',    min:200000, pool:()=>3000,   label:'$3,000'},
-  {name:'Platinum',min:220000, pool:()=>3600,   label:'$3,600'},
-  {name:'Diamond', min:250000, pool:()=>4500,   label:'$4,500'}
-];
-/* Third-party referral. The scheme allows 1.0-3.0% on rolling twelve-month
-   referral value; Kevin set it at 3% flat for now (27 Aug 2026), so the rate
-   is one constant to change when the bands are decided. Referrers come from
-   leads.referrer_name, and only won deals count — a referral that never
-   closed earned nobody anything. */
-const THIRD_PARTY_RATE=0.03;
-function thirdPartyRows(leads,saleBy,monthISO){
-  const end=new Date(new Date(monthISO).getFullYear(),new Date(monthISO).getMonth()+1,0);
-  const start=new Date(end.getFullYear()-1,end.getMonth()+1,1);
-  const from=localDay(start), to=localDay(end);
-  const by={};
-  leads.filter(l=>l.stage_code===WON&&l.referrer_name&&l.stage_entered_at)
-    .filter(l=>{const d=localDay(l.stage_entered_at);return d>=from&&d<=to;})
-    .forEach(l=>{
-      const k=l.referrer_name.trim();
-      by[k]=by[k]||{name:k,phone:l.referrer_phone||'',deals:0,value:0,leads:[]};
-      by[k].deals++;by[k].value+=Number(saleBy[l.id]||0);by[k].leads.push(l.customer_name);
-    });
-  return {from,to,rows:Object.values(by).map(r=>({...r,earned:r.value*THIRD_PARTY_RATE}))
-    .sort((a,b)=>b.value-a.value)};
+   Sales, worked on payment counted in the month (count_month or paid_on, as
+   every report counts it):
+     pool comes from the tier reached by the month's total collection
+     the manager takes the override off the top
+     what remains is split by each person's share of collection
+     the manager also earns their own share of what remains
+     on probation, a person earns the probation % admin typed for them
+     held % of everyone's incentive is paid held-months later
+   Agent: won deals in a date range, by sign-off date, times the agent's own
+   commission %. Both export to the client's own two-sheet payout files. */
+
+/* the scheme as it stood before admin could edit it; used until the
+   settings row is read, or if it cannot be */
+const INC_DEFAULT={tiers:[
+  {name:'Starter',min:0,pool:0.3,pct:true},{name:'Bronze',min:160000,pool:1500},
+  {name:'Silver',min:180000,pool:2250},{name:'Gold',min:200000,pool:3000},
+  {name:'Platinum',min:220000,pool:3600},{name:'Diamond',min:250000,pool:4500}],
+  override_pct:20,held_pct:15,held_months:2};
+const AGENT_DEFAULT_RATE=3;
+let INCSET=null, INCTAB='sales', INCMONTH='', AGFROM='', AGTO='';
+let INCDATA=null; /* what the screen last worked out, so the export cannot drift */
+
+const incPool=(t,total)=>t.pct?total*Number(t.pool||0)/100:Number(t.pool||0);
+function incTier(total){
+  const ts=[...INCSET.tiers].sort((a,b)=>Number(a.min)-Number(b.min));
+  let t=ts[0];ts.forEach(x=>{if(total>=Number(x.min))t=x;});return t;
 }
-/* what the screen last worked out, so Export CSV writes the same figures */
-let INCROWS=[],INCTIER={name:''},INCPOOL=0,INCOVERRIDE=0,INCRELEASE='';
-let TPROWS=[],TPWINDOW={from:'',to:''};
-const INC_OVERRIDE=0.20, INC_HELD=0.15, INC_PROBATION_DAYS=90, INC_PROBATION_RATE=0.70, INC_RELEASE_DAYS=60;
-function incentiveTier(collection){
-  let t=INCENTIVE_TIERS[0];
-  INCENTIVE_TIERS.forEach(x=>{if(collection>=x.min)t=x;});
-  return t;
-}
-/* the whole scheme in one function, so it can be tested against the client's
-   own worked examples without a screen in the way */
-function incentiveFor(people){
-  const total=people.reduce((a,p)=>a+p.collection,0);
-  const tier=incentiveTier(total);
-  const pool=tier.pool(total);
-  const override=pool*INC_OVERRIDE;
-  const rest=pool-override;
+const monthAdd=(iso,n)=>{const d=new Date(iso+'T00:00:00');return localDay(new Date(d.getFullYear(),d.getMonth()+n,1));};
+const monthEndOf=iso=>{const d=new Date(iso+'T00:00:00');return localDay(new Date(d.getFullYear(),d.getMonth()+1,0));};
+const monUpper=iso=>new Date(iso+'T00:00:00').toLocaleDateString('en-GB',{month:'long'}).toUpperCase();
+const cash2=v=>'$'+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* one month of the sales scheme for these people; free of any screen */
+function incMonth(people,pays,byLead,m){
+  const end=monthEndOf(m);
+  const col={};let total=0;
+  pays.filter(p=>localDay(countDay(p)).slice(0,7)===m.slice(0,7)).forEach(p=>{
+    const v=Number(p.amount_usd||0);total+=v;
+    const l=byLead[p.lead_id];if(l&&l.assigned_to)col[l.assigned_to]=(col[l.assigned_to]||0)+v;});
+  const tier=incTier(total), pool=incPool(tier,total);
+  const override=pool*INCSET.override_pct/100, rest=pool-override;
   const rows=people.map(p=>{
-    const share=total?p.collection/total:0;
-    /* exact share, not a rounded percentage — see the note on screen */
+    const collection=col[p.id]||0, share=total?collection/total:0;
     const standard=rest*share+(p.isManager?override:0);
-    const earned=p.onProbation?standard*INC_PROBATION_RATE:standard;
-    return {...p,share,standard,earned,paidNow:earned*(1-INC_HELD),held:earned*INC_HELD};
+    /* on probation for any part of the month (probation_until on or after its first day) */
+    const onProb=!!p.probation_until&&p.probation_until>=m;
+    const rate=onProb&&p.probation_pct!=null?Number(p.probation_pct)/100:1;
+    const earned=p.exclude?0:standard*rate;
+    const held=earned*INCSET.held_pct/100;
+    return {...p,collection,share,standard,onProb,rate,earned,held,paidNow:earned-held};
   });
-  /* What was actually handed out, which is not the pool when there is no
-     manager to take the override. A total that disagrees with the column
-     above it is worse than no total. */
-  const allocated=rows.reduce((a,r)=>a+r.standard,0);
-  return {total,tier,pool,override,rest,rows,allocated,
-    unallocated:pool-allocated,
-    heldTotal:rows.reduce((a,r)=>a+r.held,0),
-    paidTotal:rows.reduce((a,r)=>a+r.paidNow,0)};
+  return {m,end,total,tier,pool,override,rest,rows};
 }
 
-let INCMONTH='';
+async function incLoadSettings(){
+  const r=await sb.from('incentive_settings').select('*').eq('id',1).maybeSingle();
+  INCSET=r.data?{tiers:r.data.tiers,override_pct:Number(r.data.override_pct),held_pct:Number(r.data.held_pct),held_months:Number(r.data.held_months)}
+    :JSON.parse(JSON.stringify(INC_DEFAULT));
+}
+
 async function renderIncentive(){
   if(!['admin','manager'].includes(ME.role)){
     $('main').innerHTML=blank('Incentive is admin and manager only','Ask an admin if you need the figures.');return;}
   $('main').innerHTML=SKEL;
+  await incLoadSettings();
+  if(INCTAB==='agent')return renderAgentIncentive();
   if(!INCMONTH)INCMONTH=monthStart();
-  const from=INCMONTH;
-  const to=localDay(new Date(new Date(INCMONTH).getFullYear(),new Date(INCMONTH).getMonth()+1,0));
+  const admin=ME.role==='admin';
 
-  const rows=await fetchLeads(q=>q);
-  const byLead={}; rows.forEach(l=>byLead[l.id]=l);
-  const {data:pays}=await rowsOf(()=>sb.from('lead_payments').select('lead_id,amount_usd,paid_on')
-    .gte('paid_on',from).lte('paid_on',to).order('id'));
-  const collected={};
-  (pays||[]).forEach(p=>{const l=byLead[p.lead_id];if(!l||!l.assigned_to)return;
-    collected[l.assigned_to]=(collected[l.assigned_to]||0)+Number(p.amount_usd||0);});
-  const unassigned=(pays||[]).filter(p=>{const l=byLead[p.lead_id];return !l||!l.assigned_to;})
-    .reduce((a,p)=>a+Number(p.amount_usd||0),0);
-
-  const staff=STAFF.filter(s=>['sales','manager'].includes(s.role)&&s.is_active);
-  const manager=staff.find(s=>s.role==='manager');
-  const monthEnd=new Date(to);
-  const release=new Date(monthEnd.getTime()+INC_RELEASE_DAYS*86400000);
-  const people=staff.map(s=>{
-    const joined=s.joined_date?new Date(s.joined_date):null;
-    const daysIn=joined?Math.floor((monthEnd-joined)/86400000):null;
-    return {id:s.id,name:s.full_name,role:s.role,joined:s.joined_date,
-      isManager:!!manager&&s.id===manager.id,
-      onProbation:daysIn!==null&&daysIn<INC_PROBATION_DAYS,
-      collection:collected[s.id]||0};
-  });
-  const r=incentiveFor(people);
-  /* third-party referral runs on a rolling twelve months, not the month the
-     rest of this screen is worked on, so it says so on its own heading */
-  const {data:fins}=await rowsOf(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'));
-  const saleBy={};(fins||[]).forEach(f=>saleBy[f.lead_id]=Number(f.final_sale_usd||0));
-  const tp=thirdPartyRows(rows,saleBy,INCMONTH);
-  TPROWS=tp.rows;TPWINDOW=tp;
-  /* held for the export, so the CSV and the screen cannot drift apart */
-  INCROWS=r.rows.map(p=>({...p,position:p.isManager?'Sales manager':'Sales executive'}));
-  INCTIER=r.tier;INCPOOL=r.pool;INCOVERRIDE=r.override;INCRELEASE=localDay(release);
-
-  const opts=[];
-  const now=new Date();
-  for(let i=-12;i<=1;i++){
-    const d=new Date(now.getFullYear(),now.getMonth()+i,1), iso=localDay(d);
-    opts.push(`<option value="${iso}" ${iso===INCMONTH?'selected':''}>${esc(monthName(iso.slice(0,7)))}</option>`);
+  const [leads,profR,payR]=await Promise.all([fetchLeads(q=>q),
+    sb.from('profiles').select('*').in('role',['sales','manager']).order('full_name'),
+    rowsOf(()=>sb.from('lead_payments').select('id,lead_id,amount_usd,paid_on,count_month').order('id'))]);
+  const byLead={};leads.forEach(l=>byLead[l.id]=l);
+  const pays=payR.data||[];
+  const profs=profR.data||[];
+  /* everyone in the scheme: active sales and managers, plus anyone holding
+     collection this month or marked excluded, so the sheet names them */
+  const m=INCMONTH;
+  const heldMonths=INCSET.held_months;
+  const people=profs.map(p=>({id:p.id,name:p.full_name,role:p.role,isManager:p.role==='manager',
+    position:p.position||(p.role==='manager'?'Sales & Marketing Manager':'Sales Executive'),
+    joined:p.joined_date,probation_until:p.probation_until,probation_pct:p.probation_pct,
+    exclude:!!p.incentive_exclude,active:p.is_active}));
+  const cur=incMonth(people,pays,byLead,m);
+  const inSheet=cur.rows.filter(r=>r.active||r.collection>0||r.exclude);
+  /* the held part of each earlier month, paid held-months after the payout
+     month: this month's hold, then the one before, back to the one paid next month */
+  const holdCols=[];
+  for(let k=0;k<=heldMonths;k++){
+    const src=monthAdd(m,-k), r=k?incMonth(people,pays,byLead,src):cur;
+    holdCols.push({src,paidIn:monthAdd(m,1+heldMonths-k),by:Object.fromEntries(r.rows.map(x=>[x.id,x.held]))});
   }
-  const cash=v=>'$'+Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const nextPaid=holdCols[holdCols.length-1];
+  INCDATA={m,cur,rows:inSheet,holdCols,nextPaid,leads,byLead,pays};
 
-  $('main').innerHTML=`
-    <h2 style="margin-bottom:4px">Sales incentive</h2>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Worked on payment collected in the month, from the tier table. Nothing here is marked paid — it is a calculation to check against before you pay anyone.</p>
-    <div class="toolbar"><select onchange="setIncMonth(this.value)">${opts.join('')}</select>
-      <span class="spacer"></span>
-      <button class="btn-line" onclick="exportIncentive()">Export CSV</button>
-      <button class="btn-line" onclick="exportThirdParty()">Export third-party</button>
-    </div>
+  const opts=[];const now=new Date();
+  for(let i=-12;i<=1;i++){const iso=localDay(new Date(now.getFullYear(),now.getMonth()+i,1));
+    opts.push(`<option value="${iso}" ${iso===m?'selected':''}>${esc(monthName(iso.slice(0,7)))}</option>`);}
+  const box=(id,f,v,type)=>admin?(type==='date'?`<input type="date" value="${esc(v||'')}" onchange="incSaveStaff('${id}','${f}',this.value)">`
+      :type==='check'?`<input type="checkbox" ${v?'checked':''} onchange="incSaveStaff('${id}','${f}',this.checked)">`
+      :type==='num'?numBox('inc-'+f+'-'+id,v,{then:`incSaveStaff('${id}','${f}',normNum(this.value))`,attrs:'placeholder="—" style="width:60px"'})
+      :`<input value="${esc(v||'')}" onchange="incSaveStaff('${id}','${f}',this.value)">`)
+    :type==='check'?(v?'Yes':'—'):esc(type==='date'?(v?fmtDate(v):'—'):(v??'—'));
+  const staffT=`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
+      <th>Name</th><th>Position</th><th>Joined</th><th>Probation until</th><th>Probation pay %</th><th>Exclude</th><th>Active</th></tr></thead><tbody>`
+    +profs.map(p=>`<tr${p.is_active?'':' class="quietrow"'}><td>${box(p.id,'full_name',p.full_name)}</td><td>${box(p.id,'position',p.position)}</td>
+      <td>${box(p.id,'joined_date',p.joined_date,'date')}</td><td>${box(p.id,'probation_until',p.probation_until,'date')}</td>
+      <td>${box(p.id,'probation_pct',p.probation_pct,'num')}</td><td>${box(p.id,'incentive_exclude',p.incentive_exclude,'check')}</td>
+      <td>${box(p.id,'is_active',p.is_active,'check')}</td></tr>`).join('')+`</tbody></table></div>`;
 
+  const T=k=>inSheet.reduce((a,r)=>a+(r[k]||0),0);
+  const payT=`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
+      <th>No</th><th>Name</th><th>Position</th><th>Join date</th><th>Total payment collection</th><th>% of team sales</th>
+      <th>Total sales incentive</th><th>Received this month</th><th>This month + ${esc(monUpper(nextPaid.paidIn).slice(0,3))} (${INCSET.held_pct}% hold)</th>
+      ${holdCols.map(c=>`<th>To be paid in ${esc(monthName(c.paidIn.slice(0,7)))}</th>`).join('')}<th>Remark</th></tr></thead><tbody>`
+    +inSheet.map((r,i)=>`<tr><td>${i+1}</td><td><b class="nm">${esc(r.name)}</b></td><td>${esc(r.position)}</td>
+      <td class="nowrap">${r.joined?fmtDate(r.joined):'—'}</td><td>${cash2(r.collection)}</td><td>${(r.share*100).toFixed(2)}%</td>
+      <td><b>${cash2(r.earned)}</b></td><td>${cash2(r.paidNow)}</td><td>${cash2(r.paidNow+(nextPaid.by[r.id]||0))}</td>
+      ${holdCols.map(c=>`<td>${cash2(c.by[r.id]||0)}</td>`).join('')}
+      <td>${r.exclude?'Excluded from Incentive':r.onProb?'Probation '+Math.round(r.rate*100)+'%':''}</td></tr>`).join('')
+    +`</tbody><tfoot><tr class="srtotal"><td colspan="4"><b>Total</b></td><td><b>${cash2(cur.total)}</b></td><td><b>100%</b></td>
+      <td><b>${cash2(T('earned'))}</b></td><td><b>${cash2(T('paidNow'))}</b></td>
+      <td><b>${cash2(T('paidNow')+inSheet.reduce((a,r)=>a+(nextPaid.by[r.id]||0),0))}</b></td>
+      ${holdCols.map(c=>`<td><b>${cash2(inSheet.reduce((a,r)=>a+(c.by[r.id]||0),0))}</b></td>`).join('')}<td></td></tr></tfoot></table></div>`;
+
+  $('main').innerHTML=incHead('sales')+`
+    <div class="toolbar"><select onchange="INCMONTH=this.value;renderIncentive()">${opts.join('')}</select>
+      <span class="spacer"></span><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
     <div class="stats">
-      <div class="stat hero"><div class="n">${fmtMoney(Math.round(r.total))}</div><div class="l">Collected in ${esc(monthName(INCMONTH.slice(0,7)))}</div></div>
-      <div class="stat"><div class="n">${esc(r.tier.name)}</div><div class="l">Tier reached</div></div>
-      <div class="stat"><div class="n">${cash(r.pool)}</div><div class="l">Incentive pool</div></div>
-      <div class="stat"><div class="n">${cash(r.override)}</div><div class="l">Manager override</div></div>
-      <div class="stat"><div class="n">${cash(r.heldTotal)}</div><div class="l">Held to ${fmtDate(release)}</div></div>
+      <div class="stat hero"><div class="n">${cash2(cur.total)}</div><div class="l">Collected in ${esc(monthName(m.slice(0,7)))}</div></div>
+      <div class="stat"><div class="n">${esc(cur.tier.name)}</div><div class="l">Tier reached</div></div>
+      <div class="stat"><div class="n">${cash2(cur.pool)}</div><div class="l">Incentive pool</div></div>
+      <div class="stat"><div class="n">${cash2(cur.override)}</div><div class="l">Override ${INCSET.override_pct}%</div></div>
+      <div class="stat"><div class="n">${cash2(cur.rest)}</div><div class="l">Remaining</div></div>
     </div>
+    <h3 class="sechead">Sales incentive payout as of ${esc(monthName(m.slice(0,7)))}</h3>${payT}
+    <h3 class="sechead" style="margin-top:22px">Sales staff</h3>${staffT}
+    ${incSettingsHtml(admin)}`;
+}
 
-    ${!manager?`<div class="hint" style="border-left-color:var(--bad);color:var(--bad)">
-      <b>No manager account, so the 20% override of ${cash(r.override)} has nobody to go to.</b>
-      It is counted out of the pool but not paid to anyone. Give someone the manager role, or say the override should not apply.
-    </div>`:''}
-    ${unassigned>0.005?`<div class="hint">
-      <b>${cash(unassigned)} was collected on leads with no sale engineer assigned.</b>
-      It counts toward the tier but earns nobody a share.
-    </div>`:''}
-    ${people.some(p=>!p.joined)?`<div class="hint">
-      <b>${people.filter(p=>!p.joined).length} of ${people.length} have no joining date.</b>
-      Nobody without one is treated as being on probation, so they earn the full rate. Set the dates under Users.
-    </div>`:''}
+function incHead(tab){
+  return `<h2 style="margin-bottom:4px">Incentive</h2>
+    <div class="scope" role="group" aria-label="Which incentive" style="margin:10px 0 14px">
+      ${[['sales','Sales'],['agent','Agent']].map(([k,l])=>`<button class="${tab===k?'on':''}" aria-pressed="${tab===k}" onclick="INCTAB='${k}';renderIncentive()">${l}</button>`).join('')}</div>`;
+}
 
-    <div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Name</th><th>Position</th><th>Joined</th><th>Collection</th><th>Share</th>
-      <th>Incentive</th><th>Paid now</th><th>Held to ${fmtDate(release)}</th>
-    </tr></thead><tbody>`+r.rows.map(p=>`
-      <tr>
-        <td><b>${esc(p.name)}</b>${p.onProbation?'<span class="days">on probation, 70%</span>':''}</td>
-        <td>${p.isManager?'Sales manager':'Sales executive'}</td>
-        <td class="nowrap">${p.joined?fmtDate(p.joined):'<span class="quiet">not set</span>'}</td>
-        <td>${fmtMoney(Math.round(p.collection))}</td>
-        <td>${(p.share*100).toFixed(1)}%</td>
-        <td><b>${cash(p.standard)}</b></td>
-        <td>${cash(p.paidNow)}</td>
-        <td>${cash(p.held)}</td>
-      </tr>`).join('')+`</tbody>
-      <tfoot><tr>
-        <td><b>Total</b></td><td></td><td></td>
-        <td><b>${fmtMoney(Math.round(r.total))}</b></td><td>100.0%</td>
-        <td><b>${cash(r.allocated)}</b></td><td><b>${cash(r.paidTotal)}</b></td><td><b>${cash(r.heldTotal)}</b></td>
-      </tr>${r.unallocated>0.005?`<tr><td colspan="5" style="color:var(--bad)">Override with nobody to receive it</td>
-        <td colspan="3" style="color:var(--bad)"><b>${cash(r.unallocated)}</b> of the ${cash(r.pool)} pool</td></tr>`:''}
-      </tfoot></table></div>
-
-    <h3 style="font-size:15px;margin:26px 0 4px">Third-party referral</h3>
-    <p style="color:var(--ink-soft);font-size:13px;margin-bottom:10px">${(THIRD_PARTY_RATE*100).toFixed(1)}% of the value of won deals that name a referrer, over the twelve months to ${fmtDate(tp.to)}. This window is not the month above.</p>
-    ${tp.rows.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Referrer</th><th>Phone</th><th>Deals</th><th>Referral value</th><th>At ${(THIRD_PARTY_RATE*100).toFixed(1)}%</th><th>Customers</th>
-    </tr></thead><tbody>`+tp.rows.map(x=>`
-      <tr><td><b>${esc(x.name)}</b></td>
-        <td>${esc(x.phone||'—')}</td>
-        <td>${x.deals}</td>
-        <td>${fmtMoney(Math.round(x.value))}</td>
-        <td><b>${cash(x.earned)}</b></td>
-        <td class="rem">${esc(x.leads.join(', '))}</td></tr>`).join('')
-      +`</tbody><tfoot><tr><td><b>Total</b></td><td></td>
-        <td><b>${tp.rows.reduce((a,x)=>a+x.deals,0)}</b></td>
-        <td><b>${fmtMoney(Math.round(tp.rows.reduce((a,x)=>a+x.value,0)))}</b></td>
-        <td><b>${cash(tp.rows.reduce((a,x)=>a+x.earned,0))}</b></td><td></td></tr></tfoot>
-      </table></div>`
-      :blank('No referred deals in this window','A referrer is typed on the lead when it is created, and counts once that deal is Closed-Won.')}
-
-    <div class="homegrid" style="margin-top:22px">
-      ${repPanel('How this was worked out',repFigs([
-        ['Collection',fmtMoney(Math.round(r.total))],
-        ['Tier',r.tier.name,r.tier.label],
-        ['Pool',cash(r.pool)],
-        ['Manager override, 20%',cash(r.override)],
-        ['Split among the team',cash(r.rest)],
-        ['Actually allocated',cash(r.allocated),r.unallocated>0.005?cash(r.unallocated)+' unassigned':''],
-        ['Held back, 15%',cash(r.heldTotal),'released '+fmtDate(release)]
-      ]),true)}
+/* the scheme itself, admin only to change */
+function incSettingsHtml(admin){
+  const dis=admin?'':'disabled';
+  return `<h3 class="sechead" style="margin-top:22px">Incentive settings</h3>
+    <div class="tablewrap"><table class="table-compact inctable" style="max-width:640px"><thead><tr>
+      <th>Tier</th><th>Monthly collection from</th><th>Pool</th><th>Pool is % of collection</th>${admin?'<th></th>':''}</tr></thead><tbody>`
+    +INCSET.tiers.map((t,i)=>`<tr><td><input ${dis} value="${esc(t.name)}" onchange="INCSET.tiers[${i}].name=this.value"></td>
+      <td>${numBox('inct-min-'+i,t.min,{then:`INCSET.tiers[${i}].min=Number(normNum(this.value)||0)`,attrs:dis})}</td>
+      <td>${numBox('inct-pool-'+i,t.pool,{then:`INCSET.tiers[${i}].pool=Number(normNum(this.value)||0)`,attrs:dis})}</td>
+      <td><input type="checkbox" ${dis} ${t.pct?'checked':''} onchange="INCSET.tiers[${i}].pct=this.checked"></td>
+      ${admin?`<td><button class="btn-line" onclick="INCSET.tiers.splice(${i},1);renderIncentive.keep=1;incRedrawSettings()">×</button></td>`:''}</tr>`).join('')
+    +`</tbody></table></div>
+    <div class="grid3" style="max-width:640px;margin-top:10px">
+      <div><label>Manager override %</label>${numBox('inc-ov',INCSET.override_pct,{then:'INCSET.override_pct=Number(normNum(this.value)||0)',attrs:dis})}</div>
+      <div><label>Held %</label>${numBox('inc-held',INCSET.held_pct,{then:'INCSET.held_pct=Number(normNum(this.value)||0)',attrs:dis})}</div>
+      <div><label>Held for (months)</label>${numBox('inc-hm',INCSET.held_months,{then:'INCSET.held_months=Number(normNum(this.value)||0)',attrs:dis})}</div>
     </div>
+    ${admin?`<div class="modal-actions" style="justify-content:flex-start">
+      <button class="btn-line" onclick="INCSET.tiers.push({name:'New tier',min:0,pool:0});incRedrawSettings()">+ Tier</button>
+      <button class="btn" onclick="incSaveSettings()">Save settings</button></div>`:''}`;
+}
+function incRedrawSettings(){const h=[...document.querySelectorAll('#main h3.sechead')].find(x=>x.textContent==='Incentive settings');
+  if(!h)return;while(h.nextSibling)h.nextSibling.remove();h.outerHTML=incSettingsHtml(ME.role==='admin');}
+async function incSaveSettings(){
+  const {error}=await sb.from('incentive_settings').upsert({id:1,tiers:INCSET.tiers,override_pct:INCSET.override_pct,
+    held_pct:INCSET.held_pct,held_months:INCSET.held_months,updated_at:new Date().toISOString()});
+  if(error){toast(why(error));return;}
+  toast('Settings saved');renderIncentive();
+}
+async function incSaveStaff(id,f,v){
+  if(f==='full_name'&&!String(v).trim()){toast('Name cannot be blank');renderIncentive();return;}
+  const {error}=await sb.from('profiles').update({[f]:v===''?null:v}).eq('id',id);
+  if(error){toast(why(error));return;}
+  const s=STAFF.find(x=>x.id===id);if(s&&f in s)s[f]=v;
+  toast('Saved');renderIncentive();
+}
 
-    <h3 style="font-size:15px;margin:22px 0 8px">Tier table</h3>
-    <div class="tablewrap"><table class="table-compact" style="max-width:520px"><thead><tr>
-      <th>Tier</th><th>Monthly collection</th><th>Pool</th>
-    </tr></thead><tbody>`+INCENTIVE_TIERS.map((t,i)=>{
-      const next=INCENTIVE_TIERS[i+1];
-      const band=i===0?'Below '+fmtMoney(INCENTIVE_TIERS[1].min)
-        :next?fmtMoney(t.min)+' – '+fmtMoney(next.min-1):fmtMoney(t.min)+' and above';
-      return `<tr${t.name===r.tier.name?' style="background:var(--card-alt)"':''}>
-        <td><b>${t.name}</b></td><td>${band}</td><td>${esc(t.label)}</td></tr>`;
-    }).join('')+`</tbody></table></div>
+/* ---------------- AGENT ---------------- */
+/* a typed referrer on an old lead ("Mr. Dalton", "Mr.Low") is matched to the
+   agent list loosely, so old deals count without being retyped */
+const agentKey=s=>String(s||'').toLowerCase().replace(/\b(mr|mrs|ms|miss|dr)\b\.?/g,'').replace(/[^a-z0-9]/g,'');
+function agentOf(l){
+  if(l.agent_name)return l.agent_name;
+  if(chOf(l)!=='Third_Party'||!l.referrer_name)return '';
+  const k=agentKey(l.referrer_name);
+  const hit=(AGENTS||[]).find(a=>{const ak=agentKey(a);return ak===k||ak.startsWith(k)||k.startsWith(ak);});
+  /* only names on Lists > Agent are agents; other typed referrers are not */
+  return hit||'';
+}
+async function renderAgentIncentive(){
+  const admin=ME.role==='admin';
+  if(!AGTO)AGTO=localDay(new Date(new Date().getFullYear(),new Date().getMonth(),0));
+  if(!AGFROM)AGFROM=monthAdd(AGTO.slice(0,8)+'01',-10);
+  const [leads,adR]=await Promise.all([fetchLeads(q=>q),sb.from('agent_details').select('*')]);
+  const AD={};(adR.data||[]).forEach(x=>AD[x.name]=x);
+  const won=leads.filter(l=>l.stage_code===WON&&l.stage_entered_at&&agentOf(l))
+    .filter(l=>{const d=localDay(l.stage_entered_at);return d>=AGFROM&&d<=AGTO;})
+    .sort((a,b)=>String(a.stage_entered_at).localeCompare(String(b.stage_entered_at)));
+  const ids=won.map(l=>l.id);
+  const [fins,finrows,staff]=ids.length?await Promise.all([
+    repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
+    repByIds(()=>sb.from('lead_finance').select('lead_id,contract_total_usd').order('lead_id'),ids),
+    Promise.resolve(STAFF)]):[[],[],STAFF];
+  const amt={};fins.forEach(f=>amt[f.lead_id]=Number(f.final_sale_usd||0));
+  finrows.forEach(f=>{if(f.contract_total_usd!=null)amt[f.lead_id]=Number(f.contract_total_usd);});
+  const nameOf=id=>(staff.find(s=>s.id===id)||{}).full_name||'';
+  const by={};won.forEach(l=>{const a=agentOf(l);(by[a]=by[a]||[]).push(l);});
+  const rows=Object.entries(by).map(([a,ls])=>{const d=AD[a]||{};
+    const rate=d.rate!=null?Number(d.rate):AGENT_DEFAULT_RATE;
+    const total=ls.reduce((x,l)=>x+(amt[l.id]||0),0);
+    return {name:a,cases:ls.length,total,rate,earned:total*rate/100,bank:d.bank_name||'',acct:d.bank_account_name||'',num:d.bank_account||'',
+      known:!!AD[a]||(AGENTS||[]).includes(a)};}).sort((a,b)=>b.total-a.total);
+  INCDATA={agent:true,rows,won,amt,nameOf,from:AGFROM,to:AGTO};
+  const tot=k=>rows.reduce((a,r)=>a+r[k],0);
+  const rateBox=r=>admin&&r.known?numBox('agr-'+agentKey(r.name),r.rate,{then:`agSaveRate(${JSON.stringify(r.name).replace(/"/g,'&quot;')},normNum(this.value))`,attrs:'style="width:60px"'})+'%':r.rate+'%';
+  $('main').innerHTML=incHead('agent')+`
+    <div class="toolbar">
+      <span class="datepair"><input type="date" value="${AGFROM}" onchange="AGFROM=this.value;renderIncentive()"> to
+        <input type="date" value="${AGTO}" onchange="AGTO=this.value;renderIncentive()"></span>
+      <span class="spacer"></span><button class="btn-line" onclick="exportAgentIncentive()">Export Excel</button></div>
+    <h3 class="sechead">Agent commission from ${esc(fmtDate(AGFROM))} to ${esc(fmtDate(AGTO))}</h3>
+    ${rows.length?`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
+      <th>No</th><th>Name</th><th># of case closed</th><th>Total amount</th><th>Commission %</th><th>Incentive received</th>
+      <th>Bank name</th><th>Account name</th><th>Account number</th></tr></thead><tbody>`
+      +rows.map((r,i)=>`<tr><td>${i+1}</td><td><b class="nm">${esc(r.name)}</b></td><td>${r.cases}</td><td>${cash2(r.total)}</td>
+        <td class="nowrap">${rateBox(r)}</td><td><b>${cash2(r.earned)}</b></td><td>${esc(r.bank||'—')}</td><td>${esc(r.acct||'—')}</td><td>${esc(r.num||'—')}</td></tr>`).join('')
+      +`</tbody><tfoot><tr class="srtotal"><td colspan="2"><b>Total</b></td><td><b>${tot('cases')}</b></td><td><b>${cash2(tot('total'))}</b></td><td></td>
+        <td><b>${cash2(tot('earned'))}</b></td><td colspan="3"></td></tr></tfoot></table></div>`
+      :blank('No agent deal won in these dates','')}
+    <h3 class="sechead" style="margin-top:22px">Incentive reference</h3>
+    ${won.length?`<div class="tablewrap"><table class="table-compact"><thead><tr><th>Lead ref</th><th>Sign off</th><th>Lead date</th>
+      <th>Sales person</th><th>Referral by</th><th>Customer</th><th>Amount</th></tr></thead><tbody>`
+      +won.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')"><td class="refid">${esc(l.ref_id||'')}</td><td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
+        <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td><td>${esc(nameOf(l.assigned_to))}</td><td>${esc(agentOf(l))}</td>
+        <td><b class="nm">${esc(l.customer_name||'')}</b></td><td>${cash2(amt[l.id]||0)}</td></tr>`).join('')
+      +`</tbody><tfoot><tr class="srtotal"><td colspan="6"><b>Total</b></td><td><b>${cash2(won.reduce((a,l)=>a+(amt[l.id]||0),0))}</b></td></tr></tfoot></table></div>`:''}`;
+}
+async function agSaveRate(name,v){
+  const {error}=await sb.from('agent_details').upsert({name,rate:v===''?null:Number(v),updated_at:new Date().toISOString()},{onConflict:'name'});
+  if(error){toast(why(error));return;}
+  toast('Saved');renderIncentive();
+}
 
-    <div class="hint" style="margin-top:18px">
-      <b>Shares are worked to the exact percentage.</b>
-      The client's first worked example rounds 26.67% to 26% and 13.33% to 14%,
-      which moves $2.40 between two people. Example two uses exact shares and
-      matches this calculation to the cent.
-    </div>`;
+/* ---------------- the two payout files ---------------- */
+async function loadExcelJS(){
+  if(window.ExcelJS)return;
+  await new Promise((ok,no)=>{const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s);});
 }
-function setIncMonth(m){INCMONTH=m;renderIncentive();}
-/* the same figures the screen shows, so a payroll conversation can happen off
-   a spreadsheet without anyone retyping them */
-function exportIncentive(){
-  if(!INCROWS.length){toast('Nothing to export');return;}
-  downloadCSV('incentive-'+INCMONTH.slice(0,7),
-    ['Month','Name','Position','Joined','On probation','Collection (USD)','Share',
-     'Incentive (USD)','Paid now (USD)','Held (USD)','Held until','Tier','Pool (USD)','Manager override (USD)'],
-    INCROWS.map(p=>[monthName(INCMONTH.slice(0,7)),p.name,p.position,p.joined||'',
-      p.onProbation?'yes':'no',
-      round2(p.collection),Math.round(p.share*1000)/10+'%',
-      round2(p.standard),round2(p.paidNow),round2(p.held),INCRELEASE,
-      INCTIER.name,round2(INCPOOL),round2(INCOVERRIDE)]));
+async function xlLogo(wb,ws,cols){
+  try{const b=await fetch('img/logo.png').then(r=>r.blob());
+    const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b);});
+    const id=wb.addImage({base64:b64,extension:'png'});ws.addImage(id,{tl:{col:0,row:0},ext:{width:220,height:52}});}catch(e){}
 }
-/* the referral table is a different window and a different scheme, so it gets
-   its own file rather than being bolted onto the sales one */
-function exportThirdParty(){
-  if(!TPROWS.length){toast('Nothing to export');return;}
-  downloadCSV('third-party-'+INCMONTH.slice(0,7),
-    ['Window from','Window to','Referrer','Phone','Deals','Referral value (USD)','Rate','Earned (USD)','Customers'],
-    TPROWS.map(x=>[TPWINDOW.from,TPWINDOW.to,x.name,x.phone,x.deals,
-      round2(x.value),(THIRD_PARTY_RATE*100).toFixed(1)+'%',round2(x.earned),x.leads.join('; ')]));
+const XL_DARK={type:'pattern',pattern:'solid',fgColor:{argb:'FF1F2328'}};
+const XL_THIN={top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+function xlTitle(ws,row,text,ncol){
+  ws.mergeCells(row,1,row,ncol);const c=ws.getCell(row,1);c.value=text;
+  c.font={bold:true,color:{argb:'FFFFFFFF'},size:12};c.fill=XL_DARK;c.alignment={horizontal:'center',vertical:'middle'};
+  ws.getRow(row).height=20;
 }
-const round2=v=>Math.round(Number(v||0)*100)/100;
+function xlHead(ws,row,heads){
+  heads.forEach((h,i)=>{const c=ws.getCell(row,i+1);c.value=h;c.font={bold:true,color:{argb:'FFFFFFFF'},size:9};
+    c.fill=XL_DARK;c.alignment={horizontal:'center',vertical:'middle',wrapText:true};c.border=XL_THIN;});
+  ws.getRow(row).height=42;
+}
+function xlSign(ws,row,cols){
+  [['PREPARED BY',cols[0]],['CHECKED BY',cols[1]],['CHECKED BY',cols[2]],['APPROVED BY',cols[3]]].forEach(([t,c])=>{
+    ws.getCell(row,c).value=t;ws.getCell(row,c).font={bold:true};
+    ['NAME','POSITION','DATE'].forEach((w,i)=>{ws.getCell(row+7+i,c).value=w;ws.getCell(row+7+i,c).font={bold:true};});});
+}
+async function xlSave(wb,name){
+  const buf=await wb.xlsx.writeBuffer();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+const MONEY='"$"#,##0.00';
+
+async function exportSalesIncentive(){
+  if(!INCDATA||INCDATA.agent){toast('Nothing to export');return;}
+  try{await loadExcelJS();}catch(e){toast('Could not load the Excel writer');return;}
+  const {m,cur,rows,holdCols,nextPaid,leads,byLead,pays}=INCDATA;
+  const wb=new ExcelJS.Workbook();
+  /* Summary - the client's payout sheet */
+  const ws=wb.addWorksheet('Summary');
+  const heads=['NO','NAME','POSITION','JOIN DATE','TOTAL PAYMENT COLLECTION','% OF TEAM SALES','TOTAL SALES INCENTIVE',
+    'TOTAL INCENTIVE RECEIVED THIS MONTH','TOTAL INCENTIVE RECEIVED IN THIS MONTH + '+monUpper(nextPaid.paidIn).slice(0,3)+' ('+INCSET.held_pct+'% HOLD)']
+    .concat(holdCols.map(c=>'AMOUNT TO BE PAID IN '+monUpper(c.paidIn))).concat(['REMARK']);
+  const N=heads.length;
+  ws.columns=heads.map((h,i)=>({width:[6,20,26,12,16,12,14,16,18][i]||16}));
+  await xlLogo(wb,ws);
+  xlTitle(ws,4,'SALES INCENTIVE PAYOUT AS OF '+monUpper(m).slice(0,3)+'-'+m.slice(0,4),N);
+  xlHead(ws,6,heads);
+  rows.forEach((r,i)=>{const row=ws.getRow(7+i);
+    row.values=[i+1,r.name,r.position,r.joined?new Date(r.joined+'T00:00:00'):'-',r.collection,r.share,r.earned,r.paidNow,
+      r.paidNow+(nextPaid.by[r.id]||0)].concat(holdCols.map(c=>c.by[r.id]||0)).concat([r.exclude?'Excluded from Incentive':r.onProb?'Probation '+Math.round(r.rate*100)+'%':'']);
+    row.eachCell({includeEmpty:true},(c,ci)=>{c.border=XL_THIN;if(ci>=5&&ci<N&&ci!==6)c.numFmt=MONEY;});
+    row.getCell(6).numFmt='0.00%';row.getCell(4).numFmt='m/d/yyyy';});
+  const tr=7+rows.length, tot=ws.getRow(tr);
+  tot.getCell(1).value='TOTAL';ws.mergeCells(tr,1,tr,4);
+  for(let c=5;c<N;c++){const L=ws.getColumn(c).letter;tot.getCell(c).value={formula:`SUM(${L}7:${L}${tr-1})`};tot.getCell(c).numFmt=c===6?'0%':MONEY;}
+  tot.eachCell({includeEmpty:true},c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill=XL_DARK;});
+  const w=tr+2;
+  [['Incentive Pool',cur.pool],['Override '+INCSET.override_pct+'%',cur.override],['Remaining',cur.rest]].forEach(([k,v],i)=>{
+    ws.getCell(w+i,1).value=k;ws.getCell(w+i,1).font={bold:true};ws.getCell(w+i,3).value=v;ws.getCell(w+i,3).numFmt=MONEY;});
+  ws.getCell(w,4).value=cur.tier.name+(cur.tier.pct?' ('+cur.tier.pool+'% of collection)':'');
+  xlSign(ws,w+5,[1,6,9,Math.min(N-1,11)]);
+
+  /* REF - every deal paid in the month, payment by its number on the deal */
+  const ref=wb.addWorksheet('REF');
+  const mm=m.slice(0,7);
+  const inM=pays.filter(p=>localDay(countDay(p)).slice(0,7)===mm);
+  const ordOf={};
+  const byL={};pays.forEach(p=>(byL[p.lead_id]=byL[p.lead_id]||[]).push(p));
+  Object.values(byL).forEach(ps=>ps.sort((a,b)=>String(a.paid_on).localeCompare(String(b.paid_on))).forEach((p,i)=>ordOf[p.id||p.lead_id+p.paid_on+p.amount_usd]=i+1));
+  const key=p=>p.id||p.lead_id+p.paid_on+p.amount_usd;
+  const dealIds=[...new Set(inM.map(p=>p.lead_id))];
+  const maxOrd=Math.max(1,...inM.map(p=>ordOf[key(p)]||1));
+  const ORD=['1st','2nd','3rd','4th','5th','6th','7th','8th'];
+  const rHeads=['No','Lead Reference ID','Agreement Sign Off Date','Lead Received Date','Sales Person','Referral By','Lead Channel','Customer Name','Contact Number','Installation End Date']
+    .concat(Array.from({length:maxOrd},(_,i)=>[ORD[i]+' Payment Collection','Date']).flat());
+  ref.columns=rHeads.map((h,i)=>({width:[5,16,12,12,16,14,16,26,14,14][i]||13}));
+  await xlLogo(wb,ref);
+  ref.getCell(5,1).value='INCENTIVE REFERENCE';ref.getCell(5,1).font={bold:true,underline:true};
+  xlHead(ref,7,rHeads);
+  const nameOf=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'';
+  dealIds.forEach((id,i)=>{const l=byLead[id]||{};const row=ref.getRow(8+i);
+    const v=[i+1,l.ref_id||'',l.stage_code===WON&&l.stage_entered_at?new Date(localDay(l.stage_entered_at)+'T00:00:00'):'',
+      l.lead_date?new Date(l.lead_date+'T00:00:00'):'',nameOf(l.assigned_to),agentOf(l)||l.referrer_name||'',l.lead_channel||'',l.customer_name||'',l.phone||'',
+      l.installation_end?new Date(l.installation_end+'T00:00:00'):''];
+    inM.filter(p=>p.lead_id===id).forEach(p=>{const o=ordOf[key(p)]||1;v[10+(o-1)*2]=Number(p.amount_usd||0);v[11+(o-1)*2]=new Date(p.paid_on+'T00:00:00');});
+    row.values=v;
+    row.eachCell({includeEmpty:true},(c,ci)=>{c.border=XL_THIN;if(ci>10)c.numFmt=(ci-10)%2?MONEY:'m/d/yyyy';});
+    [3,4,10].forEach(ci=>row.getCell(ci).numFmt='m/d/yyyy');});
+  const rt=8+dealIds.length+1;
+  for(let o=0;o<maxOrd;o++){const c=11+o*2,L=ref.getColumn(c).letter;
+    ref.getCell(rt,c).value={formula:`SUM(${L}8:${L}${rt-2})`};ref.getCell(rt,c).numFmt=MONEY;ref.getCell(rt,c).font={bold:true};}
+  ref.getCell(rt+1,2).value='TOTAL PAYMENT COLLECTION';ref.mergeCells(rt+1,2,rt+1,3);
+  ref.getCell(rt+1,2).font={bold:true,color:{argb:'FFFFFFFF'}};ref.getCell(rt+1,2).fill=XL_DARK;
+  ref.getCell(rt+1,4).value={formula:Array.from({length:maxOrd},(_,o)=>ref.getColumn(11+o*2).letter+rt).join('+')};
+  ref.getCell(rt+1,4).numFmt=MONEY;ref.getCell(rt+1,4).font={bold:true};
+  xlSign(ref,rt+4,[2,5,9,Math.min(rHeads.length,15)]);
+  await xlSave(wb,monthName(mm)+' - Solarworks - Sales Incentive.xlsx');
+}
+
+async function exportAgentIncentive(){
+  if(!INCDATA||!INCDATA.agent||!INCDATA.rows.length){toast('Nothing to export');return;}
+  try{await loadExcelJS();}catch(e){toast('Could not load the Excel writer');return;}
+  const {rows,won,amt,nameOf,from,to}=INCDATA;
+  const span=monUpper(from).slice(0,3)+'-'+from.slice(0,4)+' TO '+monUpper(to).slice(0,3)+'-'+to.slice(0,4);
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet('Agent Commission');
+  const heads=['No','Name','# of Case Closed','Total Amount','Commission %','Incentive Received','Bank Name','Account Name','Account Number','Remark'];
+  ws.columns=[6,20,14,16,14,18,14,22,18,18].map(w=>({width:w}));
+  await xlLogo(wb,ws);
+  xlTitle(ws,5,'AGENT COMMISSION FROM '+span,heads.length);
+  xlHead(ws,7,heads);ws.getRow(7).height=20;
+  rows.forEach((r,i)=>{const row=ws.getRow(8+i);
+    row.values=[i+1,r.name,r.cases,r.total,r.rate/100,{formula:`D${8+i}*E${8+i}`},r.bank,r.acct,r.num,''];
+    row.getCell(4).numFmt=MONEY;row.getCell(5).numFmt='0.##%';row.getCell(6).numFmt=MONEY;row.getCell(9).numFmt='@';});
+  const tr=8+rows.length, t=ws.getRow(tr);
+  t.getCell(2).value='Total';t.getCell(3).value={formula:`SUM(C8:C${tr-1})`};t.getCell(4).value={formula:`SUM(D8:D${tr-1})`};
+  t.getCell(6).value={formula:`SUM(F8:F${tr-1})`};[4,6].forEach(c=>t.getCell(c).numFmt=MONEY);
+  t.eachCell({includeEmpty:true},c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill=XL_DARK;});
+  for(let c=1;c<=heads.length;c++)t.getCell(c).fill=XL_DARK;
+  xlSign(ws,tr+3,[1,4,7,9]);
+
+  const ref=wb.addWorksheet('Reference');
+  const rH=['Lead Reference ID','Agreement Sign Off Date','Lead Received Date','Sales Person','Referral By','Lead Channel','Customer Name','Contact Number',
+    'System Size (Pcs)','Brand','Inverter Size (kW)','Brand','Battery Size (kWh)','Brand','Engineering Name','Amount (USD)'];
+  ref.columns=[16,14,14,12,14,14,28,14,10,14,10,10,10,10,14,14].map(w=>({width:w}));
+  await xlLogo(wb,ref);
+  ref.getCell(6,1).value='Incentive Reference from '+fmtDate(from)+' to '+fmtDate(to);
+  ref.getCell(6,1).font={bold:true,italic:true,underline:true,color:{argb:'FFC00000'}};
+  xlHead(ref,8,rH);
+  won.forEach((l,i)=>{const row=ref.getRow(9+i);
+    row.values=[l.ref_id||'',new Date(localDay(l.stage_entered_at)+'T00:00:00'),l.lead_date?new Date(l.lead_date+'T00:00:00'):'',
+      nameOf(l.assigned_to),agentOf(l),l.lead_channel||'',l.customer_name||'',l.phone||'',
+      l.panel_pcs??'',[l.panel_brand,l.panel_watt?'('+l.panel_watt+'W)':''].filter(Boolean).join(' '),
+      l.inverter_kw??'',l.inverter_brand||'',l.battery_kwh??'',l.battery_brand||'',nameOf(l.site_engineer_id),amt[l.id]||0];
+    [2,3].forEach(c=>row.getCell(c).numFmt='m/d/yyyy');row.getCell(16).numFmt=MONEY;});
+  const rt=9+won.length+1;
+  ref.getCell(rt,15).value='Total';ref.getCell(rt,15).font={bold:true};
+  ref.getCell(rt,16).value={formula:`SUM(P9:P${rt-2})`};ref.getCell(rt,16).numFmt=MONEY;ref.getCell(rt,16).font={bold:true};ref.getCell(rt,16).border=XL_THIN;
+  xlSign(ref,rt+3,[1,5,9,15]);
+  await xlSave(wb,'Agent Commission '+from+' to '+to+'.xlsx');
+}

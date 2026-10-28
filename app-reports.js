@@ -133,7 +133,7 @@ function repScopes(){
   /* Third Party agents (8 Oct 2026) */
   /* Agents moved into Sales > Third Party (26 Oct 2026) */
   /* two whole months of Management side by side (23 Oct 2026) */
-  if(['manager','admin'].includes(ME.role))s.push(['compare','Compare']);
+  /* Compare moved into Sales, after MoM (client, 28 Oct 2026) */
   return s.filter(([k])=>typeof window[REP_RENDER[k]]==='function');
 }
 /* Two presets and a pair of dates. A week and a month were guesses at which

@@ -78,7 +78,13 @@ async function exportChannels(){
     'Paid on':localDay(p.paid_on),'Counted in':localDay(p.count_month||p.paid_on),'Amount':Number(p.amount_usd||0)};}));
   XLSX.writeFile(wb,'Performance by Channel.xlsx');
 }
+/* the Sales tabs, shared with Compare which now sits after MoM (28 Oct 2026) */
+function saleViews(){return [['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']]
+  .concat(['admin','manager'].includes(ME.role)?[['compare','Compare']]:[]);}
+function saleTabs(){return `<div class="scope saleview" role="group" aria-label="View">${saleViews().map(([k,l])=>
+  `<button class="${SALEVIEW===k?'on':''}" aria-pressed="${SALEVIEW===k}" onclick="setSaleView('${k}')">${l}</button>`).join('')}</div>`;}
 async function renderSalesReport(){
+  if(SALEVIEW==='compare'){if(['admin','manager'].includes(ME.role))return renderCompareReport();SALEVIEW='daily';}
   const rows=await fetchLeads(q=>q);
   const ids=rows.map(l=>l.id);
   const range=repRange(REPPERIOD);
@@ -319,8 +325,7 @@ async function renderSalesReport(){
   const monthWin=m=>{const [y,mm]=m.split('-').map(Number);
     return [m+'-01',m+'-'+String(new Date(y,mm,0).getDate()).padStart(2,'0')];};
 
-  const VIEWS=[['daily','Daily'],['weekly','Weekly'],['mtd','MTD'],['mom','MoM']]
-  ;
+  const VIEWS=saleViews();
   if(SALEVIEW==='third')SALEVIEW='mom';
   /* Third Party sits under MoM, below Performance by Channel (26 Oct 2026) */
   const third=SALEVIEW==='mom'&&['admin','manager'].includes(ME.role)?await thirdPartyHtml(months):'';
