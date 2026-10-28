@@ -159,16 +159,17 @@ async function renderMktReport(){
             const q=Q.map(x=>r.filter(x[2]).length);return [n,r.length,q.concat(r.length-q.reduce((a,b)=>a+b,0))];}).sort((x,y)=>y[1]-x[1])];})
           .filter(g=>g[1].length);
         if(!groups.length)return repPanel('Leads by sub-channel',blank('No sub-channel recorded',''));
-        const maxOf=rs=>Math.max(1,...rs.map(r=>r[1]));
         xrows({'Leads by sub-channel':groups.flatMap(([c,rs])=>rs.map(([n,t,q])=>noStage?{Channel:c.replace(/_/g,' '),'Sub-channel':n,Leads:t}
           :{Channel:c.replace(/_/g,' '),'Sub-channel':n,Leads:t,Qualified:q[0],'Closed-Lost':q[1],Disqualified:q[2],'Not qualified yet':q[3]}))});
-        const row=max=>([n,t,q])=>`<div class="sqrow"><span class="sqn">${esc(n)}</span>
-          <span class="sqbar" style="width:${Math.max(2,t/max*100)}%">${noStage?'<i style="width:100%;background:var(--viz-1)"></i>'
-            :q.slice(0,3).map((v,i)=>v?`<i style="width:${v/t*100}%;background:${Q[i][1]}" title="${esc(Q[i][0])}: ${v}"></i>`:'').join('')}</span>
-          <span class="sqv"><b>${t}</b></span>${noStage?'':`<span class="sqt"><em style="color:var(--c-qual)">${q[0]} qualified${q[0]?` (${Math.round(q[0]/t*100)}%)`:''}</em> ${q[1]?` · <em style="color:var(--c-lost)">${q[1]} closed-lost</em>`:''} · <em style="color:var(--c-disq)">${q[2]} disqualified</em></span>`}</div>`;
-        /* one card per channel, each on its own scale (client, 28 Oct 2026) */
+        /* one card per channel (client, 28 Oct 2026): numbers in columns, and
+           every bar the same length showing only the mix, so Facebook's size
+           sits in the Leads column instead of squashing the rest */
+        const z=v=>v?v:'<span class="quiet">0</span>';
+        const mix=(t,q)=>`<span class="sqmix">${q.slice(0,3).map((v,i)=>v?`<i style="width:${v/t*100}%;background:${Q[i][1]}" title="${esc(Q[i][0])}: ${v}"></i>`:'').join('')}</span>`;
         const legend=noStage?'':`<div class="legend" style="margin:0 0 10px">${Q.concat([['Not qualified yet','var(--line)']]).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join('')}</div>`;
-        return groups.map(([c,rs])=>repPanel(c.replace(/_/g,' ')+(noStage?'':' - sub-channel and quality'),legend+'<div class="sqlist">'+rs.map(row(maxOf(rs))).join('')+'</div>')).join('');})()}
+        const table=rs=>`<div class="sqlist"><table class="table-compact sqtable"><thead><tr><th>Sub-channel</th><th>Leads</th>${noStage?'':'<th>Qualified</th><th>Closed-Lost</th><th>Disqualified</th><th>Quality mix</th>'}</tr></thead><tbody>`
+          +rs.map(([n,t,q])=>`<tr><td><b class="nm">${esc(n)}</b></td><td><b>${t}</b></td>${noStage?'':`<td>${z(q[0])}${q[0]?` <span class="quiet">${Math.round(q[0]/t*100)}%</span>`:''}</td><td>${z(q[1])}</td><td>${z(q[2])}</td><td>${mix(t,q)}</td>`}</tr>`).join('')+`</tbody></table></div>`;
+        return groups.map(([c,rs])=>repPanel(c.replace(/_/g,' ')+(noStage?'':' - sub-channel and quality'),legend+table(rs))).join('');})()}
 
     </div>
 

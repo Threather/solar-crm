@@ -1300,3 +1300,14 @@ table.caltable td{vertical-align:middle}
 .sqt{grid-column:2/-1;font-size:var(--t-cap);color:var(--ink-mute);margin-top:-2px}
 .sqv em{font-style:normal}
 .homegrid.mgrid>.panel>.sqlist{margin-top:0}
+table.sqtable{min-width:0}
+table.sqtable td:nth-child(n+2),table.sqtable th:nth-child(n+2){text-align:right}
+table.sqtable{table-layout:fixed;width:100%}
+table.sqtable th:nth-child(1){width:27%}table.sqtable th:nth-child(2){width:9%}table.sqtable th:nth-child(3){width:16%}
+table.sqtable th:nth-child(4){width:12%}table.sqtable th:nth-child(5){width:20%}
+table.sqtable th,table.sqtable td{padding-left:4px;padding-right:4px}
+table.sqtable th{white-space:normal}
+table.sqtable th:last-child,table.sqtable td:last-child{text-align:left;padding-left:12px}
+table.sqtable td:first-child .nm{overflow:hidden;text-overflow:ellipsis;display:block}
+.sqmix{display:flex;height:10px;border-radius:3px;overflow:hidden;background:var(--line)}
+.sqmix i{display:block;height:100%}
