@@ -91,18 +91,21 @@ async function renderMktReport(){
   /* Marketing owns customer identity, not where the deal has got to, so their
      own copy of this report drops qualification and the funnel. Admin, who
      reaches the same report through the scope switch, keeps all of it. */
-  const noStage=ME.role==='marketing';
+  /* marketing see qualified and disqualified on this dashboard (Kevin, 28 Oct
+     2026); their lead list still hides the stage */
+  const noStage=false;
 
   /* leads carry a creation date, so this month against last is real */
   const thisM=mStart.slice(0,7);
   const prevM=(()=>{const [y,m]=thisM.split('-').map(Number);
     const d=new Date(y,m-2,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');})();
-  const madeIn=m=>rows.filter(l=>localDay(dayOf(l)).slice(0,7)===m).length;
+  const inMonth=(l,m)=>localDay(dayOf(l)).slice(0,7)===m;
+  const madeIn=m=>rows.filter(l=>inMonth(l,m)).length;
   const prevWord=monthName(prevM);
 
   /* laid out like Management and Operations (council, 28 Oct 2026): logo and
      facts, dark band, the boxes, then panels with big headings */
-  const xl=l=>({Ref:l.ref_id||'',Customer:l.customer_name||'',Channel:String(chOf(l)).replace(/_/g,' '),Sub:l.lead_sub_channel||'','Lead date':localDay(dayOf(l))});
+  const xl=l=>({Ref:l.ref_id||'',Customer:l.customer_name||'',Channel:String(chOf(l)).replace(/_/g,' '),Sub:l.lead_sub_channel||'','Lead date':localDay(dayOf(l)),Phone:l.phone?'Yes':'No',Status:qualText(l)});
   const mkEnd=range[1]<localDay(new Date())?range[1]:localDay(new Date());
   const mkStart=REPPERIOD==='all'?(rows.map(l=>localDay(dayOf(l))).filter(Boolean).sort()[0]||mkEnd):range[0];
   const mkDays=(a,b)=>Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/864e5)+1;
@@ -110,6 +113,64 @@ async function renderMktReport(){
   const mkOne=mkStart.slice(8)==='01'&&mkStart.slice(0,7)===mkEnd.slice(0,7);
   const mkBand=(mkOne?new Date(mkStart+'T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'})
     :mkFmt(mkStart)+' - '+mkFmt(mkEnd)).toUpperCase();
+
+  /* the counts every block below reads (council, 28 Oct 2026): leads, with a
+     phone, qualified, closed-lost, disqualified, not yet - the same tests the
+     Management board uses - and qualified by lead month, last against this */
+  /* qualified = ever qualified, lost since or not - Management's rule, so
+     the two boards agree; Closed-Lost is the part of it lost since */
+  const everQ=l=>qualText(l)==='Qualified';
+  const qualAll=got.filter(everQ);
+  const withPhone=got.filter(l=>l.phone);
+  const closedLost=got.filter(isClosedLost);
+  const disq=got.filter(isDisqualified);
+  const qThis=rows.filter(l=>inMonth(l,thisM)&&everQ(l));
+  const qPrev=rows.filter(l=>inMonth(l,prevM)&&everQ(l));
+  const cpqlM=spend!=null&&qThis.length?spend/qThis.length:null;
+  const cnt=set=>{const q=set.filter(everQ).length,c=set.filter(isClosedLost).length,d=set.filter(isDisqualified).length;
+    return {n:set.length,ph:set.filter(l=>l.phone).length,q,c,d,y:set.length-q-d};};
+  const ZERO='<span class="quiet">—</span>';
+  const z=v=>v?v:ZERO;
+  const pc=(a,b)=>b&&a?` <span class="quiet">${Math.round(a/b*100)}%</span>`:'';
+  const MIX=[['Qualified, still open','var(--c-qual)'],['Closed-Lost','var(--c-lost)'],['Disqualified','var(--c-disq)']];
+  const mix=s=>s.n?`<span class="sqmix">${[s.q-s.c,s.c,s.d].map((v,i)=>v?`<i style="width:${v/s.n*100}%;background:${MIX[i][1]}" title="${MIX[i][0]}: ${v}"></i>`:'').join('')}</span>`:'';
+  const trend=(a,b)=>`${z(a)} <span class="quiet">→</span> <b>${z(b)}</b>${b>a?' <span class="cmpup">▲</span>':b<a?' <span class="cmpdown">▼</span>':''}`;
+  /* one row per channel with its sub-channels under it, largest first */
+  const scoreRows=[...MKT_CH,'Other'].map(c=>{
+    const set=got.filter(l=>chOf(l)===c);
+    const all=rows.filter(l=>chOf(l)===c);
+    const subsOf=[...new Set(set.map(l=>l.lead_sub_channel||'(none)'))]
+      .map(n=>[n,set.filter(l=>(l.lead_sub_channel||'(none)')===n),all.filter(l=>(l.lead_sub_channel||'(none)')===n)])
+      .sort((a,b)=>b[1].length-a[1].length);
+    return [c,set,all,subsOf];}).filter(r=>r[1].length);
+  const line=(name,set,all,cls)=>{const s=cnt(set);
+    const qa=all.filter(l=>inMonth(l,prevM)&&everQ(l)).length,qb=all.filter(l=>inMonth(l,thisM)&&everQ(l)).length;
+    return `<tr class="${cls}"><td>${cls==='scch'?`<b>${esc(name)}</b>`:`<span class="scsub">${esc(name)}</span>`}</td>
+      <td><b>${s.n}</b></td><td>${z(s.ph)}${pc(s.ph,s.n)}</td><td>${z(s.q)}${pc(s.q,s.n)}</td><td>${z(s.c)}</td><td>${z(s.d)}</td><td>${z(s.y)}</td>
+      <td class="nowrap">${trend(qa,qb)}</td><td>${mix(s)}</td></tr>`;};
+  xrows({'Channel scorecard':scoreRows.flatMap(([c,set,all,subsOf])=>[[c.replace(/_/g,' '),'',set,all]].concat(subsOf.map(([n,s,a])=>[c.replace(/_/g,' '),n,s,a])))
+    .map(([c,n,set,all])=>{const s=cnt(set);return {Channel:c,'Sub-channel':n||'(all)',Leads:s.n,'With phone':s.ph,Qualified:s.q,'Closed-Lost':s.c,Disqualified:s.d,'Not yet':s.y,
+      ['Qualified '+prevWord]:all.filter(l=>inMonth(l,prevM)&&everQ(l)).length,['Qualified '+monthName(thisM)]:all.filter(l=>inMonth(l,thisM)&&everQ(l)).length};})});
+  const T=cnt(got);
+  const scorecard=got.length?`<div class="tablewrap"><table class="table-compact sctable"><thead><tr>
+      <th>Channel / Sub-channel</th><th>Leads</th><th>With phone</th><th>Qualified</th><th>Closed-Lost</th><th>Disqualified</th><th>Not yet</th>
+      <th>Qualified ${esc(prevWord)} → ${esc(monthName(thisM))}</th>
+      <th><span class="sclegend">${MIX.map(([k,c])=>`<i style="background:${c}" title="${k}"></i>`).join('')}</span>Mix</th></tr></thead><tbody>`
+    +scoreRows.map(([c,set,all,subsOf])=>line(c.replace(/_/g,' '),set,all,'scch')+subsOf.map(([n,s,a])=>line(n,s,a,'scsubrow')).join('')).join('')
+    +`</tbody><tfoot><tr class="srtotal"><td><b>Total</b></td><td><b>${T.n}</b></td><td><b>${T.ph}</b></td><td><b>${T.q}</b></td><td><b>${T.c}</b></td><td><b>${T.d}</b></td><td><b>${T.y}</b></td>
+      <td class="nowrap"><b>${qPrev.length} → ${qThis.length}</b></td><td></td></tr></tfoot></table></div>`
+    :blank('No leads in this window','');
+
+  /* qualified per channel per lead month, last twelve months */
+  const qMonths=lastMonths(rows,dayOf,12);
+  const CHCOL={Digital_Marketing:'var(--viz-1)',Offline_Marketing:'var(--viz-3)',Third_Party:'var(--viz-2)',Direct_Sales:'var(--viz-good)',Existing_Customer:'var(--viz-4)',Other:'var(--viz-mute)'};
+  const qSeries=[...MKT_CH,'Other'].map(c=>({name:c.replace(/_/g,' '),color:CHCOL[c],
+    values:qMonths.map(m=>rows.filter(l=>chOf(l)===c&&inMonth(l,m)&&everQ(l)).length)})).filter(s=>s.values.some(Boolean));
+  /* best sub-channels by qualification rate - only those with enough leads to mean it */
+  const rateRows=[...new Set(got.map(l=>l.lead_sub_channel).filter(Boolean))]
+    .map(n=>{const s=got.filter(l=>l.lead_sub_channel===n);return [n,s.length,s.filter(everQ).length];})
+    .filter(r=>r[1]>=2).sort((a,b)=>b[2]/b[1]-a[2]/a[1]||b[1]-a[1]).map(r=>[r[0]+' ('+r[1]+')',Math.round(r[2]/r[1]*100)]);
+
   $('main').innerHTML=repBar('Marketing dashboard')+`
     <div class="mg-head">
       <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">
@@ -120,103 +181,62 @@ async function renderMktReport(){
       </div>
     </div>
     <div class="mg-band">${esc(mkBand)} MARKETING DASHBOARD</div>
-    <!-- his five boxes, in his order -->
-    <div class="kpis seven mk${noStage?4:5}">
-      ${kpi({label:'Total Leads',value:got.length,lead:true,x:got.map(xl),
+    <div class="kpis seven mk6">
+      ${kpi({label:'Leads Received',value:got.length,lead:true,x:got.map(xl),
         delta:momPct(madeIn(thisM),madeIn(prevM)),deltaOf:prevWord})}
-      ${kpi({label:'Digital Leads',value:digital.length,x:digital.map(xl)})}
-      ${noStage?'':kpi({label:'Qualification Rate',value:qualRate===null?'\u2014':qualRate+'%',x:qualified.map(xl)})}
-      ${kpi({label:'Spend',value:spend==null?'\u2014':fmtMoney(spend)})}
-      ${kpi({label:'Cost per Lead',value:cash(cpl)})}
+      ${kpi({label:'With Phone',value:withPhone.length+(got.length?' ('+Math.round(withPhone.length/got.length*100)+'%)':''),x:withPhone.map(xl)})}
+      ${kpi({label:'Qualified',value:qualAll.length+(got.length?' ('+Math.round(qualAll.length/got.length*100)+'%)':''),x:qualAll.map(xl)})}
+      ${kpi({label:'Disqualified',value:disq.length,x:disq.map(xl)})}
+      ${kpi({label:'Qualified '+monthName(thisM),value:qThis.length,x:qThis.map(xl),
+        delta:momPct(qThis.length,qPrev.length),deltaOf:prevWord})}
+      ${kpi({label:'Cost per Qualified Lead',value:cash(cpqlM)})}
     </div>
 
-    <div class="homegrid three mgrid">
-      ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
-        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
+    <div class="homegrid mgrid mkwide">
+      ${repPanel('Channel scorecard',scorecard)}
+    </div>
+
+    <div class="homegrid level mgrid">
       ${leadTarget&&days.length>1
         ?lineChart(days.map(String),
           [{name:'Actual',color:'var(--viz-1)',values:cumActual},
            {name:'Target',color:'var(--viz-2)',values:cumTarget}],
           {title:'MTD trend, target vs actual',compact:true})
-        : repPanel('MTD trend, target vs actual',
-            blank('No lead target set',''))}
-      ${repPanel('Customer contact captured',
-        capture.length
-          ?gRank(capture.map(r=>[r[0],Math.round(r[2]/r[1]*100)]),
-             {color:'var(--viz-2)',order:true,keepZero:true,limit:capture.length,
-              fmt:v=>v+'%'})
-           +ledger(capture.map(r=>[r[0],r[2]+'/'+r[1],'have a phone number']))
-          :blank('Nothing to count yet',''))}
-    </div>
-
-    <div class="homegrid level mgrid">
-      ${/* grouped under the channel, bars lying down, largest first, with
-           qualified / disqualified / not yet (client, 28 Oct 2026) */(()=>{
-        const Q=[['Qualified','var(--c-qual)',isQualLead],['Closed-Lost','var(--c-lost)',isClosedLost],['Disqualified','var(--c-disq)',isDisqualified]];
-        const groups=[...MKT_CH,'Other'].map(c=>{const set=got.filter(l=>chOf(l)===c&&l.lead_sub_channel);
-          const names=[...new Set(set.map(l=>l.lead_sub_channel))];
-          return [c,names.map(n=>{const r=set.filter(l=>l.lead_sub_channel===n);
-            const q=Q.map(x=>r.filter(x[2]).length);return [n,r.length,q.concat(r.length-q.reduce((a,b)=>a+b,0))];}).sort((x,y)=>y[1]-x[1])];})
-          .filter(g=>g[1].length);
-        if(!groups.length)return repPanel('Leads by sub-channel',blank('No sub-channel recorded',''));
-        xrows({'Leads by sub-channel':groups.flatMap(([c,rs])=>rs.map(([n,t,q])=>noStage?{Channel:c.replace(/_/g,' '),'Sub-channel':n,Leads:t}
-          :{Channel:c.replace(/_/g,' '),'Sub-channel':n,Leads:t,Qualified:q[0],'Closed-Lost':q[1],Disqualified:q[2],'Not qualified yet':q[3]}))});
-        /* one card per channel (client, 28 Oct 2026): numbers in columns, and
-           every bar the same length showing only the mix, so Facebook's size
-           sits in the Leads column instead of squashing the rest */
-        const z=v=>v?v:'<span class="quiet">0</span>';
-        const mix=(t,q)=>`<span class="sqmix">${q.slice(0,3).map((v,i)=>v?`<i style="width:${v/t*100}%;background:${Q[i][1]}" title="${esc(Q[i][0])}: ${v}"></i>`:'').join('')}</span>`;
-        const legend=noStage?'':`<div class="legend" style="margin:0 0 10px">${Q.concat([['Not qualified yet','var(--line)']]).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join('')}</div>`;
-        const table=rs=>`<div class="sqlist"><table class="table-compact sqtable"><thead><tr><th>Sub-channel</th><th>Leads</th>${noStage?'':'<th>Qualified</th><th>Closed-Lost</th><th>Disqualified</th><th>Quality mix</th>'}</tr></thead><tbody>`
-          +rs.map(([n,t,q])=>`<tr><td><b class="nm">${esc(n)}</b></td><td><b>${t}</b></td>${noStage?'':`<td>${z(q[0])}${q[0]?` <span class="quiet">${Math.round(q[0]/t*100)}%</span>`:''}</td><td>${z(q[1])}</td><td>${z(q[2])}</td><td>${mix(t,q)}</td>`}</tr>`).join('')+`</tbody></table></div>`;
-        return groups.map(([c,rs])=>repPanel(c.replace(/_/g,' ')+(noStage?'':' - sub-channel and quality'),legend+table(rs))).join('');})()}
-
-    </div>
-
-    <div class="homegrid level mgrid">
-      ${noStage?'':repPanel('Conversion funnel',gFunnel([
-        /* one hue darkening down the funnel. It used to run s2, s4, viz-1,
-           and s4 against viz-1 is a colourblind delta of 1.1 - the same
-           colour to any eye. These steps are three apart. */
-        ['Total',got.length,'var(--viz-s1)'],
-        ['Qualified',qualified.length,'var(--viz-s3)'],
-        ['Quotation',toQuot.length,'var(--viz-s5)'],
+        : repPanel('MTD trend, target vs actual',blank('No lead target set',''))}
+      ${repPanel('Conversion funnel',xrows({'With phone':withPhone.map(xl),'Won':toWon.map(xl)})+gFunnel([
+        ['Leads',got.length,'var(--viz-s1)'],
+        ['With phone',withPhone.length,'var(--viz-s3)'],
+        ['Qualified',qualAll.length,'var(--c-qual)'],
         ['Won',toWon.length,'var(--viz-good)']
       ])+ledger([
-        ['Lead to qualified',pct(qualified.length,got.length)],
-        ['Qualified to quotation',pct(toQuot.length,qualified.length)],
+        ['Lead to phone',pct(withPhone.length,got.length)],
+        ['Phone to qualified',pct(qualAll.length,withPhone.length)],
         ['Lead to won',pct(toWon.length,got.length)]
       ]))}
+    </div>
 
+    <div class="homegrid level mgrid">
+      ${qSeries.length?groupChart(qMonths.map(monthName),qSeries,{title:'Qualified by channel, last twelve months',stacked:true,compact:true,noSide:true})
+        :repPanel('Qualified by channel, last twelve months',blank('Nothing to chart yet',''))}
+      ${repPanel('Sub-channels by qualification rate',rateRows.length
+        ?gRank(rateRows,{color:'var(--c-qual)',order:true,keepZero:true,limit:rateRows.length,fmt:v=>v+'%'})
+        :blank('No sub-channel with 2 leads or more',''))}
+    </div>
+
+    <div class="homegrid level mgrid">
       ${repPanel('Daily and monthly summary',ledger([
-        ['Monthly lead target',leadTarget??'\u2014',leadTarget?mtd.length+' so far':'set under Targets'],
-        ['Monthly budget',budget==null?'\u2014':fmtMoney(budget),
-          spend==null?'nothing spent recorded':fmtMoney(spend)+' spent'],
-        ['Target CPL',cash(targetCpl),cpl==null?'':'actual '+cash(cpl)],
-        ['Pacing',pacing==null?'\u2014':(pacing>0?'+':'')+pacing+'%',
-          pacing==null?'needs a lead target':(pacing>=0?'ahead':'behind')+' on day '+dayNow+' of '+dim]
+        ['Monthly lead target',leadTarget??'—',leadTarget?mtd.length+' so far':''],
+        ['Monthly budget',budget==null?'—':fmtMoney(budget),spend==null?'':fmtMoney(spend)+' spent'],
+        ['Cost per lead',cash(cpl),targetCpl==null?'':'target '+cash(targetCpl)],
+        ['Pacing',pacing==null?'—':(pacing>0?'+':'')+pacing+'%',
+          pacing==null?'':(pacing>=0?'ahead':'behind')+' on day '+dayNow+' of '+dim]
       ]))}
+      ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
+        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
     </div>
 
     <div class="homegrid mgrid mkwide">
       ${months.length?barChart(months,counts,used)
         :repPanel('Leads by channel, last twelve months',blank('Nothing to chart yet',''))}
-    </div>
-    <div class="homegrid mgrid mkwide">
-      ${repPanel('Channel detail '+(per==='ever'?'':per),
-        got.length?`<div class="tablewrap"><table class="table-compact"><thead><tr>
-      <th>Channel</th><th>Leads</th>${noStage?'':`<th>Qualified</th><th>Qualification rate</th>
-      <th>Quotation sent</th><th>Closed-Won</th><th>Lead to won</th>`}
-    </tr></thead><tbody>`+[...MKT_CH,'Other'].map(c=>{
-      const set=got.filter(l=>chOf(l)===c);
-      if(!set.length)return '';
-      const q=set.filter(l=>isQualLead(l));
-      const qt=set.filter(l=>everReached(reached,l,'quotation_sent'));
-      const w=set.filter(l=>everReached(reached,l,WON));
-      return `<tr><td><b>${esc(c.replace(/_/g,' '))}</b></td><td>${set.length}</td>
-        ${noStage?'':`<td>${q.length}</td><td>${pct(q.length,set.length)}</td>
-        <td>${qt.length}</td><td>${w.length}</td><td>${pct(w.length,set.length)}</td>`}</tr>`;
-    }).join('')+`</tbody></table></div>`
-    :blank('No leads in this window',''))}
     </div>`;
 }

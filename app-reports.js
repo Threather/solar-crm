@@ -883,7 +883,8 @@ function groupChart(labels,series,opts){
          not print on top of each other (Kevin, 5 Oct 2026) */
       if(v>0&&ST&&nz.length>1){
         if(h>=16) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy+h/2+3}" text-anchor="middle">${v}</text>`;
-        else{let ty=Math.min(yy+h/2+3,sideY-(C?10:12));sideY=ty;
+        /* o.noSide: thin parts stay unlabelled - hover names them (28 Oct 2026) */
+        else if(!o.noSide){let ty=Math.min(yy+h/2+3,sideY-(C?10:12));sideY=ty;
           bars+=`<text class="seglabel" x="${x+w+4}" y="${ty}" text-anchor="start" style="fill:var(--ink-2)">${v}${o.sideNames?' '+esc(sr.name):''}</text>`;}
       }
       if(v>0&&!ST) bars+=`<text class="seglabel" x="${x+w/2}" y="${yy-4}" text-anchor="middle" style="fill:var(--ink-2)">${v}</text>`;

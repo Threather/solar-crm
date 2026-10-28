@@ -1311,3 +1311,14 @@ table.sqtable th:last-child,table.sqtable td:last-child{text-align:left;padding-
 table.sqtable td:first-child .nm{overflow:hidden;text-overflow:ellipsis;display:block}
 .sqmix{display:flex;height:10px;border-radius:3px;overflow:hidden;background:var(--line)}
 .sqmix i{display:block;height:100%}
+
+/* Marketing channel scorecard (28 Oct 2026) */
+.kpis.seven.mk6{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:700px){.kpis.seven.mk6{grid-template-columns:repeat(2,1fr)}}
+table.sctable{min-width:0}
+table.sctable td:nth-child(n+2),table.sctable th:nth-child(n+2){text-align:right}
+table.sctable th:last-child,table.sctable td:last-child{text-align:left;width:16%;padding-left:14px}
+table.sctable tr.scch td{background:color-mix(in srgb,var(--ink) 4%,transparent);border-top:1px solid var(--line)}
+table.sctable .scsub{padding-left:16px;color:var(--ink-2)}
+.sclegend{display:inline-flex;gap:3px;margin-right:6px;vertical-align:middle}
+.sclegend i{width:8px;height:8px;border-radius:2px;display:block}
