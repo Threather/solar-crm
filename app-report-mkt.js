@@ -140,16 +140,6 @@ async function renderMktReport(){
           {title:'MTD trend, target vs actual',compact:true})
         : repPanel('MTD trend, target vs actual',
             blank('No lead target set',''))}
-      ${noStage||!subs.length
-        ?repPanel('Leads by sub-channel',
-          subs.length?gRank(subs.map(s=>[s,got.filter(l=>l.lead_sub_channel===s).length]),
-            {color:'var(--viz-1)'})
-          :blank('No sub-channel recorded',''))
-        :groupChart(subs,
-          [{name:'Qualified',color:'var(--viz-good)',values:subs.map(subQ)},
-           {name:'Not qualified',color:'var(--viz-s5)',values:subs.map(subD)}],
-          {title:'Leads by sub-channel and quality',compact:true,stacked:true})}
-
       ${repPanel('Customer contact captured',
         capture.length
           ?gRank(capture.map(r=>[r[0],Math.round(r[2]/r[1]*100)]),
@@ -157,6 +147,32 @@ async function renderMktReport(){
               fmt:v=>v+'%'})
            +ledger(capture.map(r=>[r[0],r[2]+'/'+r[1],'have a phone number']))
           :blank('Nothing to count yet',''))}
+    </div>
+
+    <div class="homegrid mgrid mkwide">
+      ${/* grouped under the channel, bars lying down, largest first, with
+           qualified / disqualified / not yet (client, 28 Oct 2026) */(()=>{
+        const Q=[['Qualified','var(--c-qual)',isQualLead],['Closed-Lost','var(--c-lost)',isClosedLost],['Disqualified','var(--c-disq)',isDisqualified]];
+        const groups=[...MKT_CH,'Other'].map(c=>{const set=got.filter(l=>chOf(l)===c&&l.lead_sub_channel);
+          const names=[...new Set(set.map(l=>l.lead_sub_channel))];
+          return [c,names.map(n=>{const r=set.filter(l=>l.lead_sub_channel===n);
+            const q=Q.map(x=>r.filter(x[2]).length);return [n,r.length,q.concat(r.length-q.reduce((a,b)=>a+b,0))];}).sort((x,y)=>y[1]-x[1])];})
+          .filter(g=>g[1].length);
+        if(!groups.length)return repPanel('Leads by sub-channel',blank('No sub-channel recorded',''));
+        const max=Math.max(1,...groups.flatMap(g=>g[1].map(r=>r[1])));
+        xrows({'Leads by sub-channel':groups.flatMap(([c,rs])=>rs.map(([n,t,q])=>noStage?{Channel:c.replace(/_/g,' '),'Sub-channel':n,Leads:t}
+          :{Channel:c.replace(/_/g,' '),'Sub-channel':n,Leads:t,Qualified:q[0],'Closed-Lost':q[1],Disqualified:q[2],'Not qualified yet':q[3]}))});
+        const row=([n,t,q])=>`<div class="sqrow"><span class="sqn">${esc(n)}</span>
+          <span class="sqbar" style="width:${Math.max(2,t/max*100)}%">${noStage?'<i style="width:100%;background:var(--viz-1)"></i>'
+            :q.slice(0,3).map((v,i)=>v?`<i style="width:${v/t*100}%;background:${Q[i][1]}" title="${esc(Q[i][0])}: ${v}"></i>`:'').join('')}</span>
+          <span class="sqv"><b>${t}</b>${noStage?'':`<span><em style="color:var(--c-qual)">${q[0]} qualified${q[0]?` (${Math.round(q[0]/t*100)}%)`:''}</em> ${q[1]?` · <em style="color:var(--c-lost)">${q[1]} closed-lost</em>`:''} · <em style="color:var(--c-disq)">${q[2]} disqualified</em></span>`}</span></div>`;
+        return repPanel(noStage?'Leads by sub-channel':'Leads by sub-channel and quality',
+          (noStage?'':`<div class="legend" style="margin:0 0 10px">${Q.concat([['Not qualified yet','var(--line)']]).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join('')}</div>`)
+          +groups.map(([c,rs])=>`<div class="sqgrp">${esc(c.replace(/_/g,' '))}</div>`+rs.map(row).join('')).join(''));})()}
+
+    </div>
+
+    <div class="homegrid level mgrid">
       ${noStage?'':repPanel('Conversion funnel',gFunnel([
         /* one hue darkening down the funnel. It used to run s2, s4, viz-1,
            and s4 against viz-1 is a colourblind delta of 1.1 - the same
