@@ -131,7 +131,7 @@ async function renderIncentive(){
 
   $('main').innerHTML=incHead('sales')+`
     <div class="toolbar"><select onchange="INCMONTH=this.value;renderIncentive()">${opts.join('')}</select>
-      <span class="spacer"></span><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
+      <span class="spacer"></span><button class="btn-line" onclick="incExportPdf()">Export PDF</button><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
     <div class="stats">
       <div class="stat hero"><div class="n">${cash2(cur.total)}</div><div class="l">Collected in ${esc(monthName(m.slice(0,7)))}</div></div>
       <div class="stat"><div class="n">${esc(cur.tier.name)}</div><div class="l">Tier reached</div></div>
@@ -146,7 +146,7 @@ async function renderIncentive(){
         ['Override '+INCSET.override_pct+'%',cash2(cur.override),''],['Remaining',cash2(cur.rest),'']]
         .map(([k,v,n])=>`<div><span>${esc(k)}</span><b>${v}</b>${n?`<i>${esc(n)}</i>`:''}</div>`).join('')}</div>
     </div>
-    <div class="toolbar"><span class="spacer"></span><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
+    <div class="toolbar"><span class="spacer"></span><button class="btn-line" onclick="incExportPdf()">Export PDF</button><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
     <div class="incsheet">
       <h3 class="increfh">INCENTIVE REFERENCE</h3>
       ${incRefHtml(m,pays,byLead)}
@@ -271,7 +271,7 @@ async function renderAgentIncentive(){
     <div class="toolbar">
       <span class="datepair"><input type="date" value="${AGFROM}" onchange="AGFROM=this.value;renderIncentive()"> to
         <input type="date" value="${AGTO}" onchange="AGTO=this.value;renderIncentive()"></span>
-      <span class="spacer"></span><button class="btn-line" onclick="exportAgentIncentive()">Export Excel</button></div>
+      <span class="spacer"></span><button class="btn-line" onclick="incExportPdf()">Export PDF</button><button class="btn-line" onclick="exportAgentIncentive()">Export Excel</button></div>
     <div class="incsheet">
     <div class="mg-band">AGENT COMMISSION FROM ${esc(monUpper(AGFROM).slice(0,3)+'-'+AGFROM.slice(0,4)+' TO '+monUpper(AGTO).slice(0,3)+'-'+AGTO.slice(0,4))}</div>
     ${rows.length?`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
@@ -446,4 +446,36 @@ async function exportAgentIncentive(){
   ref.getCell(rt,16).value={formula:`SUM(P9:P${rt-2})`};ref.getCell(rt,16).numFmt=MONEY;ref.getCell(rt,16).font={bold:true};ref.getCell(rt,16).border=XL_THIN;
   xlSign(ref,rt+3,[1,5,9,15]);
   await xlSave(wb,'Agent Commission '+from+' to '+to+'.xlsx');
+}
+
+/* the two sheets as she sees them, one A4 landscape page each, with the
+   signature boxes under each (client, 28 Oct 2026) */
+async function incExportPdf(){
+  const sheets=[...document.querySelectorAll('#main .incsheet')];
+  if(!sheets.length){toast('Nothing to export');return;}
+  const load=src=>new Promise((ok,no)=>{const x=document.createElement('script');x.src=src;x.onload=ok;x.onerror=no;document.head.appendChild(x);});
+  try{
+    if(!window.html2canvas)await load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    if(!window.jspdf)await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }catch(e){toast('Could not load the PDF writer');return;}
+  toast('Making the PDF…');
+  const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'landscape'});
+  const W=297,H=210,M=10;
+  const sign=`<div class="incsign">${['PREPARED BY','CHECKED BY','CHECKED BY','APPROVED BY'].map(t=>
+    `<div><b>${t}</b><div class="line"></div><span>NAME</span><span>POSITION</span><span>DATE</span></div>`).join('')}</div>`;
+  const box=document.createElement('div');box.className='incprint';document.body.appendChild(box);
+  try{
+    for(let i=0;i<sheets.length;i++){
+      box.innerHTML='<img src="img/logo.png" class="inclogo" onerror="this.remove()">'+sheets[i].outerHTML+sign;
+      box.querySelectorAll('input').forEach(x=>{const sp=document.createElement('span');sp.textContent=x.value+(x.closest('td')&&/agr-/.test(x.id)?'':'');x.replaceWith(sp);});
+      await new Promise(r=>setTimeout(r,60));
+      const c=await window.html2canvas(box,{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+      let w=W-2*M,h=c.height*w/c.width;
+      if(h>H-2*M){h=H-2*M;w=c.width*h/c.height;}
+      if(i)pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',M,M,w,h);
+    }
+  }finally{box.remove();}
+  const name=INCDATA&&INCDATA.agent?'Agent Commission '+AGFROM+' to '+AGTO:monthName(INCMONTH.slice(0,7))+' - Solarworks - Sales Incentive';
+  pdf.save(name+'.pdf');
 }

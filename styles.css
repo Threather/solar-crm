@@ -1364,3 +1364,12 @@ table.lgqt{min-width:0;width:100%}
 .incpool div{display:flex;gap:8px;align-items:baseline}.incpool span{color:var(--ink-soft)}.incpool i{font-style:normal;color:var(--ink-mute);font-size:12px}
 table.incref th,table.incref td{white-space:nowrap}
 table.inctable thead th{background:#1f2328;color:#fff}
+
+/* the PDF of the incentive sheets is drawn off screen at a fixed width */
+.incprint{position:fixed;left:-10000px;top:0;width:1500px;background:#fff;padding:20px;color:#1f2328}
+.incprint .incsheet{border:0;padding:0}
+.incprint .tablewrap{overflow:visible!important;max-height:none!important}
+.incprint .inclogo{height:46px;margin:0 0 10px}
+.incsign{display:grid;grid-template-columns:repeat(4,1fr);gap:30px;margin-top:28px;font-size:13px}
+.incsign .line{height:60px}
+.incsign span{display:block;font-weight:700;margin-top:4px}
