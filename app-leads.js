@@ -477,6 +477,10 @@ const LG_OF={'phone':'contact','referred by':'source','channel':'source','stage'
   'lost':'progress','remarks':'remarks','remark':'remarks','revised remark':'remarks'};
 const lgKey=()=>'leadgroups:'+(ME&&ME.id);
 function lgHidden(){try{return JSON.parse(localStorage.getItem(lgKey())||'[]');}catch(e){return [];}}
+/* the No column: admin sees it unless they hide it, everyone else only if they show it */
+const lgNoKey=()=>'leadno:'+(ME&&ME.id);
+function lgNoOn(){let v=null;try{v=localStorage.getItem(lgNoKey());}catch(e){}return v?v==='1':ME.role==='admin';}
+function lgNoToggle(){try{localStorage.setItem(lgNoKey(),lgNoOn()?'0':'1');}catch(e){}drawTable();}
 function lgToggle(g){const h=new Set(lgHidden());h.has(g)?h.delete(g):h.add(g);
   try{localStorage.setItem(lgKey(),JSON.stringify([...h]));}catch(e){}drawTable();}
 const qPack=q=>[q.panel_pcs!=null?q.panel_pcs+' pcs '+(q.panel_brand||'')+(q.panel_watt?' '+q.panel_watt+'W':''):q.panel_brand,
@@ -487,6 +491,8 @@ const qUse=(q,l)=>typeof quotInUse==='function'&&quotInUse(q,l,{final_sale_usd:l
 function leadGroups(rows){
   const t=$('tablewrap').querySelector('table');if(!t)return;
   const byId=Object.fromEntries(rows.map(l=>[l.id,l]));
+  const noOn=lgNoOn();
+  if(!noOn){t.querySelectorAll('.rowno').forEach(c=>c.remove());t.classList.add('nono');}
   /* the System group: what was keyed in for the customer */
   const sysCols=[['System type',l=>esc(l.system_type||'')],
     ['Panel',l=>esc([l.panel_pcs!=null?l.panel_pcs+' pcs':'',l.panel_brand||'',l.panel_watt?l.panel_watt+'W':''].filter(Boolean).join(' '))],
@@ -520,7 +526,8 @@ function leadGroups(rows){
   const present=new Set(heads.map(h=>h.dataset.g).filter(Boolean));
   const chips=$('lgchips');
   if(chips)chips.innerHTML=LEAD_GROUPS.filter(([g])=>present.has(g)).map(([g,l,c])=>
-    `<button class="${hide.has(g)?'':'on'} srg-${c}" aria-pressed="${!hide.has(g)}" onclick="lgToggle('${g}')"><i></i>${l}</button>`).join('');
+    `<button class="${hide.has(g)?'':'on'} srg-${c}" aria-pressed="${!hide.has(g)}" onclick="lgToggle('${g}')"><i></i>${l}</button>`).join('')
+    +`<button class="${noOn?'on':''} srg-pin" aria-pressed="${noOn}" onclick="lgNoToggle()"><i></i>No</button>`;
   /* the band above the headings, one cell per run of a group */
   const cls=g=>(LEAD_GROUPS.find(x=>x[0]===g)||[])[2]||'pin';
   const runs=[];heads.filter(h=>h.style.display!=='none').forEach(h=>{const g=h.dataset.g||'';const L=runs[runs.length-1];
@@ -536,7 +543,7 @@ function leadGroups(rows){
   /* No, Ref ID and Customer stay on the left while the rest scrolls - not
      when the manager's tick column is first, which would shift them */
   if(!t.querySelector('th.pickcol'))[...t.tHead.rows[1].cells,...[...t.tBodies[0].rows].filter(r=>!r.classList.contains('lgqrow')).flatMap(r=>[...r.cells])]
-    .forEach(c=>{const i=c.cellIndex;if(i<3)c.classList.add('srpin','srpin'+i);});
+    .forEach(c=>{const i=c.cellIndex+(noOn?0:1);if(i<3&&i>=(noOn?0:1))c.classList.add('srpin','srpin'+i);});
 }
 function lgSync(el){const o=el.id==='lgtop'?$('tablewrap'):$('lgtop');if(o&&o.scrollLeft!==el.scrollLeft)o.scrollLeft=el.scrollLeft;}
 /* the packages of one lead, opened under its row */

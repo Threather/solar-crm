@@ -1373,3 +1373,8 @@ table.inctable thead th{background:#1f2328;color:#fff}
 .incsign{display:grid;grid-template-columns:repeat(4,1fr);gap:30px;margin-top:28px;font-size:13px}
 .incsign .line{height:60px}
 .incsign span{display:block;font-weight:700;margin-top:4px}
+
+.srtable.lgtable.nono .srpin1{left:0}
+.srtable.lgtable.nono .srpin2{left:110px}
+.srtable.lgtable.nono tr.srband th.srpin0{left:0}
+.srgroups .srg-pin i{background:#e6e2da}
