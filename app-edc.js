@@ -89,12 +89,12 @@ async function renderEdc(){
         <button class="${EDCSCOPE==='work'?'on':''}" onclick="setEdcScope('work')">Worklist</button>
         <button class="${EDCSCOPE==='sent'?'on':''}" onclick="setEdcScope('sent')">Submitted (${started.length})</button>
         <button class="${EDCSCOPE==='miss'?'on':''}" onclick="setEdcScope('miss')">Missing information (${pending.length})</button>
-        <button class="${EDCSCOPE==='edit'?'on':''}" onclick="setEdcScope('edit')">Edit deals (${rows.length})</button>
+        <button class="${EDCSCOPE==='edit'?'on':''}" onclick="setEdcScope('edit')">Edit EDC (${rows.length})</button>
       </div>
     </div>
 
     ${fNote}
-    ${EDCSCOPE==='edit'?`<p style="color:var(--ink-soft);font-size:13px;margin:-6px 0 12px">Every won deal. BOQ, dates, EDC, customer and system - changes save as you make them.</p>`+drawEditDeals(rows):''}
+    ${EDCSCOPE==='edit'?drawEditDeals(rows,'edc'):''}
 
     ${EDCSCOPE==='work'?(outstanding.length?`
       ${edcTable('Inverter ≤ 10 kWac',fSmall,EDC_SMALL)}
@@ -177,6 +177,15 @@ async function edcReview(id){
   $('lead-overlay').classList.add('open');
 }
 
+/* Projects (29 Oct 2026): the installation side of every won deal, out of EDC */
+async function renderProjects(){
+  if(ME.role!=='admin'){$('main').innerHTML=blank('Projects is admin only','');return;}
+  $('main').innerHTML=SKEL;
+  const rows=await fetchLeads(q=>q.eq('stage_code',WON));
+  if(VIEW!=='proj')return;
+  $('main').innerHTML=`<h2 style="margin-bottom:14px">Projects</h2>`+drawEditDeals(rows,'proj');
+  drawDeals();
+}
 function setEdcScope(v){EDCSCOPE=v;EDCF={};$('main').style.maxWidth='';renderEdc();}
 function edcTable(title,rows,fields){
   if(!rows.length)return `<h3 style="font-size:15px;margin:0 0 6px">${title}</h3>

@@ -514,6 +514,7 @@ const ICON={
   new:'M12 5v14M5 12h14',
   quots:'M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h4',
   reports:'M4 20V11M10 20V4M16 20v-6M21 20H3',
+  proj:'M4 20h16M6 20V9l6-5 6 5v11M10 20v-6h4v6',
   edc:'M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4',
   fin:'M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6',
   /* a pencil over a ruled sheet: correcting the won deals */
@@ -561,6 +562,7 @@ function buildNav(){
   if(['admin','manager'].includes(ME.role)) money.push(['inc','Incentive']);
   const admin=[];
   if(ME.role==='admin') admin.push(['edc','EDC']);
+  if(ME.role==='admin') admin.push(['proj','Projects']);
   /* every team with a dashboard of its own reaches it here; the scope switch
      inside decides which one they actually see */
   /* the manager runs sales and marketing; after-sale is the installation
@@ -593,7 +595,7 @@ function go(v){
      deal drops you back on Won rather than bouncing you to Active */
   ({home:renderHome,leads:()=>renderLeads(LEADSCOPE),
     pool:renderPool,dups:renderDups,new:renderNew,quots:renderQuots,reports:renderReports,
-    edc:renderEdc,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
+    edc:renderEdc,proj:renderProjects,fin:renderFinance,aftersale:renderAfterSale,users:renderUsers,
     targets:renderTargets,inc:renderIncentive,lists:renderLists,salesrep:renderWonSheet,cal:renderCalendar}[v])();
   if(v!=='reports')routeWrite();
 }
@@ -603,7 +605,7 @@ function go(v){
    the tab, window and dates, now ride in the hash - #reports/mgmt/month - so
    a refresh reopens the same page, Back works and a page can be bookmarked.
    Each render still checks the role, so a typed hash opens nothing new. */
-const ROUTES=['home','leads','pool','dups','new','quots','reports','edc','fin','aftersale','users','targets','inc','lists','salesrep','cal'];
+const ROUTES=['home','leads','pool','dups','new','quots','reports','edc','proj','fin','aftersale','users','targets','inc','lists','salesrep','cal'];
 let ROUTE_NOW='';
 function routeWrite(){
   let h=VIEW||'home';

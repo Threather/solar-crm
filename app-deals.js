@@ -12,14 +12,19 @@
 let DEALS=[], DEALTAB='edc', DEALF={q:'',sys:''}, DEALPAGE=0;
 
 /* called by renderEdc with the won deals it has already fetched */
-function drawEditDeals(rows){
+/* mode 'edc' = EDC > Edit EDC (EDC only); 'proj' = Projects: BOQ, installation,
+   customer, system (client, 29 Oct 2026: installation out of EDC) */
+let DEALMODE='edc';
+function drawEditDeals(rows,mode){
+  DEALMODE=mode||'edc';
+  if(DEALMODE==='edc')DEALTAB='edc';else if(DEALTAB==='edc')DEALTAB='boq';
   /* the table needs the whole screen, not the 1180px reading width */
   $('main').style.maxWidth='none';
   DEALS=rows.slice().sort((a,b)=>String(b.stage_entered_at||'').localeCompare(String(a.stage_entered_at||'')));
   const tab=(k,label)=>`<button class="${DEALTAB===k?'on':''}" onclick="DEALTAB='${k}';drawDeals();paintDealTabs()" data-tab="${k}">${label}</button>`;
   return `
     <div class="toolbar">
-      <div class="scope" id="deal-tabs">${tab('edc','EDC &amp; BOQ')}${tab('install','Installation')}${tab('cust','Customer')}${tab('sys','System')}</div>
+      ${DEALMODE==='proj'?`<div class="scope" id="deal-tabs">${tab('boq','BOQ')}${tab('install','Installation')}${tab('cust','Customer')}${tab('sys','System')}</div>`:''}
       <input placeholder="Search name, phone or ref ID…" value="${esc(DEALF.q)}" oninput="DEALF.q=this.value;DEALPAGE=0;drawDeals()">
       <select onchange="DEALF.sys=this.value;DEALPAGE=0;drawDeals()" title="System type">
         <option value="">All systems</option>${SYSTEM_TYPES.map(v=>opt(v,DEALF.sys)).join('')}<option value="-" ${DEALF.sys==='-'?'selected':''}>Not set</option></select>
@@ -109,19 +114,23 @@ const dealBoq=l=>stk(['BOQ',dSel(l,'boq_status',BOQ_STATUS)],['BOQ date',dDate(l
    different steps: two dates at 10 kWac or under, five above. Deals EDC cannot
    place yet get their own view with the two fields that place them. */
 const DEAL_EDC={
-  small:[{head:'Size',cell:dealEdcBand},{head:'EDC office',cell:dealOffice},{head:'BOQ',cell:dealBoq},
+  small:[{head:'Size',cell:dealEdcBand},{head:'EDC office',cell:dealOffice},
     ...EDC_SMALL.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
   /* five dates leave no room for a size column; the size rides under the office */
-  large:[{head:'EDC office &amp; BOQ',cell:l=>dealOffice(l)+dealBoq(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
+  large:[{head:'EDC office',cell:l=>dealOffice(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
     ...EDC_LARGE.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
   miss:[
     {head:'Why',cell:l=>edcExempt(l)?'<span class="quiet">Off-Grid, no EDC</span>':!edcApplies(l)?'<b>No system type</b>':'<b>No inverter size</b>'},
     {head:'System type',cell:l=>dSel(l,'system_type',SYSTEM_TYPES)},
     {head:'Inverter',cell:l=>`<div class="inl">${dNum(l,'inverter_kw',false,60)}<span>kW ×</span>${dNum(l,'inverter_pcs',true,48)}<span>pcs</span></div>`},
-    {head:'BOQ',cell:dealBoq},
     {head:'Sale engineer',cell:l=>esc(staffName(l.assigned_to))}]
 };
 const DEAL_COLS={
+  boq:[
+    {head:'BOQ',cell:dealBoq},
+    {head:'Sale engineer',cell:l=>esc(staffName(l.assigned_to))},
+    {head:'System',cell:l=>esc([l.system_type,l.inverter_kw?l.inverter_kw+' kW':''].filter(Boolean).join(' · '))}
+  ],
   install:[
     {head:'Delivery',cell:l=>dDate(l,'delivery_date')},
     {head:'Install start',cell:l=>dDate(l,'installation_start')},
