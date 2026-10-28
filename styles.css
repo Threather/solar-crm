@@ -1353,3 +1353,5 @@ table.lgqt{min-width:0;width:100%}
 .srtable.lgtable td b,.srtable.lgtable .refwho,.srtable.lgtable td .days{display:inline!important;max-width:none}
 .srtable.lgtable td{width:auto!important;max-width:none}
 .srtable.lgtable td.rem{max-width:280px}
+.srtable.lgtable th,.srtable.lgtable td{white-space:nowrap!important}
+.srtable.lgtable td.rem{white-space:nowrap!important}

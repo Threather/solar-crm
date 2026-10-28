@@ -470,7 +470,7 @@ function drawTable(){
    the one in use, and a click on the count opens every package in place. */
 /* the Sales Report's own look: its chips, its coloured band, its pins */
 const LEAD_GROUPS=[['contact','Contact','cust'],['source','Source','deal'],['progress','Progress','edc'],
-  ['remarks','Remarks','inst'],['quots','Quotations','money']];
+  ['remarks','Remarks','inst'],['system','System','sys'],['quots','Quotations','money']];
 const LG_OF={'phone':'contact','referred by':'source','channel':'source','stage':'progress','qualified':'progress',
   'sale engineer':'progress','follow-up':'progress','aging':'progress','quotation':'progress','sale value':'progress',
   'site engineer':'progress','boq':'progress','schedule':'progress','edc':'progress','closed-won':'progress','type':'progress',
@@ -487,8 +487,17 @@ const qUse=(q,l)=>typeof quotInUse==='function'&&quotInUse(q,l,{final_sale_usd:l
 function leadGroups(rows){
   const t=$('tablewrap').querySelector('table');if(!t)return;
   const byId=Object.fromEntries(rows.map(l=>[l.id,l]));
-  /* the Quotations group: four columns at the end */
-  const qhead=['Quotations','Latest','Price range','In use'];
+  /* the System group: what was keyed in for the customer */
+  const sysCols=[['System type',l=>esc(l.system_type||'')],
+    ['Panel',l=>esc([l.panel_pcs!=null?l.panel_pcs+' pcs':'',l.panel_brand||'',l.panel_watt?l.panel_watt+'W':''].filter(Boolean).join(' '))],
+    ['Inverter',l=>esc([l.inverter_pcs>1?l.inverter_pcs+' ×':'',l.inverter_brand||'',l.inverter_kw?l.inverter_kw+'kW':''].filter(Boolean).join(' '))],
+    ['Battery',l=>esc([l.battery_brand||'',l.battery_pcs>1&&l.battery_kwh_each?l.battery_pcs+' × '+l.battery_kwh_each+'kWh':l.battery_kwh?l.battery_kwh+'kWh':''].filter(Boolean).join(' '))],
+    ['kWp',l=>l.panel_kwp?esc(String(l.panel_kwp)):'']];
+  t.tHead.rows[0].insertAdjacentHTML('beforeend',sysCols.map(([h])=>`<th data-g="system">${h}</th>`).join(''));
+  [...t.tBodies[0].rows].forEach(tr=>{const id=(tr.getAttribute('onclick')||'').match(/'([^']+)'/);const l=id&&byId[id[1]];
+    tr.insertAdjacentHTML('beforeend',sysCols.map(([,f])=>`<td data-g="system">${l?f(l)||'<span class="quiet">—</span>':''}</td>`).join(''));});
+  /* the Quotations group: at the end */
+  const qhead=['Quotations','Package','Latest','Price range','In use'];
   t.tHead.rows[0].insertAdjacentHTML('beforeend',qhead.map(h=>`<th data-g="quots">${h}</th>`).join(''));
   [...t.tBodies[0].rows].forEach(tr=>{
     const id=(tr.getAttribute('onclick')||'').match(/'([^']+)'/);const l=id&&byId[id[1]];
@@ -496,6 +505,7 @@ function leadGroups(rows){
     const use=l&&qs.find(q=>qUse(q,l));
     tr.insertAdjacentHTML('beforeend',[
       qs.length?`<td data-g="quots" onclick="event.stopPropagation();lgOpenQuots(this,'${l.id}')"><button class="btn-line lgq">${qs.length} ▾</button></td>`:'<td data-g="quots"><span class="quiet">—</span></td>',
+      `<td data-g="quots">${qs.length?esc(qPack(use||qs[0])):''}</td>`,
       qs.length?`<td data-g="quots" class="nowrap"><b>${fmtMoney(qs[0].price_usd)}</b><span class="days">${fmtDate(qs[0].released_date||qs[0].created_at)}</span></td>`:'<td data-g="quots"></td>',
       `<td data-g="quots" class="nowrap">${qs.length>1?fmtMoney(Math.min(...ps))+' – '+fmtMoney(Math.max(...ps)):qs.length?fmtMoney(ps[0]):''}</td>`,
       `<td data-g="quots" class="nowrap">${use?'<b>'+fmtMoney(use.price_usd)+'</b>':qs.length?'<span class="quiet">—</span>':''}</td>`].join(''));
