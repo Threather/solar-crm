@@ -577,7 +577,7 @@ function buildNav(){
   if(ME.role==='admin') admin.push(['lists','Lists']);
   const group=(label,items)=>items.length
     ?`<span class="navlabel">${label}</span>`+items.map(navBtn).join('') :'';
-  $('nav').innerHTML=group('Work',work)+group('Money',money)+group('Company',admin);
+  $('nav').innerHTML=group('Leads and Process',work)+group('Financials',money)+group('Admin &amp; Reports',admin);
 }
 function go(v){
   /* nothing renders once the session has gone - the login screen is up and a

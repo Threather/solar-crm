@@ -147,7 +147,8 @@ async function renderOpsReport(){
      every job a team has ever finished, and it reads the filtered set so the
      team filter above it actually filters it. It read `rows` and counted the
      lot, filter and finished jobs included. */
-  const teamJobs=windowed?jobs.filter(onSite):active;
+  /* only jobs started and not finished, as of today (client, 30 Oct 2026) */
+  const teamJobs=active.filter(l=>l.installation_start&&localDay(l.installation_start)<=today);
   const teamRows=teams.map(t=>[t,teamJobs.filter(l=>l.installation_team===t).length])
     .concat(teamJobs.some(l=>!l.installation_team)
       ?[['No team yet',teamJobs.filter(l=>!l.installation_team).length]]:[])
