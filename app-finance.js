@@ -19,7 +19,7 @@ const finContract=r=>r.fin?.contract_extra_usd==null&&r.fin?.contract_total_usd!
   : Number(r.final_sale_usd??r.fin?.contract_total_usd??0)+Number(r.fin?.contract_extra_usd||0);
 /* interest on a loan (26 Oct 2026): the contract stays as signed, the customer
    owes contract + interest, and every report reads that */
-const finInterest=r=>Number(r.fin?.interest_usd||0);
+const finInterest=r=>coInt(r.fin);
 /* VAT on the deal (28 Oct 2026): typed by finance, the customer pays it on top */
 const finVat=r=>Number(r.fin?.vat_usd||0);
 const finWithInterest=r=>finContract(r)+finInterest(r)+finVat(r);
@@ -215,11 +215,14 @@ function finExpLeft(r){
    later month's as promised */
 function finNextAmt(r){
   const e=finNextExp(r);if(!e)return 0;
-  return e.expected_on.slice(0,7)===localDay(new Date()).slice(0,7)?finExpLeft(r):Number(e.amount_usd||0);
+  return e.expected_on.slice(0,7)<=localDay(new Date()).slice(0,7)?finExpLeft(r):Number(e.amount_usd||0);
 }
+/* an earlier month's promise still unpaid is carried, so it shows first, with
+   its own date in amber (2 Nov 2026) */
 function finNextExp(r){
-  const m0=localDay(new Date()).slice(0,7)+'-01';
-  return (r.expected||[]).filter(p=>(p.expected_on||'')>=m0)
+  const m0=localDay(new Date()).slice(0,7)+'-01', ex=r.expected||[];
+  if(finExpLeft(r)>0.005){const old=ex.filter(p=>(p.expected_on||'')<m0).sort((a,b)=>b.expected_on.localeCompare(a.expected_on))[0];if(old)return old;}
+  return ex.filter(p=>(p.expected_on||'')>=m0)
     .sort((a,b)=>a.expected_on.localeCompare(b.expected_on))[0]||null;
 }
 function finExpWord(r){
@@ -558,7 +561,7 @@ function exportFinance(){
       r.stage_entered_at?localDay(r.stage_entered_at).slice(0,7):'',
       localDay(r.created_at),staffName(r.assigned_to),
       r.lead_channel,r.lead_sub_channel,r.system_type,r.panel_kwp,r.inverter_kw_total,
-      r.final_sale_usd,r.fin?.contract_total_usd,finInterest(r)||'',finVat(r)||'',finWithInterest(r),r.fin?.contract_status,r.fin?.contract_signed_date,
+      r.final_sale_usd,r.fin?.contract_total_usd,Number(r.fin?.interest_usd||0)||'',finVat(r)||'',finWithInterest(r),r.fin?.contract_status,r.fin?.contract_signed_date,
       r.fin?.account_type,r.fin?.payment_term,(LOAN_WORD[r.fin?.loan_from]||'Pay in full'),
       r.fin?.loan_from?Number(r.fin.loan_amount_usd||0):'',r.fin?.loan_from?Number(r.fin.loan_monthly_usd||0):'',r.fin?.loan_from?(r.fin.loan_end_date||''):'',
       r.fin?.finance_remark,

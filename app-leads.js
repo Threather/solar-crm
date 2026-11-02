@@ -239,6 +239,11 @@ const COLSPEC={
      (8 Oct 2026) */
   ref:l=>l.lead_channel!=='Third_Party'?'Not third party'
     :(l.lead_sub_channel||'No sub-channel')+((l.agent_name||l.referrer_name)?' · '+(l.agent_name||l.referrer_name):''),
+  /* Lost tab, admin's ask (2 Nov 2026): the two remarks and the system */
+  remk:l=>l.lost_note||'—',
+  revrem:l=>l.lost_note_revised||'—',
+  systype:l=>l.system_type||'—',
+  panel:l=>[l.panel_brand||'',l.panel_watt?l.panel_watt+'W':''].filter(Boolean).join(' ')||'—',
   wait:l=>{const d=daysIn(l.created_at);return d<=7?'0-7 days':d<=30?'8-30 days':d<=90?'31-90 days':'Over 90 days';}
 };
 /* the channel a lead came in by, its sub-channel under it (client, 26 Oct 2026) */
@@ -499,7 +504,7 @@ function leadGroups(rows){
     ['Inverter',l=>esc([l.inverter_pcs>1?l.inverter_pcs+' ×':'',l.inverter_brand||'',l.inverter_kw?l.inverter_kw+'kW':''].filter(Boolean).join(' '))],
     ['Battery',l=>esc([l.battery_brand||'',l.battery_pcs>1&&l.battery_kwh_each?l.battery_pcs+' × '+l.battery_kwh_each+'kWh':l.battery_kwh?l.battery_kwh+'kWh':''].filter(Boolean).join(' '))],
     ['kWp',l=>l.panel_kwp?esc(String(l.panel_kwp)):'']];
-  t.tHead.rows[0].insertAdjacentHTML('beforeend',sysCols.map(([h])=>`<th data-g="system">${h}</th>`).join(''));
+  t.tHead.rows[0].insertAdjacentHTML('beforeend',sysCols.map(([h])=>th(h,{'System type':'systype',Panel:'panel'}[h]).replace('<th','<th data-g="system"')).join(''));
   [...t.tBodies[0].rows].forEach(tr=>{const id=(tr.getAttribute('onclick')||'').match(/'([^']+)'/);const l=id&&byId[id[1]];
     tr.insertAdjacentHTML('beforeend',sysCols.map(([,f])=>`<td data-g="system">${l?f(l)||'<span class="quiet">—</span>':''}</td>`).join(''));});
   /* the Quotations group: at the end */
@@ -697,7 +702,7 @@ function drawLostTable(rows){
     ?`<textarea class="revbox" rows="2" placeholder="Shorter wording" onclick="event.stopPropagation()" onchange="saveRevised('${l.id}',this)">${esc(l.lost_note_revised||'')}</textarea>`
     :(l.lost_note_revised?esc(l.lost_note_revised):'<span class="quiet">—</span>');
   $('tablewrap').innerHTML=`<table class="losttable"><thead><tr>
-    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th>${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}<th>Remark</th><th>Revised remark</th>
+    <th class="rowno">No</th><th>Ref ID</th><th>Customer</th>${th('Phone','hasphone')}${th('Referred<br>by','ref')}${th('Channel','chan')}${th('Type','ltype')}${th('Quotation','quot')}${th('Sale engineer','eng')}${th('Lost','lostm')}${th('Remark','remk')}${th('Revised remark','revrem')}
   </tr></thead><tbody>`+rows.map((l,i)=>`
     <tr class="rowlink" onclick="openLead('${l.id}')">
       <td class="rowno">${ROWNO+i+1}</td><td class="refid">${esc(l.ref_id||'—')}</td>

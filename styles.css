@@ -1318,7 +1318,7 @@ table.sqtable td:first-child .nm{overflow:hidden;text-overflow:ellipsis;display:
 table.sctable{min-width:0}
 table.sctable td:nth-child(n+2),table.sctable th:nth-child(n+2){text-align:right}
 table.sctable th:last-child,table.sctable td:last-child{text-align:left;width:16%;padding-left:14px}
-table.sctable tr.scch td{background:color-mix(in srgb,var(--ink) 4%,transparent);border-top:1px solid var(--line)}
+table.sctable tr.scch td{background:rgba(26,23,20,.04);border-top:1px solid var(--line)}
 table.sctable .scsub{padding-left:16px;color:var(--ink-2)}
 .sclegend{display:inline-flex;gap:3px;margin-right:6px;vertical-align:middle}
 .sclegend i{width:8px;height:8px;border-radius:2px;display:block}
@@ -1378,3 +1378,4 @@ table.inctable thead th{background:#1f2328;color:#fff}
 .srtable.lgtable.nono .srpin2{left:110px}
 .srtable.lgtable.nono tr.srband th.srpin0{left:0}
 .srgroups .srg-pin i{background:#e6e2da}
+.ledger .v .mkin{width:90px;text-align:right;padding:4px 8px;font:inherit;font-weight:600}

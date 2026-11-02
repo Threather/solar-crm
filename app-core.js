@@ -233,9 +233,16 @@ const countDay=p=>p.count_month||p.paid_on;
 /* Only a payment made ON OR AFTER the day the promise was keyed in comes off
    it: a promise typed after a payment is already what is left (Sopheap Khiev,
    $1,300 keyed on 8 Oct after $4,550 paid on 5 Oct). */
+/* interest on a Han personal-account loan is paid to Han, not to the company,
+   so no balance or report counts it (client, 2 Nov 2026) */
+const coInt=f=>f&&f.loan_from!=='Han'?Number(f.interest_usd||0):0;
 function expStill(exps,pays,a,b){
   const prom={},paid={},from={};
-  exps.forEach(e=>{if(e.expected_on>=a&&e.expected_on<=b){prom[e.lead_id]=(prom[e.lead_id]||0)+Number(e.amount_usd||0);
+  /* a promise not paid by the end of its month carries into the current one;
+     a month that is over shows nothing still to come (client, 2 Nov 2026) */
+  const cur=localDay(new Date()).slice(0,8)+'01';
+  if(b<cur)return {by:{},total:0};
+  exps.forEach(e=>{if(e.expected_on<=b&&(e.expected_on>=a||e.expected_on<cur)){prom[e.lead_id]=(prom[e.lead_id]||0)+Number(e.amount_usd||0);
     const k=e.created_at||a;if(!from[e.lead_id]||k<from[e.lead_id])from[e.lead_id]=k;}});
   /* the moment each was typed, not the day: a payment and a promise keyed a
      minute apart on 20 Oct (Thanin) both read "20 Oct", and the payment came
@@ -243,7 +250,7 @@ function expStill(exps,pays,a,b){
   pays.forEach(p=>{const d=localDay(countDay(p));
     const on=localDay(p.paid_on),kd=localDay(from[p.lead_id]);
     const after=on>kd||(on===kd&&(!p.created_at||String(from[p.lead_id]).length<=10||new Date(p.created_at)>new Date(from[p.lead_id])));
-    if(d>=a&&d<=b&&p.lead_id in prom&&after)paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0);});
+    if(d<=b&&p.lead_id in prom&&after)paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0);});
   const by={};let total=0;
   for(const id in prom){by[id]=Math.max(0,prom[id]-(paid[id]||0));total+=by[id];}
   return {by,total};

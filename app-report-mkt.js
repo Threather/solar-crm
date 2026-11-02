@@ -3,13 +3,37 @@
    Cost per lead needs a spend figure and the target needs a number, both set
    by admin on the Targets screen. Where one is missing this says so rather
    than dividing by nothing and printing a confident zero. */
+/* admin types the month's target, budget and spend straight into the summary
+   card (client, 2 Nov 2026); same rows as the Targets screen, for MKMONTH */
+let MKMONTH=null;
+const mkBox=(metric,v,int)=>ME.role!=='admin'?null
+  :numBox('mk-'+metric,v,{attrs:`class="mkin" placeholder="—" onchange="mkSave('${metric}',this)"`},int);
+async function mkSave(metric,el){
+  const raw=el.value.trim();
+  const {error}=await sb.from('targets').delete()
+    .eq('month',MKMONTH).is('profile_id',null).eq('metric',metric);
+  if(error){toast('Could not save. '+why(error));return;}
+  if(raw!==''){
+    const ins=await sb.from('targets').insert({month:MKMONTH,profile_id:null,metric,value:Number(normNum(raw)),
+      updated_by:ME.id,updated_at:new Date().toISOString()});
+    if(ins.error){toast('Could not save. '+why(ins.error));return;}
+  }
+  toast('Saved for '+monthName(MKMONTH.slice(0,7)));
+  renderMktReport();
+}
 const MKT_CH=['Digital_Marketing','Offline_Marketing','Third_Party','Direct_Sales','Existing_Customer'];
 
 async function renderMktReport(){
   const rows=await fetchLeads(q=>q);
   const range=repRange(REPPERIOD);
   const per=repPeriodWord();
-  const mStart=monthStart();
+  /* the month the boxes and the summary card speak for is the month of the
+     window's last day, not today's - September picked reads September */
+  const todayD=localDay(new Date());
+  const viewEnd=REPPERIOD==='all'||range[1]>todayD?todayD:range[1];
+  const mStart=viewEnd.slice(0,8)+'01';
+  const mEnd=(()=>{const [y,m]=mStart.split('-').map(Number);return localDay(new Date(y,m,0));})();
+  MKMONTH=mStart;
   const [tg,reached]=await Promise.all([loadTargets(mStart),loadStageHistory(rows.map(l=>l.id))]);
 
   /* lead_date is the day the lead came in and created_at only the day it was
@@ -26,7 +50,7 @@ async function renderMktReport(){
   const qualRate=got.length?Math.round(qualified.length/got.length*100):null;
 
   /* month to date is the frame the target is set in, whatever window is shown */
-  const mtd=rows.filter(l=>inRange(dayOf(l),[mStart,localDay(new Date())]));
+  const mtd=rows.filter(l=>inRange(dayOf(l),[mStart,mEnd<todayD?mEnd:todayD]));
   const todayRows=rows.filter(l=>inRange(dayOf(l),repRange('today')));
   const leadTarget=tg.company.leads??null;
   /* budget is what may be spent, spent is what has been. Both are company rows
@@ -42,8 +66,8 @@ async function renderMktReport(){
   /* Pacing: leads so far against where the month should have got to by today,
      at a straight line. It follows the month, never the window switch - a
      figure about how this month is going cannot answer for "all time". */
-  const nowD=new Date(), dim=new Date(nowD.getFullYear(),nowD.getMonth()+1,0).getDate();
-  const dayNow=nowD.getDate();
+  const dim=Number(mEnd.slice(8));
+  const dayNow=mEnd<todayD?dim:Number(todayD.slice(8));
   const expectedByNow=leadTarget?leadTarget*(dayNow/dim):null;
   const pacing=expectedByNow?Math.round((mtd.length-expectedByNow)/expectedByNow*100):null;
 
@@ -76,10 +100,10 @@ async function renderMktReport(){
   const toWon=got.filter(l=>everReached(reached,l,WON));
   const pct=repPct, cash=repCash;
 
-  const months=[...new Set(rows.map(l=>localDay(l.created_at).slice(0,7)))].filter(Boolean).sort().slice(-12);
+  const months=[...new Set(rows.map(l=>localDay(dayOf(l)).slice(0,7)))].filter(Boolean).sort().slice(-12);
   const counts={};
   months.forEach(m=>{counts[m]={};CH_ORDER.forEach(c=>counts[m][c]=0);});
-  rows.forEach(l=>{const m=localDay(l.created_at).slice(0,7);if(counts[m])counts[m][chOf(l)]++;});
+  rows.forEach(l=>{const m=localDay(dayOf(l)).slice(0,7);if(counts[m])counts[m][chOf(l)]++;});
   const used=CH_ORDER.filter(c=>months.some(m=>counts[m][c]>0));
 
   const bar=(label,n,total,cls)=>`<div class="row${cls||''}">
@@ -231,8 +255,9 @@ async function renderMktReport(){
 
     <div class="homegrid level mgrid">
       ${repPanel('Daily and monthly summary',ledger([
-        ['Monthly lead target',leadTarget??'—',leadTarget?mtd.length+' so far':''],
-        ['Monthly budget',budget==null?'—':fmtMoney(budget),spend==null?'':fmtMoney(spend)+' spent'],
+        ['Monthly lead target',mkBox('leads',leadTarget,true)??'—',leadTarget?mtd.length+' so far':''],
+        ['Monthly budget',mkBox('spend',budget)??(budget==null?'—':fmtMoney(budget)),''],
+        ['Money spent',mkBox('spend_actual',spend)??(spend==null?'—':fmtMoney(spend)),''],
         ['Cost per lead',cash(cpl),targetCpl==null?'':'target '+cash(targetCpl)],
         ['Pacing',pacing==null?'—':(pacing>0?'+':'')+pacing+'%',
           pacing==null?'':(pacing>=0?'ahead':'behind')+' on day '+dayNow+' of '+dim]
