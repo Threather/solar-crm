@@ -23,8 +23,19 @@ async function mkSave(metric,el){
 }
 const MKT_CH=['Digital_Marketing','Offline_Marketing','Third_Party','Direct_Sales','Existing_Customer'];
 
+/* marketing read only the leads they created, so their dashboard counted
+   fewer than everyone else's. The view mkt_dash_leads gives them every lead
+   with name, channel, dates and status only - no phone number, no money
+   (client, 2 Nov 2026). Falls back to their own leads if it is missing. */
+async function mktRows(){
+  if(ME.role!=='marketing')return fetchLeads(q=>q);
+  try{
+    const rows=await fetchAll(()=>sb.from('mkt_dash_leads').select('*').order('created_at',{ascending:false}).order('id'));
+    return rows.map(l=>({...l,phone:l.has_phone?'yes':null}));
+  }catch(e){console.error(e);return fetchLeads(q=>q);}
+}
 async function renderMktReport(){
-  const rows=await fetchLeads(q=>q);
+  const rows=await mktRows();
   const range=repRange(REPPERIOD);
   const per=repPeriodWord();
   /* the month the boxes and the summary card speak for is the month of the
