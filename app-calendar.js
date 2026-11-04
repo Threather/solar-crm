@@ -56,26 +56,27 @@ async function offFill(id){
   if(error){console.error(error);return;}
   const admin=ME.role==='admin';
   if(!admin&&!data.length){box.innerHTML='';return;}
-  /* each day of the job is a button: tick the days, pick one reason, add them
-     together (client, 4 Nov 2026) */
-  const st=$('d-cstart')?.value, en=$('d-cend')?.value, taken=new Set(data.map(r=>r.off_on)), days=[];
-  if(st&&en&&en>=st)for(let d=calDay(st);calIso(d)<=en;d.setDate(d.getDate()+1))days.push(calIso(d));
-  const word=x=>calDay(x).toLocaleDateString('en-GB',{weekday:'short',day:'numeric'});
   box.innerHTML=`<label>Days not worked</label>
     ${data.map(r=>`<div class="offrow"><span class="nowrap">${fmtDate(r.off_on)}</span><span>${esc(r.reason)}${Math.abs(offPart(r))===.5?' · half day':''}</span>${admin?`<button class="lsx" title="Remove" onclick="offDel('${r.id}','${id}')">×</button>`:''}</div>`).join('')}
-    ${!admin?'':days.length?`<div class="offdays">${days.map(x=>`<button type="button" class="offday" data-d="${x}" ${taken.has(x)?'disabled':''} onclick="this.classList.toggle('on')">${esc(word(x))}</button>`).join('')}</div>
-      <div class="offadd"><select id="off-why">${optList(OFF_REASONS,'')}<option value="OT">OT (worked on a rest day)</option></select>
-        <select id="off-part"><option value="1">Whole day</option><option value="0.5">Half day</option></select>
-        <button class="btn-line" onclick="offAdd('${id}')">Save</button></div>`
-      :'<div class="sub">Set the installation start and end first</div>'}`;
+    ${admin?`<div class="offadd"><div><label>From</label><input id="off-from" type="date"></div><div><label>To (optional)</label><input id="off-to" type="date"></div>
+      <div><label>Reason</label><select id="off-why">${optList(OFF_REASONS,'')}<option value="OT">OT (worked on a rest day)</option></select></div>
+      <div><label>Length</label><select id="off-part"><option value="1">Whole day</option><option value="0.5">Half day</option></select></div>
+      <button class="btn-line" onclick="offAdd('${id}')">Save</button></div>`:''}`;
 }
+/* one date, or a from-to range; a range skips the days it cannot apply to */
 async function offAdd(id){
-  const picked=[...document.querySelectorAll('#d-off .offday.on')].map(b=>b.dataset.d), rs=$('off-why').value;
-  if(!picked.length){toast('Pick at least one day');return;}
+  const a=$('off-from').value, b=$('off-to').value||a, rs=$('off-why').value, st=$('d-cstart').value, en=$('d-cend').value;
+  if(!a){needField('off-from','Pick the date');return;}
+  if(b<a){needField('off-to','The To date is before the From date');return;}
   if(!rs){needField('off-why','Pick the reason');return;}
-  const half=$('off-part').value==='0.5';
-  const rows=picked.map(d=>({lead_id:id,off_on:d,reason:rs,portion:offPortion(d,rs,half),created_by:ME.id}));
-  if(rows.some(r=>r.portion==null)){toast(rs==='OT'?'OT is only for a Saturday or Sunday':'Sunday is already off');return;}
+  if(!st){needField('d-cstart','Set the installation start first');return;}
+  if(a<st||(en&&b>en)){needField('off-from','That date is outside the installation dates');return;}
+  const half=$('off-part').value==='0.5', rows=[];
+  for(let d=calDay(a);calIso(d)<=b;d.setDate(d.getDate()+1)){
+    const iso=calIso(d), portion=offPortion(iso,rs,half);
+    if(portion!=null)rows.push({lead_id:id,off_on:iso,reason:rs,portion,created_by:ME.id});
+  }
+  if(!rows.length){toast(rs==='OT'?'OT is only for a Saturday or Sunday':'Sunday is already off');return;}
   const {error}=await sb.from('install_days_off').insert(rows);
   if(error){toast(error.code==='23505'?'One of those days is already listed':'Could not save. '+why(error));return;}
   toast('Saved');offFill(id);

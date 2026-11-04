@@ -1397,3 +1397,6 @@ table.inctable thead th{background:#1f2328;color:#fff}
 .offday:disabled{background:var(--sunk);color:var(--ink-mute);cursor:default}
 .caloff.half{width:50%;justify-self:end}
 .offadd{flex-wrap:wrap}
+.offadd{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.offadd>div{min-width:0}.offadd input,.offadd select{width:100%}
+.offadd button{grid-column:1/-1;justify-self:end}
