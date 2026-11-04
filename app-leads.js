@@ -1090,6 +1090,7 @@ function siteBox(l,canSite,first,isAdmin){
           ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
           :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
         <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
+        <div style="grid-column:1/-1" id="d-off" data-lead="${l.id}">${offKick(l.id)}</div>
       </div>
     </div>`+serviceBox(l,canSite)+`</div>`;
 }

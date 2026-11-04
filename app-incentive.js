@@ -90,7 +90,7 @@ async function renderIncentive(){
   const cur=incMonth(people,pays,byLead,m);
   /* the manager first, then the team, Han and anyone switched off last
      (client, 2 Nov 2026) */
-  const last=r=>!r.active||/^han$/i.test(String(r.name).trim());
+  const last=r=>!r.active||isHanRow(r);
   const inSheet=cur.rows.filter(r=>r.active||r.collection>0||r.exclude)
     .sort((a,b)=>(b.isManager-a.isManager)||(last(a)-last(b))||String(a.name).localeCompare(String(b.name)));
   /* the held part of each earlier month, paid held-months after the payout
@@ -122,14 +122,20 @@ async function renderIncentive(){
     +(nHid?`<button class="btn-line" style="margin-top:8px" onclick="INC_SHOWHID=!INC_SHOWHID;renderIncentive()">${INC_SHOWHID?'Hide them again':'Show hidden ('+nHid+')'}</button>`:'');
 
   const T=k=>inSheet.reduce((a,r)=>a+(r[k]||0),0);
+  const sumPay=f=>inSheet.reduce((a,r)=>a+payOf(r,f(r)),0);
   const payT=`<div class="tablewrap"><table class="table-compact inctable"><thead><tr>
       <th>No</th><th>Name</th><th>Position</th><th>Join date</th><th>Total payment collection</th><th>% of team sales</th>
-      <th>Total sales incentive</th></tr></thead><tbody>`
+      <th>Total sales incentive</th><th>Received this month</th><th>This month + ${esc(monUpper(nextPaid.paidIn).slice(0,3))} (${INCSET.held_pct}% hold)</th>
+      ${holdCols.map(c=>`<th>To be paid in ${esc(monthName(c.paidIn.slice(0,7)))}</th>`).join('')}<th>Remark</th></tr></thead><tbody>`
     +inSheet.map((r,i)=>`<tr><td>${i+1}</td><td><b class="nm">${esc(r.name)}</b></td><td>${esc(r.position)}</td>
       <td class="nowrap">${r.joined?fmtDate(r.joined):'—'}</td><td>${cash2(r.collection)}</td><td>${(r.share*100).toFixed(2)}%</td>
-      <td><b>${cash2(r.earned)}</b></td></tr>`).join('')
+      <td><b>${cash2(r.earned)}</b></td><td>${cash2(payOf(r,r.paidNow))}</td><td>${cash2(payOf(r,r.paidNow+(nextPaid.by[r.id]||0)))}</td>
+      ${holdCols.map(c=>`<td>${cash2(payOf(r,c.by[r.id]||0))}</td>`).join('')}
+      <td>${r.exclude?'Excluded from Incentive':r.onProb?'Probation '+Math.round(r.rate*100)+'%':''}</td></tr>`).join('')
     +`</tbody><tfoot><tr class="srtotal"><td colspan="4"><b>Total</b></td><td><b>${cash2(cur.total)}</b></td><td><b>100%</b></td>
-      <td><b>${cash2(T('earned'))}</b></td></tr></tfoot></table></div>`;
+      <td><b>${cash2(T('earned'))}</b></td><td><b>${cash2(sumPay(r=>r.paidNow))}</b></td>
+      <td><b>${cash2(sumPay(r=>r.paidNow+(nextPaid.by[r.id]||0)))}</b></td>
+      ${holdCols.map(c=>`<td><b>${cash2(sumPay(r=>c.by[r.id]||0))}</b></td>`).join('')}<td></td></tr></tfoot></table></div>`;
 
   $('main').innerHTML=incHead('sales')+`
     <div class="toolbar"><select onchange="INCMONTH=this.value;renderIncentive()">${opts.join('')}</select>
@@ -345,6 +351,10 @@ async function xlSave(wb,name){
 }
 const MONEY='"$"#,##0.00';
 
+/* Han's incentive is worked out but not paid out, so his payout columns read
+   $0 and the totals leave them out (client, 4 Nov 2026) */
+const isHanRow=r=>/^han$/i.test(String(r.name).trim());
+const payOf=(r,v)=>isHanRow(r)?0:v;
 async function exportSalesIncentive(){
   if(!INCDATA||INCDATA.agent){toast('Nothing to export');return;}
   try{await loadExcelJS();}catch(e){toast('Could not load the Excel writer');return;}
@@ -352,16 +362,17 @@ async function exportSalesIncentive(){
   const wb=new ExcelJS.Workbook();
   /* Summary - the client's payout sheet */
   const ws=wb.addWorksheet('Summary');
-  /* the sheet stops at Total sales incentive, as the screen does (2 Nov 2026);
-     the extra empty column keeps the total row's SUM loop reaching it */
-  const heads=['NO','NAME','POSITION','JOIN DATE','TOTAL PAYMENT COLLECTION','% OF TEAM SALES','TOTAL SALES INCENTIVE',''];
+  const heads=['NO','NAME','POSITION','JOIN DATE','TOTAL PAYMENT COLLECTION','% OF TEAM SALES','TOTAL SALES INCENTIVE',
+    'TOTAL INCENTIVE RECEIVED THIS MONTH','TOTAL INCENTIVE RECEIVED IN THIS MONTH + '+monUpper(nextPaid.paidIn).slice(0,3)+' ('+INCSET.held_pct+'% HOLD)']
+    .concat(holdCols.map(c=>'AMOUNT TO BE PAID IN '+monUpper(c.paidIn))).concat(['REMARK']);
   const N=heads.length;
   ws.columns=heads.map((h,i)=>({width:[6,20,26,12,16,12,14,16,18][i]||16}));
   await xlLogo(wb,ws);
   xlTitle(ws,4,'SALES INCENTIVE PAYOUT AS OF '+monUpper(m).slice(0,3)+'-'+m.slice(0,4),N);
   xlHead(ws,6,heads);
   rows.forEach((r,i)=>{const row=ws.getRow(7+i);
-    row.values=[i+1,r.name,r.position,r.joined?new Date(r.joined+'T00:00:00'):'-',r.collection,r.share,r.earned,''];
+    row.values=[i+1,r.name,r.position,r.joined?new Date(r.joined+'T00:00:00'):'-',r.collection,r.share,r.earned,payOf(r,r.paidNow),
+      payOf(r,r.paidNow+(nextPaid.by[r.id]||0))].concat(holdCols.map(c=>payOf(r,c.by[r.id]||0))).concat([r.exclude?'Excluded from Incentive':r.onProb?'Probation '+Math.round(r.rate*100)+'%':'']);
     row.eachCell({includeEmpty:true},(c,ci)=>{c.border=XL_THIN;if(ci>=5&&ci<N&&ci!==6)c.numFmt=MONEY;});
     row.getCell(6).numFmt='0.00%';row.getCell(4).numFmt='m/d/yyyy';});
   const tr=7+rows.length, tot=ws.getRow(tr);

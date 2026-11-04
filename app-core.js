@@ -649,6 +649,7 @@ window.addEventListener('popstate',()=>{
    nothing branches on are here: system type, BOQ status, contract status,
    after-sale status and channel read their exact values somewhere in the app
    and would break quietly if renamed, so they stay in code. */
+let OFF_REASONS=['Holiday','Sick leave','Annual leave','Rain','Customer not ready','Other'];
 const VOCAB_LISTS=[
   ['panel_brand','Panel brand',()=>PANEL_BRANDS,v=>PANEL_BRANDS=v,'Shown when the sale engineer keys the system in.'],
   ['inverter_brand','Inverter brand',()=>INVERTER_BRANDS,v=>INVERTER_BRANDS=v,'A brand with no part number in the code still saves; it prints without one.'],
@@ -662,7 +663,8 @@ const VOCAB_LISTS=[
   ['account_type','Type of account',()=>ACCOUNT_TYPES,v=>ACCOUNT_TYPES=v,''],
   ['edc_branch','EDC branch',()=>EDC_BRANCHES,v=>EDC_BRANCHES=v,''],
   ['agent','Agent',()=>AGENTS,v=>AGENTS=v,'Picked on a lead when the sub-channel is Agent.'],
-  ['as_pic','After-sale PIC',()=>AS_PICS,v=>AS_PICS=v,'Picked as PIC on an after-sale case.']
+  ['as_pic','After-sale PIC',()=>AS_PICS,v=>AS_PICS=v,'Picked as PIC on an after-sale case.'],
+  ['off_reason','Days not worked reason',()=>OFF_REASONS,v=>OFF_REASONS=v,'Picked when admin adds a day not worked on a job.']
 ];
 /* Loaded once at login. A value hidden on the Lists screen leaves the
    dropdowns, but a lead already carrying it still shows it - see optList. */

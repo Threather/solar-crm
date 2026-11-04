@@ -15,7 +15,7 @@ const LIST_GROUPS=[
   ['Products',['__products','panel_brand','inverter_brand','battery_brand','roof_type','phase_type']],
   ['Customers',['customer_type','lost_reason']],
   ['After-sale',['as_cause','as_pic']],
-  ['Team and office',['install_team','agent','edc_branch','account_type']]];
+  ['Team and office',['install_team','off_reason','agent','edc_branch','account_type']]];
 
 async function renderLists(){
   if(ME.role!=='admin'){

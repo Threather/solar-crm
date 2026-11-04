@@ -21,6 +21,9 @@ const instDoneOn=l=>{
 
 async function renderOpsReport(){
   const rows=await fetchLeads(q=>q.eq('stage_code',WON));
+  const offs=offByLead(await offRows());
+  /* days lost inside a job come off its installation turnaround */
+  const offN=l=>l.installation_start&&instDoneOn(l)?offInside(offs[l.id],localDay(l.installation_start),localDay(instDoneOn(l))).length:0;
   const range=repRange(REPPERIOD);
   const teams=[...new Set(rows.map(l=>l.installation_team).filter(Boolean))].sort();
   /* the panel below names a "No team yet" bucket, so the filter can pick it */
@@ -97,13 +100,13 @@ async function renderOpsReport(){
     'BOQ date':l.boq_date||'','Delivery':l.delivery_date||'','Installation start':l.installation_start?localDay(l.installation_start):'',
     'Installation done':instDoneOn(l)?localDay(instDoneOn(l)):'','EDC submitted':edcSentOn(l)?localDay(edcSentOn(l)):'',
     'EDC inspected':edcSeenOn(l)?localDay(edcSeenOn(l)):''});
-  const xstep=(test,a,b)=>{const out=f.filter(test).map(l=>{const d=daysBetween(a(l),b(l));
-      return d==null?null:{Ref:l.ref_id||'',Customer:l.customer_name||'',From:a(l)?localDay(a(l)):'',To:b(l)?localDay(b(l)):'',Days:d};}).filter(Boolean);
+  const xstep=(test,a,b,less)=>{const out=f.filter(test).map(l=>{const n=less?less(l):0,g=daysBetween(a(l),b(l)),d=g==null?null:g-n;
+      return d==null?null:{Ref:l.ref_id||'',Customer:l.customer_name||'',From:a(l)?localDay(a(l)):'',To:b(l)?localDay(b(l)):'',...(less?{'Days not worked':n}:{}),Days:d};}).filter(Boolean);
     if(out.length)out.push({Customer:'Average',Days:+(out.reduce((x,r)=>x+r.Days,0)/out.length).toFixed(1),From:'n='+out.length});
     return out;};
   const tatDeliv =avgDays(f.map(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date)?daysBetween(l.boq_date,l.delivery_date):null));
   const tatBoq   =avgDays(f.map(l=>started(l)&&inW(l.installation_start)?daysBetween(l.boq_date,l.installation_start):null));
-  const tatInst  =avgDays(f.map(l=>started(l)&&inW(instDoneOn(l))?daysBetween(l.installation_start,instDoneOn(l)):null));
+  const tatInst  =avgDays(f.map(l=>started(l)&&inW(instDoneOn(l))?daysBetween(l.installation_start,instDoneOn(l))-offN(l):null));
   const tatInform=avgDays(f.map(l=>inW(edcSentOn(l))?daysBetween(instDoneOn(l),edcSentOn(l)):null));
   const tatSeen  =avgDays(f.map(l=>inW(edcSeenOn(l))?daysBetween(edcSentOn(l),edcSeenOn(l)):null));
 
@@ -215,7 +218,7 @@ async function renderOpsReport(){
       ${repPanel('Turn Around Time Vs Target',xrows({
         'BOQ to delivery':xstep(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date),l=>l.boq_date,l=>l.delivery_date),
         'BOQ to installation':xstep(l=>started(l)&&inW(l.installation_start),l=>l.boq_date,l=>l.installation_start),
-        'Installation duration':xstep(l=>started(l)&&inW(instDoneOn(l)),l=>l.installation_start,instDoneOn),
+        'Installation duration':xstep(l=>started(l)&&inW(instDoneOn(l)),l=>l.installation_start,instDoneOn,offN),
         'Installation to EDC submission':xstep(l=>inW(edcSentOn(l)),instDoneOn,edcSentOn),
         'EDC submission to inspection':xstep(l=>inW(edcSeenOn(l)),edcSentOn,edcSeenOn)})+gPair([
         ['BOQ to delivery',tatDeliv.avg,sla.deliv||null,tatDeliv.n],
