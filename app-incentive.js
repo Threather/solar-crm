@@ -371,7 +371,7 @@ async function exportSalesIncentive(){
   xlTitle(ws,4,'SALES INCENTIVE PAYOUT AS OF '+monUpper(m).slice(0,3)+'-'+m.slice(0,4),N);
   xlHead(ws,6,heads);
   rows.forEach((r,i)=>{const row=ws.getRow(7+i);
-    row.values=[i+1,r.name,r.position,r.joined?new Date(r.joined+'T00:00:00'):'-',r.collection,r.share,r.earned,payOf(r,r.paidNow),
+    row.values=[i+1,r.name,r.position,r.joined?new Date(r.joined+'T00:00:00Z'):'-',r.collection,r.share,r.earned,payOf(r,r.paidNow),
       payOf(r,r.paidNow+(nextPaid.by[r.id]||0))].concat(holdCols.map(c=>payOf(r,c.by[r.id]||0))).concat([r.exclude?'Excluded from Incentive':r.onProb?'Probation '+Math.round(r.rate*100)+'%':'']);
     row.eachCell({includeEmpty:true},(c,ci)=>{c.border=XL_THIN;if(ci>=5&&ci<N&&ci!==6)c.numFmt=MONEY;});
     row.getCell(6).numFmt='0.00%';row.getCell(4).numFmt='m/d/yyyy';});
@@ -404,10 +404,10 @@ async function exportSalesIncentive(){
   xlHead(ref,7,rHeads);
   const nameOf=id=>(STAFF.find(s=>s.id===id)||{}).full_name||'';
   dealIds.forEach((id,i)=>{const l=byLead[id]||{};const row=ref.getRow(8+i);
-    const v=[i+1,l.ref_id||'',l.stage_code===WON&&l.stage_entered_at?new Date(localDay(l.stage_entered_at)+'T00:00:00'):'',
-      l.lead_date?new Date(l.lead_date+'T00:00:00'):'',nameOf(l.assigned_to),agentOf(l)||l.referrer_name||'',l.lead_channel||'',l.customer_name||'',l.phone||'',
-      l.installation_end?new Date(l.installation_end+'T00:00:00'):''];
-    inM.filter(p=>p.lead_id===id).forEach(p=>{const o=ordOf[key(p)]||1;v[10+(o-1)*2]=Number(p.amount_usd||0);v[11+(o-1)*2]=new Date(p.paid_on+'T00:00:00');});
+    const v=[i+1,l.ref_id||'',l.stage_code===WON&&l.stage_entered_at?new Date(localDay(l.stage_entered_at)+'T00:00:00Z'):'',
+      l.lead_date?new Date(l.lead_date+'T00:00:00Z'):'',nameOf(l.assigned_to),agentOf(l)||l.referrer_name||'',l.lead_channel||'',l.customer_name||'',l.phone||'',
+      l.installation_end?new Date(l.installation_end+'T00:00:00Z'):''];
+    inM.filter(p=>p.lead_id===id).forEach(p=>{const o=ordOf[key(p)]||1;v[10+(o-1)*2]=Number(p.amount_usd||0);v[11+(o-1)*2]=new Date(p.paid_on+'T00:00:00Z');});
     row.values=v;
     row.eachCell({includeEmpty:true},(c,ci)=>{c.border=XL_THIN;if(ci>10)c.numFmt=(ci-10)%2?MONEY:'m/d/yyyy';});
     [3,4,10].forEach(ci=>row.getCell(ci).numFmt='m/d/yyyy');});
@@ -453,7 +453,7 @@ async function exportAgentIncentive(){
   ref.getCell(6,1).font={bold:true,italic:true,underline:true,color:{argb:'FFC00000'}};
   xlHead(ref,8,rH);
   won.forEach((l,i)=>{const row=ref.getRow(9+i);
-    row.values=[l.ref_id||'',new Date(localDay(l.stage_entered_at)+'T00:00:00'),l.lead_date?new Date(l.lead_date+'T00:00:00'):'',
+    row.values=[l.ref_id||'',new Date(localDay(l.stage_entered_at)+'T00:00:00Z'),l.lead_date?new Date(l.lead_date+'T00:00:00Z'):'',
       nameOf(l.assigned_to),agentOf(l),l.lead_channel||'',l.customer_name||'',l.phone||'',
       l.panel_pcs??'',[l.panel_brand,l.panel_watt?'('+l.panel_watt+'W)':''].filter(Boolean).join(' '),
       l.inverter_kw??'',l.inverter_brand||'',l.battery_kwh??'',l.battery_brand||'',nameOf(l.site_engineer_id),amt[l.id]||0];
