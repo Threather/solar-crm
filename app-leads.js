@@ -176,7 +176,10 @@ function lostStats(rows){
 /* The manager sees only leads with a phone number: one with none is still
    marketing's, and nobody in sales can call it yet (Kevin, 30 Sep 2026). Her
    Marketing team table still counts them, under No phone. */
-const mgrRows=()=>ME.role==='manager'?LEADS.filter(l=>(l.phone||'').trim()||qualText(l)==='Qualified'):LEADS;
+/* no phone, but the manager still sees these two (Kevin, 4 Nov 2026) */
+const MGR_NOPHONE_OK=['202606-00058','202603-00037'];
+const mgrSees=l=>(l.phone||'').trim()||MGR_NOPHONE_OK.includes(l.ref_id);
+const mgrRows=()=>ME.role==='manager'?LEADS.filter(mgrSees):LEADS;
 function scopeLeads(){
   if(mktOnly())return LEADS;
   const LEADS_=mgrRows();
