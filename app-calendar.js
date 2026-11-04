@@ -34,6 +34,21 @@ async function offRows(){
 const offByLead=rows=>{const m={};rows.forEach(r=>{(m[r.lead_id]=m[r.lead_id]||[]).push(r);});return m;};
 /* only days inside the job count, so shortening a job drops them by itself */
 const offInside=(list,a,b)=>(list||[]).filter(r=>r.off_on>=a&&r.off_on<=b);
+/* every team rests Saturday afternoon and Sunday (client, 4 Nov 2026). A row's
+   portion is the days it takes off: 1 or 0.5, negative for OT on a rest day. */
+const restOf=iso=>{const w=calDay(iso).getDay();return w===0?1:w===6?.5:0;};
+const offPart=r=>Number(r.portion??1);
+function offPortion(iso,reason,half){
+  const rest=restOf(iso);
+  if(reason==='OT')return rest?-(half?Math.min(.5,rest):rest):null;
+  const open=1-rest;
+  return open?(half?Math.min(.5,open):open):null;
+}
+function workedDays(list,a,b){
+  let n=0;
+  for(let d=calDay(a);calIso(d)<=b;d.setDate(d.getDate()+1))n+=1-restOf(calIso(d));
+  return Math.max(0,n-offInside(list,a,b).reduce((t,r)=>t+offPart(r),0));
+}
 function offKick(id){setTimeout(()=>offFill(id),0);return '';}
 async function offFill(id){
   const box=$('d-off');if(!box||box.dataset.lead!==id)return;
@@ -41,18 +56,28 @@ async function offFill(id){
   if(error){console.error(error);return;}
   const admin=ME.role==='admin';
   if(!admin&&!data.length){box.innerHTML='';return;}
+  /* each day of the job is a button: tick the days, pick one reason, add them
+     together (client, 4 Nov 2026) */
+  const st=$('d-cstart')?.value, en=$('d-cend')?.value, taken=new Set(data.map(r=>r.off_on)), days=[];
+  if(st&&en&&en>=st)for(let d=calDay(st);calIso(d)<=en;d.setDate(d.getDate()+1))days.push(calIso(d));
+  const word=x=>calDay(x).toLocaleDateString('en-GB',{weekday:'short',day:'numeric'});
   box.innerHTML=`<label>Days not worked</label>
-    ${data.map(r=>`<div class="offrow"><span class="nowrap">${fmtDate(r.off_on)}</span><span>${esc(r.reason)}</span>${admin?`<button class="lsx" title="Remove" onclick="offDel('${r.id}','${id}')">×</button>`:''}</div>`).join('')}
-    ${admin?`<div class="offadd"><input id="off-date" type="date"><select id="off-why">${optList(OFF_REASONS,'')}</select><button class="btn-line" onclick="offAdd('${id}')">Add day</button></div>`:''}`;
+    ${data.map(r=>`<div class="offrow"><span class="nowrap">${fmtDate(r.off_on)}</span><span>${esc(r.reason)}${Math.abs(offPart(r))===.5?' · half day':''}</span>${admin?`<button class="lsx" title="Remove" onclick="offDel('${r.id}','${id}')">×</button>`:''}</div>`).join('')}
+    ${!admin?'':days.length?`<div class="offdays">${days.map(x=>`<button type="button" class="offday" data-d="${x}" ${taken.has(x)?'disabled':''} onclick="this.classList.toggle('on')">${esc(word(x))}</button>`).join('')}</div>
+      <div class="offadd"><select id="off-why">${optList(OFF_REASONS,'')}<option value="OT">OT (worked on a rest day)</option></select>
+        <select id="off-part"><option value="1">Whole day</option><option value="0.5">Half day</option></select>
+        <button class="btn-line" onclick="offAdd('${id}')">Save</button></div>`
+      :'<div class="sub">Set the installation start and end first</div>'}`;
 }
 async function offAdd(id){
-  const d=$('off-date').value, rs=$('off-why').value, a=$('d-cstart').value, b=$('d-cend').value;
-  if(!d){needField('off-date','Pick the date');return;}
+  const picked=[...document.querySelectorAll('#d-off .offday.on')].map(b=>b.dataset.d), rs=$('off-why').value;
+  if(!picked.length){toast('Pick at least one day');return;}
   if(!rs){needField('off-why','Pick the reason');return;}
-  if(!a){needField('d-cstart','Set the installation start first');return;}
-  if(d<a||(b&&d>b)){needField('off-date','That date is outside the installation dates');return;}
-  const {error}=await sb.from('install_days_off').insert({lead_id:id,off_on:d,reason:rs,created_by:ME.id});
-  if(error){toast(error.code==='23505'?'That day is already listed':'Could not save. '+why(error));return;}
+  const half=$('off-part').value==='0.5';
+  const rows=picked.map(d=>({lead_id:id,off_on:d,reason:rs,portion:offPortion(d,rs,half),created_by:ME.id}));
+  if(rows.some(r=>r.portion==null)){toast(rs==='OT'?'OT is only for a Saturday or Sunday':'Sunday is already off');return;}
+  const {error}=await sb.from('install_days_off').insert(rows);
+  if(error){toast(error.code==='23505'?'One of those days is already listed':'Could not save. '+why(error));return;}
   toast('Saved');offFill(id);
 }
 async function offDel(rowId,id){
@@ -91,7 +116,7 @@ async function calSaveDates(id){
   if(b&&b<a){needField('d-cend','The end date is before the start');return;}
   const {error}=await sb.from('leads').update({installation_start:a,installation_end:b||null}).eq('id',id);
   if(error){toast('Could not save. '+why(error));return;}
-  toast('Saved');
+  toast('Saved');offFill(id);
 }
 
 async function renderCalendar(){
@@ -157,7 +182,7 @@ async function renderCalendar(){
         <td>${esc(j.letter)}${j.team?' · '+esc(j.team):' · no team yet'}</td><td>${esc(INSTALL_TEAM_DETAIL[j.team]||'—')}</td>
         <td class="nowrap">${fmtDate(j.start)}</td>
         <td class="nowrap">${j.endKnown?fmtDate(j.end):'—'}</td>
-        <td>${j.endKnown?Math.round((calDay(j.end)-calDay(j.start))/864e5)+1-offInside(j.off,j.start,j.end).length:'—'}</td></tr>`).join('')}</tbody></table>`
+        <td>${j.endKnown?workedDays(j.off,j.start,j.end):'—'}</td></tr>`).join('')}</tbody></table>`
       :`<div class="sub">No installation in ${esc(monthWord)}.</div>`;
     body=`<div class="caldet">
       <div class="section calsec"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}<div class="calteams">${legend}</div></div></div>
@@ -185,9 +210,12 @@ function calGrid(jobs,y,m,compact){
         const cls=(j.start>=ws?' s':'')+(j.end<=we?' e':'')+(j.endKnown?'':' open');
         const label=compact?j.letter:j.name+' · '+j.letter;
         return `<button class="calseg${cls}" style="grid-column:${a+1}/${b+2};grid-row:${j.lane+2};background:${j.color}" title="${esc(j.name+' · '+(j.team||'No team yet')+' · '+fmtDate(j.start)+(j.endKnown?' to '+fmtDate(j.end):''))}" onclick="calOpen('${j.id}')">${esc(label)}</button>`
-          +offInside(j.off,j.start,j.end).filter(r=>r.off_on>=ws&&r.off_on<=we).map(r=>{
-            const c=days.findIndex(d=>calIso(d)===r.off_on)+1;
-            return `<i class="caloff" style="grid-column:${c};grid-row:${j.lane+2}" title="${esc(fmtDate(r.off_on)+' · '+r.reason)}"></i>`;}).join('');
+          +days.map((d,i)=>{const iso=calIso(d);
+            if(iso<j.start||iso>j.end||!j.endKnown)return '';
+            const rows=offInside(j.off,iso,iso), off=restOf(iso)+rows.reduce((t,r)=>t+offPart(r),0);
+            if(off<=0)return '';
+            const why=rows.map(r=>r.reason).join(', ')||(off<1?'Saturday afternoon off':'Sunday off');
+            return `<i class="caloff${off<1?' half':''}" style="grid-column:${i+1};grid-row:${j.lane+2}" title="${esc(fmtDate(iso)+' · '+why)}"></i>`;}).join('');
       }).join('')+`</div>`;
     s.setDate(s.getDate()+7);
   }

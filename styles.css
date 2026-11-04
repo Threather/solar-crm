@@ -1391,3 +1391,9 @@ table.inctable thead th{background:#1f2328;color:#fff}
 .calpophead span{display:block;font-size:12px;color:var(--ink-soft)}
 .calpopfoot{margin-top:14px;text-align:right}
 .offadd button{white-space:nowrap}.offadd input,.offadd select{min-width:0;flex:1}
+.offdays{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.offday{border:1px solid var(--line);background:var(--card,#fffdf8);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;color:var(--ink-2)}
+.offday.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.offday:disabled{background:var(--sunk);color:var(--ink-mute);cursor:default}
+.caloff.half{width:50%;justify-self:end}
+.offadd{flex-wrap:wrap}
