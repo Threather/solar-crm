@@ -49,7 +49,7 @@ async function renderHome(){
   if(ME.role==='marketing')return homeMarketing(rows);
   /* the manager sees only leads with a phone number - one with none is
      still marketing's (Kevin, 30 Sep 2026), the same rule as her Leads list */
-  return homeSales(ME.role==='manager'?rows.filter(l=>(l.phone||'').trim()):rows);
+  return homeSales(ME.role==='manager'?rows.filter(l=>(l.phone||'').trim()||qualText(l)==='Qualified'):rows);
 }
 
 /* sales, manager and admin all work the pipeline; the difference is only how
