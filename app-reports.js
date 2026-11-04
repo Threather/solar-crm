@@ -539,7 +539,7 @@ function kpi(o){
   const d=o.delta;
   const chip=d==null?'' :
     `<span class="chip ${d>0?'up':d<0?'down':''}" title="this month against ${esc(o.deltaOf||'last month')} — the figure above follows the window, this does not">${d>0?'+':''}${d}% <span style="font-weight:500;opacity:.75">vs ${esc(o.deltaOf||'last')}</span></span>`;
-  return `<div class="kpi${o.lead?' lead':''}${o.alert?' alert':''}">
+  return `<div class="kpi${o.lead?' lead':''}${o.alert?' alert':''}${o.click?' kpiclick':''}"${o.click?` onclick="${o.click}"`:''}>
     <div class="top"><span class="l">${esc(o.label)}</span>${chip}</div>
     <div class="n">${esc(o.value)}</div>
     ${o.note?`<div class="note">${esc(o.note)}</div>`:''}

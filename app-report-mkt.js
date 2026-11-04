@@ -19,7 +19,20 @@ async function mkSave(metric,el){
     if(ins.error){toast('Could not save. '+why(ins.error));return;}
   }
   toast('Saved for '+monthName(MKMONTH.slice(0,7)));
-  renderMktReport();
+  mkClose();await renderMktReport();mkOpen();
+}
+/* the month's figures live behind the Cost per Qualified Lead box, which keeps
+   showing its figure until it is clicked (client, 4 Nov 2026) */
+let MKSUM=null;
+function mkClose(){const w=$('mkpop');if(w)w.remove();}
+function mkOpen(){
+  if(!MKSUM)return;
+  const w=document.createElement('div');
+  w.id='mkpop';w.className='calpopbg';
+  w.onclick=e=>{if(e.target===w)mkClose();};
+  w.innerHTML=`<div class="calpop"><div class="calpophead"><div><b>Cost per Qualified Lead</b><span>${esc(monthName(MKMONTH.slice(0,7)))}</span></div>
+    <button class="lsx" title="Close" onclick="mkClose()">×</button></div>${MKSUM}</div>`;
+  document.body.appendChild(w);
 }
 const MKT_CH=['Digital_Marketing','Offline_Marketing','Third_Party','Direct_Sales','Existing_Customer'];
 
@@ -212,6 +225,14 @@ async function renderMktReport(){
     .map(n=>{const s=got.filter(l=>l.lead_sub_channel===n);return [n,s.length,s.filter(everQ).length];})
     .filter(r=>r[1]>=2).sort((a,b)=>b[2]/b[1]-a[2]/a[1]||b[1]-a[1]).map(r=>[r[0]+' ('+r[1]+')',Math.round(r[2]/r[1]*100)]);
 
+  MKSUM=ledger([
+    ['Monthly lead target',mkBox('leads',leadTarget,true)??(leadTarget??'—'),leadTarget?mtd.length+' so far':''],
+    ['Monthly budget',mkBox('spend',budget)??(budget==null?'—':fmtMoney(budget)),''],
+    ['Money spent',mkBox('spend_actual',spend)??(spend==null?'—':fmtMoney(spend)),''],
+    ['Cost per lead',cpl==null?'—':'$'+cpl.toFixed(2),targetCpl==null?'':'target $'+targetCpl.toFixed(2)],
+    ['Pacing',pacing==null?'—':(pacing>0?'+':'')+pacing+'%',
+      pacing==null?'':(pacing>=0?'ahead':'behind')+' on day '+dayNow+' of '+dim]
+  ]);
   $('main').innerHTML=repBar('Marketing dashboard')+`
     <div class="mg-head">
       <img src="img/logo.png" alt="Solarworks" onerror="this.remove()">
@@ -230,7 +251,7 @@ async function renderMktReport(){
       ${kpi({label:'Disqualified',value:kD.length,x:kD.map(xl)})}
       ${kpi({label:'Qualified '+monthName(thisM),value:kT.length,x:kT.map(xl),
         delta:momPct(kT.length,kP.length),deltaOf:prevWord})}
-      ${kpi({label:'Cost per Qualified Lead',value:cash(kCpql)})}
+      ${kpi({label:'Cost per Qualified Lead',value:cash(kCpql),click:'mkOpen()'})}
     </div>
 
     <div class="homegrid mgrid mkwide">
@@ -264,17 +285,9 @@ async function renderMktReport(){
         :blank('No sub-channel with 2 leads or more',''))}
     </div>
 
-    <div class="homegrid level mgrid">
-      ${repPanel('Daily and monthly summary',ledger([
-        ['Monthly lead target',mkBox('leads',leadTarget,true)??'—',leadTarget?mtd.length+' so far':''],
-        ['Monthly budget',mkBox('spend',budget)??(budget==null?'—':fmtMoney(budget)),''],
-        ['Money spent',mkBox('spend_actual',spend)??(spend==null?'—':fmtMoney(spend)),''],
-        ['Cost per lead',cash(cpl),targetCpl==null?'':'target '+cash(targetCpl)],
-        ['Pacing',pacing==null?'—':(pacing>0?'+':'')+pacing+'%',
-          pacing==null?'':(pacing>=0?'ahead':'behind')+' on day '+dayNow+' of '+dim]
-      ]))}
+    <div class="homegrid mgrid mkwide">
       ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
-        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
+        {title:'Lead gen by channel type',color:'var(--viz-1)',table:false})}
     </div>
 
     <div class="homegrid mgrid mkwide">
