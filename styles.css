@@ -1402,3 +1402,4 @@ table.inctable thead th{background:#1f2328;color:#fff}
 .offadd button{grid-column:1/-1;justify-self:end}
 .kpi.kpiclick{cursor:pointer}
 .kpi.kpiclick:hover{box-shadow:0 0 0 1px var(--line)}
+.mkpair>:nth-child(3){grid-column:1/-1}

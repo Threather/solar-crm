@@ -285,12 +285,9 @@ async function renderMktReport(){
         :blank('No sub-channel with 2 leads or more',''))}
     </div>
 
-    <div class="homegrid mgrid mkwide">
+    <div class="homegrid level mgrid mkpair">
       ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
-        {title:'Lead gen by channel type',color:'var(--viz-1)',table:false})}
-    </div>
-
-    <div class="homegrid mgrid mkwide">
+        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
       ${months.length?barChart(months,counts,used)
         :repPanel('Leads by channel, last twelve months',blank('Nothing to chart yet',''))}
     </div>`;
