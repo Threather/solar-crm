@@ -61,6 +61,39 @@ async function offDel(rowId,id){
   offFill(id);
 }
 
+/* admin changes a job from the Calendar itself: dates and days not worked in
+   one small window, each saved on the spot (client, 4 Nov 2026). Everyone else
+   opens the lead as before. */
+let CALJOBS={};
+function calOpen(id){
+  const j=CALJOBS[id];
+  if(ME.role!=='admin'||!j){openLead(id);return;}
+  const w=document.createElement('div');
+  w.id='calpop';w.className='calpopbg';
+  w.onclick=e=>{if(e.target===w)calClose();};
+  w.innerHTML=`<div class="calpop">
+    <div class="calpophead"><div><b>${esc(j.name)}</b><span>${esc(j.ref||'—')} · ${esc(j.team||'No team yet')}</span></div>
+      <button class="lsx" title="Close" onclick="calClose()">×</button></div>
+    <div class="grid2">
+      <div><label>Installation start</label><input id="d-cstart" type="date" value="${j.start}" onchange="calSaveDates('${id}')"></div>
+      <div><label>Installation end</label><input id="d-cend" type="date" value="${j.endKnown?j.end:''}" onchange="calSaveDates('${id}')"></div>
+    </div>
+    <div id="d-off" data-lead="${id}" style="margin-top:14px"></div>
+    <div class="calpopfoot"><button class="btn-line" onclick="calClose();openLead('${id}')">Open lead</button></div>
+  </div>`;
+  document.body.appendChild(w);
+  offFill(id);
+}
+function calClose(){const w=$('calpop');if(w){w.remove();renderCalendar();}}
+async function calSaveDates(id){
+  const a=$('d-cstart').value,b=$('d-cend').value;
+  if(!a){needField('d-cstart','Installation start is needed');return;}
+  if(b&&b<a){needField('d-cend','The end date is before the start');return;}
+  const {error}=await sb.from('leads').update({installation_start:a,installation_end:b||null}).eq('id',id);
+  if(error){toast('Could not save. '+why(error));return;}
+  toast('Saved');
+}
+
 async function renderCalendar(){
   if(!['site_engineer','sales','manager','admin'].includes(ME.role)){
     $('main').innerHTML=blank('No calendar for your role','');return;}
@@ -75,6 +108,7 @@ async function renderCalendar(){
     start:l.installation_start.slice(0,10),
     end:(l.installation_end&&l.installation_end>=l.installation_start?l.installation_end:l.installation_start).slice(0,10),
     endKnown:!!l.installation_end,off:offs[l.id]||[]}));
+  CALJOBS=Object.fromEntries(all.map(j=>[j.id,j]));
   const unsched=rows.filter(l=>!l.installation_start&&hasPart(l,'Installation')).length;
   const letters=calLetters(all);
   const y=CALMONTH.getFullYear(), m=CALMONTH.getMonth();
@@ -118,7 +152,7 @@ async function renderCalendar(){
     const used=teams.filter(t=>jobs.some(j=>j.team===t));
     const legend=(used.length?used:teams).map(t=>`<div class="calteam"><b style="background:${teamColor(t)};color:#fff">${esc(letters[t])}</b><div><b>${esc(t)}</b><span>${esc(INSTALL_TEAM_DETAIL[t]||'')}</span></div></div>`).join('');
     const list=jobs.length?`<table class="caltable"><thead><tr><th></th><th>Customer</th><th>Ref ID</th><th>Team</th><th>Members</th><th>Start</th><th>End</th><th>Days</th></tr></thead><tbody>${
-      jobs.map(j=>`<tr class="calrow" onclick="openLead('${j.id}')"><td><i class="calsw" style="background:${j.color}"></i></td>
+      jobs.map(j=>`<tr class="calrow" onclick="calOpen('${j.id}')"><td><i class="calsw" style="background:${j.color}"></i></td>
         <td><b>${esc(j.name)}</b></td><td class="refid">${esc(j.ref||'—')}</td>
         <td>${esc(j.letter)}${j.team?' · '+esc(j.team):' · no team yet'}</td><td>${esc(INSTALL_TEAM_DETAIL[j.team]||'—')}</td>
         <td class="nowrap">${fmtDate(j.start)}</td>
@@ -150,7 +184,7 @@ function calGrid(jobs,y,m,compact){
         const b=j.end>we?6:days.findIndex(d=>calIso(d)===j.end);
         const cls=(j.start>=ws?' s':'')+(j.end<=we?' e':'')+(j.endKnown?'':' open');
         const label=compact?j.letter:j.name+' · '+j.letter;
-        return `<button class="calseg${cls}" style="grid-column:${a+1}/${b+2};grid-row:${j.lane+2};background:${j.color}" title="${esc(j.name+' · '+(j.team||'No team yet')+' · '+fmtDate(j.start)+(j.endKnown?' to '+fmtDate(j.end):''))}" onclick="openLead('${j.id}')">${esc(label)}</button>`
+        return `<button class="calseg${cls}" style="grid-column:${a+1}/${b+2};grid-row:${j.lane+2};background:${j.color}" title="${esc(j.name+' · '+(j.team||'No team yet')+' · '+fmtDate(j.start)+(j.endKnown?' to '+fmtDate(j.end):''))}" onclick="calOpen('${j.id}')">${esc(label)}</button>`
           +offInside(j.off,j.start,j.end).filter(r=>r.off_on>=ws&&r.off_on<=we).map(r=>{
             const c=days.findIndex(d=>calIso(d)===r.off_on)+1;
             return `<i class="caloff" style="grid-column:${c};grid-row:${j.lane+2}" title="${esc(fmtDate(r.off_on)+' · '+r.reason)}"></i>`;}).join('');

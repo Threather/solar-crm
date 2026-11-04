@@ -1384,3 +1384,10 @@ table.inctable thead th{background:#1f2328;color:#fff}
 .offrow span:nth-child(2){flex:1}
 .offadd{display:flex;gap:8px;margin-top:8px;align-items:center}
 .offadd input,.offadd select{width:auto}
+.calpopbg{position:fixed;inset:0;z-index:300;background:rgba(26,23,20,.4);display:grid;place-items:center;padding:16px}
+.calpop{background:var(--card,#fffdf8);border-radius:var(--r-sm);padding:18px 20px;width:min(460px,100%);max-height:90vh;overflow:auto}
+.calpop .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.calpophead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.calpophead span{display:block;font-size:12px;color:var(--ink-soft)}
+.calpopfoot{margin-top:14px;text-align:right}
+.offadd button{white-space:nowrap}.offadd input,.offadd select{min-width:0;flex:1}
