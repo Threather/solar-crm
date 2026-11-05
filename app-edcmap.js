@@ -40,6 +40,7 @@ function edcMark(p){
   const m=L.marker([p.lat,p.lng],{draggable:true,icon:L.divIcon({className:'edcpin',html:'<i></i>',iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-20]})}).addTo(EDCMAP);
   m.bindTooltip(esc(p.branch),{direction:'top',offset:[0,-20]});
   m.bindPopup(`<b>${esc(p.branch)}</b><br>${edcWord(p.branch)}${edcPeople(p).map(x=>`<br>${esc(x.name)} · <a href="tel:${esc(x.phone)}">${esc(x.phone)}</a>`).join('')}`);
+  m.on('click',()=>{EDCPICK='';EDCOPEN=p.branch;edcList();});
   m.on('dragend',()=>{const q=m.getLatLng();edcPlace(p.branch,q.lat,q.lng);});
   EDCMARK[p.branch]=m;
 }
@@ -48,6 +49,7 @@ function edcList(){
   box.innerHTML=EDC_BRANCHES.filter(b=>b.toLowerCase().includes(q)).map((b,i)=>{const on=!!EDCPINS[b], k=EDC_BRANCHES.indexOf(b);
     return `<div class="edcrow${EDCPICK===b?' pick':''}" onclick="edcGo(${k})"><span class="edcdot${on?' on':''}"></span><div><b>${esc(b)}</b><span>${on?esc(edcWord(b)):EDCPICK===b?'Click the map':'Not on the map'}</span></div>${on?`<button class="lsx" title="Remove pin" onclick="event.stopPropagation();edcRemove(${k})">×</button>`:''}</div>${on&&EDCOPEN===b?edcContacts(b,k):''}`;}).join('')
     ||'<div class="sub">No branch found</div>';
+  box.querySelector('.edcpeople')?.scrollIntoView({block:'nearest'});
 }
 function edcGo(k){
   const b=EDC_BRANCHES[k], p=EDCPINS[b];
@@ -61,7 +63,7 @@ async function edcPlace(branch,lat,lng){
   const row={branch,lat,lng,contacts:edcPeople(EDCPINS[branch]),updated_by:ME.id,updated_at:new Date().toISOString()};
   const {error}=await sb.from('edc_branch_pins').upsert(row,{onConflict:'branch'});
   if(error){toast('Could not save. '+why(error));return;}
-  EDCPINS[branch]=row;edcMark(row);EDCPICK='';$('edc-canvas').classList.remove('picking');toast('Saved');edcList();
+  EDCPINS[branch]=row;edcMark(row);EDCPICK='';EDCOPEN=branch;$('edc-canvas').classList.remove('picking');toast('Saved');edcList();
 }
 function edcContacts(b,k){
   return `<div class="edcpeople" onclick="event.stopPropagation()">
