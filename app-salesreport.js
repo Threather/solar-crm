@@ -79,7 +79,7 @@ const srLeft=r=>Math.max(0,finDue(r)-finPaid(r));
 /* THE COLUMNS, once. h = the client's heading, g = group, v = the value,
    t = how it is drawn (money, date, name, cut, n), f = has a heading filter.
    `x` is the position in the client's sheet, which the export keeps. */
-const SR_GROUPS=[['deal','Deal'],['cust','Customer'],['sys','System'],['inst','Installation'],['edc','EDC'],['money','Money'],['pay','Payments']];
+const SR_GROUPS=[['deal','Deal'],['cust','Customer'],['loc','Location'],['addr','Address'],['sys','System'],['inst','Installation'],['edc','EDC'],['money','Money'],['pay','Payments']];
 function srCols(n){
   const c=[
     {x:0,h:'No',g:'pin',v:(r,i)=>i+1,t:'n'},
@@ -95,8 +95,12 @@ function srCols(n){
     {x:17,h:'#Days to Closed',g:'deal',v:r=>srDays(r.lead_date||r.created_at,r.stage_entered_at)??'',t:'n',f:1},
     {x:18,h:'#Times Contacted',g:'deal',v:r=>r.contacts,t:'n',f:1},
     {x:9,h:'Contact Number',g:'cust',v:r=>r.phone||'',f:1},
-    {x:9.5,h:'Address',g:'cust',v:r=>[r.site_address,r.commune,r.district,r.province||r.city_province].filter(Boolean).join(', '),t:'cut'},
-    {x:999,h:'Location',g:'cust',v:r=>r.site_link||'',t:'cut'},
+    {x:9.1,h:'Province',g:'loc',v:r=>r.province||r.city_province||'',f:1},
+    {x:9.2,h:'District',g:'loc',v:r=>r.district||'',f:1},
+    {x:9.3,h:'Commune',g:'loc',v:r=>r.commune||'',f:1},
+    {x:999,h:'Map link',g:'loc',v:r=>r.site_link||'',t:'cut'},
+    {x:9.4,h:'Address',g:'addr',v:r=>r.site_address||'',t:'cut'},
+    {x:9.5,h:'Site type',g:'addr',v:r=>r.site_type||'',f:1},
     {x:10,h:'System Size (Pcs)',g:'sys',v:r=>r.panel_pcs??'',t:'n',f:1},
     {x:11,h:'Panel brand',g:'sys',v:r=>[r.panel_brand,r.panel_watt?r.panel_watt+'W':''].filter(Boolean).join(' '),f:1},
     {x:12,h:'Inverter Size (kW)',g:'sys',v:r=>r.inverter_kw_total??r.inverter_kw??'',t:'n',f:1},
@@ -174,7 +178,7 @@ function drawSalesReport(){
     if(c.t==='money')return `<td${pin} class="nowrap"><b>${fmtMoney(v)}</b></td>`;
     if(c.t==='date')return `<td${pin} class="nowrap">${fmtDate(v)}</td>`;
     if(c.t==='name')return `<td class="srpin srpin${k}"><b class="nm">${esc(v)}</b></td>`;
-    if(c.t==='cut')return `<td class="sr-cut" title="${esc(v)}">${c.h==='Location'&&/^https?:/.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener">map</a>`:esc(v)}</td>`;
+    if(c.t==='cut')return `<td class="sr-cut" title="${esc(v)}">${c.h==='Map link'&&/^https?:/.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener">map</a>`:esc(v)}</td>`;
     return `<td${pin} class="nowrap">${esc(String(v))}</td>`;};
   const foot=`<tr class="srtotal">${cols.map((c,k)=>k===2?'<td class="srpin srpin2"><b>Total</b></td>'
     :c.sum?`<td class="nowrap"><b>${fmtMoney(rows.reduce((a,r,i)=>a+Number(c.v(r,i)||0),0))}</b></td>`
