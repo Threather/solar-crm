@@ -1075,6 +1075,13 @@ function siteSpec(l,always){
         </div>`;}).join('')}</div>`:''}
     </div>`;
 }
+/* the link is kept in one place, the Site box; this goes there (5 Nov 2026) */
+function siteLinkGo(){
+  const el=$('d-sitelink');if(!el)return;
+  el.scrollIntoView({block:'center',behavior:'smooth'});
+  if(el.disabled){toast('Unlock the lead to change the link');return;}
+  el.focus({preventScroll:true});el.select();
+}
 function siteBox(l,canSite,first,isAdmin){
   /* a Service only deal without Installation ticked has no installation to
      record, so the box stays hidden until the tick is on (client, 14 Oct 2026) */
@@ -1091,8 +1098,9 @@ function siteBox(l,canSite,first,isAdmin){
         <div><label>Installation finished</label><input value="${l.installation_confirmed_at?fmtDT(l.installation_confirmed_at)+' · '+staffName(l.installation_confirmed_by):'not confirmed'}" disabled></div>
         <div style="align-self:end">${!l.installation_confirmed_at?`<button class="btn-line" onclick="confirmInstalled('${l.id}',${JSON.stringify(l.customer_name||'')})">Confirm it is finished</button>`:''}</div>
         <div style="grid-column:1/-1"><label>Location</label>${l.site_link
-          ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:block;padding:9px 0;font-size:13px">Open the map link →</a>`
-          :`<input value="No link yet. Ask the sale engineer." disabled>`}</div>
+          ?`<a href="${esc(l.site_link)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:9px 0;font-size:13px">Open the map link →</a>`
+          :`<input value="No link yet. Ask the sale engineer." disabled>`}
+          ${['admin','sales','manager'].includes(ME.role)?`<button class="btn-line lgq" style="margin-left:10px" onclick="siteLinkGo()">Change link</button>`:''}</div>
         <div style="grid-column:1/-1"><label>Site notes</label><textarea id="d-sitenotes" rows="2" placeholder="Access, materials, anything the crew needs to know…" ${canSite?'':'disabled'}>${esc(l.site_notes||'')}</textarea></div>
         <div style="grid-column:1/-1" id="d-off" data-lead="${l.id}">${offKick(l.id)}</div>
       </div>
