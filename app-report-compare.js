@@ -128,9 +128,9 @@ async function renderCompareReport(){
       <div class="scope" role="group" aria-label="Which report">${repScopes().map(([k,l])=>
         `<button class="${REPSCOPE===k?'on':''}" onclick="setRepScope('${k}')">${l}</button>`).join('')}</div>
       <div class="cmppick">
-        <select onchange="setCmp('a',this.value)">${ms.map(m=>`<option value="${m}" ${m===CMPA?'selected':''}>${esc(monthName(m))}</option>`).join('')}</select>
+        ${myPick(CMPA,[...new Set(ms.map(m=>m.slice(0,4)))],`v=>setCmp('a',v)`)}
         <span>vs</span>
-        <select onchange="setCmp('b',this.value)">${ms.map(m=>`<option value="${m}" ${m===CMPB?'selected':''}>${esc(monthName(m))}</option>`).join('')}</select>
+        ${myPick(CMPB,[...new Set(ms.map(m=>m.slice(0,4)))],`v=>setCmp('b',v)`)}
       </div>
       <button class="btn-line" onclick="repExportXlsx()" style="margin-left:auto">Export Excel</button> <button class="btn-line" onclick="repExportPdf()">Export PDF</button>
     </div>

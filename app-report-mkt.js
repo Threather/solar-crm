@@ -124,7 +124,11 @@ async function renderMktReport(){
   const toWon=got.filter(l=>everReached(reached,l,WON));
   const pct=repPct, cash=repCash;
 
-  const months=[...new Set(rows.map(l=>localDay(dayOf(l)).slice(0,7)))].filter(Boolean).sort().slice(-12);
+  /* the month charts show one calendar year, the year of the dates picked,
+     up to today in the current year (client, 5 Nov 2026) */
+  const yearNow=viewEnd.slice(0,4);
+  const yearEnd=yearNow===todayD.slice(0,4)?Number(todayD.slice(5,7)):12;
+  const months=[...Array(yearEnd)].map((_,i)=>yearNow+'-'+String(i+1).padStart(2,'0'));
   const counts={};
   months.forEach(m=>{counts[m]={};CH_ORDER.forEach(c=>counts[m][c]=0);});
   rows.forEach(l=>{const m=localDay(dayOf(l)).slice(0,7);if(counts[m])counts[m][chOf(l)]++;});
@@ -216,7 +220,7 @@ async function renderMktReport(){
     :blank('No leads in this window','');
 
   /* qualified per channel per lead month, last twelve months */
-  const qMonths=lastMonths(rows,dayOf,12);
+  const qMonths=months;
   const CHCOL={Digital_Marketing:'var(--viz-1)',Offline_Marketing:'var(--viz-3)',Third_Party:'var(--viz-2)',Direct_Sales:'var(--viz-good)',Existing_Customer:'var(--viz-4)',Other:'var(--viz-mute)'};
   const qSeries=[...MKT_CH,'Other'].map(c=>({name:c.replace(/_/g,' '),color:CHCOL[c],
     values:qMonths.map(m=>rows.filter(l=>chOf(l)===c&&inMonth(l,m)&&everQ(l)).length)})).filter(s=>s.values.some(Boolean));
@@ -254,10 +258,6 @@ async function renderMktReport(){
       ${kpi({label:'Cost per Qualified Lead',value:cash(kCpql),click:'mkOpen()'})}
     </div>
 
-    <div class="homegrid mgrid mkwide">
-      ${repPanel('Channel scorecard',scorecard)}
-    </div>
-
     <div class="homegrid level mgrid">
       ${leadTarget&&days.length>1
         ?lineChart(days.map(String),
@@ -278,8 +278,8 @@ async function renderMktReport(){
     </div>
 
     <div class="homegrid level mgrid">
-      ${qSeries.length?groupChart(qMonths.map(monthName),qSeries,{title:'Qualified by channel, last twelve months',stacked:true,compact:true,noSide:true})
-        :repPanel('Qualified by channel, last twelve months',blank('Nothing to chart yet',''))}
+      ${qSeries.length?groupChart(qMonths.map(monthName),qSeries,{title:'Qualified by channel, '+yearNow,stacked:true,compact:true,noSide:true})
+        :repPanel('Qualified by channel, '+yearNow,blank('Nothing to chart yet',''))}
       ${repPanel('Sub-channels by qualification rate',rateRows.length
         ?gRank(rateRows,{color:'var(--c-qual)',order:true,keepZero:true,limit:rateRows.length,fmt:v=>v+'%'})
         :blank('No sub-channel with 2 leads or more',''))}
@@ -287,8 +287,9 @@ async function renderMktReport(){
 
     <div class="homegrid level mgrid mkpair">
       ${colChart(MKT_CH.map(c=>c.replace(/_/g,' ')),MKT_CH.map(c=>byCh(c)),
-        {title:'Lead gen by channel type',color:'var(--viz-1)',compact:true,table:false})}
+        {title:'Lead gen by channel type',color:'var(--viz-1)',table:false})}
       ${months.length?barChart(months,counts,used)
-        :repPanel('Leads by channel, last twelve months',blank('Nothing to chart yet',''))}
+        :repPanel('Leads by channel, '+yearNow,blank('Nothing to chart yet',''))}
+      ${repPanel('Channel scorecard',scorecard)}
     </div>`;
 }

@@ -38,7 +38,7 @@ async function renderTargets(){
     <h2 style="margin-bottom:4px">Targets</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Set per month. Reports compare against the target for the month they are showing, so changing this month leaves last month alone.</p>
     <div class="toolbar">
-      <select onchange="setTgMonth(this.value)">${opts.join('')}</select>
+      ${myPick(TGMONTH.slice(0,7),[new Date().getFullYear()+1,new Date().getFullYear(),new Date().getFullYear()-1,new Date().getFullYear()-2],`v=>setTgMonth(v+'-01')`)}
       <span class="spacer"></span>
     </div>
 

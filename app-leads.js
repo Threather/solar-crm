@@ -284,6 +284,7 @@ function openColF(btn,k){
     <label class="all"><input type="checkbox" ${!cur.size?'checked':''} onchange="colAll('${k}',this.checked)"> All</label>
     <div class="vals">${vals.map(v=>`<label><input type="checkbox" value="${esc(v)}" ${cur.has(v)?'checked':''} onchange="colTick('${k}')"> <span>${esc(v)}</span><i>${count[v].toLocaleString()}</i></label>`).join('')}</div>`;
   document.body.appendChild(box);
+  mfInit(box.querySelector('.vals'),false,()=>colTick(k));
   const r=btn.getBoundingClientRect();
   box.style.top=(r.bottom+scrollY+4)+'px';
   box.style.left=Math.min(r.left+scrollX,scrollX+innerWidth-box.offsetWidth-12)+'px';

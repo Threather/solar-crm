@@ -138,7 +138,7 @@ async function renderIncentive(){
       ${holdCols.map(c=>`<td><b>${cash2(sumPay(r=>c.by[r.id]||0))}</b></td>`).join('')}<td></td></tr></tfoot></table></div>`;
 
   $('main').innerHTML=incHead('sales')+`
-    <div class="toolbar"><select onchange="INCMONTH=this.value;renderIncentive()">${opts.join('')}</select>
+    <div class="toolbar">${myPick(m.slice(0,7),[new Date().getFullYear()+1,new Date().getFullYear(),new Date().getFullYear()-1,new Date().getFullYear()-2],`v=>{INCMONTH=v+'-01';renderIncentive();}`)}
       <span class="spacer"></span><button class="btn-line" onclick="incExportPdf()">Export PDF</button><button class="btn-line" onclick="exportSalesIncentive()">Export Excel</button></div>
     <div class="stats">
       <div class="stat hero"><div class="n">${cash2(cur.total)}</div><div class="l">Collected in ${esc(monthName(m.slice(0,7)))}</div></div>

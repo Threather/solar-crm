@@ -1118,15 +1118,13 @@ async function renderQuots(){
   if(error){$('main').innerHTML=blank('Could not load quotations','Check your connection and refresh. If it keeps happening, tell your admin.');return;}
   QUOTS=quots||[];
   /* only offer months that actually have quotations, newest first */
-  const monthOpts=[...new Set(QUOTS.map(q=>localDay(q.released_date||q.created_at).slice(0,7)))].filter(Boolean)
-    .sort().reverse().map(m=>`<option value="${m}" ${m===QFILTER.month?'selected':''}>${monthName(m)}</option>`).join('');
+  const monthKeys=[...new Set(QUOTS.map(q=>localDay(q.released_date||q.created_at).slice(0,7)))].filter(Boolean).sort().reverse();
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Quotation log</h2>
     <p style="color:var(--ink-soft);font-size:13px;margin-bottom:14px">Every quotation released, newest first. Add quotations from inside a lead.</p>
     <div class="toolbar">
       <input placeholder="Search customer or ref ID…" value="${esc(QFILTER.q||'')}" oninput="QFILTER.q=this.value;drawQuots()">
-      <select title="Released in month" onchange="QFILTER.month=this.value;QFILTER.date='';drawQuots()">
-        <option value="">All months</option>${monthOpts}</select>
+      ${myPick(QFILTER.month,[...new Set(monthKeys.map(m=>m.slice(0,4)))],`v=>{QFILTER.month=v;QFILTER.date='';drawQuots();}`,true)}
       <input type="date" title="Released on this exact date" value="${esc(QFILTER.date||'')}" onchange="QFILTER.date=this.value;QFILTER.month='';drawQuots()">
       <button class="btn-line" onclick="QFILTER={q:'',month:'',date:''};renderQuots()">Clear</button>
       <span class="spacer"></span>
@@ -1138,7 +1136,7 @@ async function renderQuots(){
 function filteredQuots(){
   let rows=QUOTS;
   const day=q=>localDay(q.released_date||q.created_at);
-  if(QFILTER.month)rows=rows.filter(q=>day(q).slice(0,7)===QFILTER.month);
+  if(QFILTER.month)rows=rows.filter(q=>day(q).startsWith(QFILTER.month));
   if(QFILTER.date)rows=rows.filter(q=>day(q)===QFILTER.date);
   if(QFILTER.q){const s=QFILTER.q.toLowerCase();rows=rows.filter(q=>
     (q.leads?.customer_name||'').toLowerCase().includes(s)||(q.leads?.ref_id||'').toLowerCase().includes(s));}
