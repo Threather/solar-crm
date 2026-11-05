@@ -1428,3 +1428,9 @@ table.inctable thead th{background:#1f2328;color:#fff}
 #edc-canvas{border-radius:var(--r-sm);border:1px solid var(--line);z-index:0}
 #edc-canvas.picking{cursor:crosshair}
 .edcpin i{display:block;width:18px;height:18px;margin:2px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--viz-1);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+table.fintable.lgtable .clamp{display:inline;-webkit-line-clamp:unset}
+table.fintable.lgtable td{white-space:nowrap}
+table.fintable.lgtable td.rem{max-width:320px;overflow:hidden;text-overflow:ellipsis}
+table.fintable.lgtable thead tr:last-child th{white-space:normal}
+table.fintable.lgtable thead .hf-btn{white-space:normal;text-align:left}
+table.fintable.lgtable td.rem{max-width:240px;min-width:0}
