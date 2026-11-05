@@ -104,7 +104,7 @@ async function renderEdc(){
       :blank('Every date is in','Nothing is waiting on EDC. A deal returns here if a new one is won, and every date already recorded is under Submitted.')):''}
 
     ${EDCSCOPE==='sent'?(started.length?`<div class="tablewrap"><table><thead><tr>
-        <th>Ref ID</th><th>Customer</th>${edcHead('Closed-Won','won')}${edcHead('System','sys')}${edcHead('EDC price','price')}${edcHead('Steps done','done')}<th>Progress</th>${edcHead('Waiting on','wait','The next step, or All done')}${edcHead('Sale engineer','sale')}
+        <th>Ref ID</th><th>Customer</th>${edcHead('Closed-Won','won')}${edcHead('System','sys')}${edcHead('Steps done','done')}<th>Progress</th>${edcHead('Waiting on','wait','The next step, or All done')}${edcHead('Sale engineer','sale')}
       </tr></thead><tbody>`+(fStarted.length?'':`<tr><td colspan="9">${blank('Nothing matches','Clear the filters.')}</td></tr>`)+fStarted.map(l=>{
         const fl=edcFields(l),d=edcDone(l);
         return `<tr class="rowlink" onclick="edcReview('${l.id}')">
@@ -112,7 +112,6 @@ async function renderEdc(){
           <td><b>${esc(l.customer_name)}</b></td>
           <td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
           <td>${esc(sysLine(l))}</td>
-          <td class="nowrap">${l.edc_fee_usd==null?'<span class="quiet">—</span>':fmtMoney(l.edc_fee_usd)}</td>
           <td><b>${d} of ${fl.length}</b></td>
           <td><div class="edc-steps">${fl.map(([k,short])=>`<span class="${l[k]?'ok':''}" title="${short}${l[k]?': '+fmtDate(l[k]):''}">${short}</span>`).join('')}</div></td>
           <td class="nowrap">${(()=>{const w=edcWait(l);return w?`<b>${esc(w.step)}</b><span class="days">${w.days==null?'':w.days+' day'+(w.days===1?'':'s')}</span>`:'<span class="mark mark-done">All done</span>';})()}</td>
@@ -196,7 +195,7 @@ function edcTable(title,rows,fields){
   rows=rows.slice().sort((a,b)=>edcWaitDays(b)-edcWaitDays(a));
   return `<h3 style="font-size:15px;margin:0 0 8px">${title}</h3>
     <div class="tablewrap" style="margin-bottom:22px"><table><thead><tr>
-      <th>Ref ID</th>${edcHead('Customer','eng','Filter by site engineer')}${edcHead('Waiting on','wait','The next step and how long it has waited')}${edcHead('Branch','branch')}${edcHead('EDC price','price','What EDC charges for this submission')}${fields.map(([k,short,full])=>edcHead(short,'d:'+k,full)).join('')}${edcHead('Done','done')}
+      <th>Ref ID</th>${edcHead('Customer','eng','Filter by site engineer')}${edcHead('Waiting on','wait','The next step and how long it has waited')}${edcHead('Branch','branch')}${fields.map(([k,short,full])=>edcHead(short,'d:'+k,full)).join('')}${edcHead('Done','done')}
     </tr></thead><tbody>`+rows.map(l=>{
       const next=fields.find(([k])=>!l[k]);
       return `<tr>
@@ -204,7 +203,6 @@ function edcTable(title,rows,fields){
       <td><b>${esc(l.customer_name)}</b><span class="days">${kwac(l)} kWac · ${esc(staffName(l.site_engineer_id))}</span></td>
       <td class="nowrap">${(()=>{const w=edcWait(l);return w?`<b>${esc(w.step)}</b><span class="days ${w.days>30?'overdue':''}">${w.days==null?'no start date':w.days+' day'+(w.days===1?'':'s')}</span>`:'<span class="mark mark-done">All done</span>';})()}</td>
       <td><select style="min-width:170px" onchange="setEdcBranch('${l.id}',this.value)">${optList(EDC_BRANCHES,l.edc_branch)}</select></td>
-      <td>${numBox('edcfee-'+l.id,l.edc_fee_usd,{attrs:`style="min-width:110px" placeholder="\u2014" onchange="setEdcFee('${l.id}',this.value)"`})}</td>
       ${fields.map(([k])=>`<td class="${next&&next[0]===k?'edc-next':''}"><input type="date" style="min-width:130px" value="${l[k]||''}" onchange="setEdcDate('${l.id}','${k}',this.value)"></td>`).join('')}
       <td><b>${edcDone(l)}/${fields.length}</b></td>
     </tr>`;}).join('')+`</tbody></table></div>`;
