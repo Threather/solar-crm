@@ -1434,3 +1434,5 @@ table.fintable.lgtable td.rem{max-width:320px;overflow:hidden;text-overflow:elli
 table.fintable.lgtable thead tr:last-child th{white-space:normal}
 table.fintable.lgtable thead .hf-btn{white-space:normal;text-align:left}
 table.fintable.lgtable td.rem{max-width:240px;min-width:0}
+.edcpeople{display:grid;gap:6px;padding:8px 10px;background:var(--sunk);border-radius:8px}
+.edcpeople button.btn-line{justify-self:end}
