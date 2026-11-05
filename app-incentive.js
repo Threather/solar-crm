@@ -260,9 +260,11 @@ async function renderAgentIncentive(){
   if(!AGFROM)AGFROM=monthAdd(AGTO.slice(0,8)+'01',-10);
   const [leads,adR]=await Promise.all([fetchLeads(q=>q),sb.from('agent_details').select('*')]);
   const AD={};(adR.data||[]).forEach(x=>AD[x.name]=x);
-  const won=leads.filter(l=>l.stage_code===WON&&l.stage_entered_at&&agentOf(l))
+  const inDates=leads.filter(l=>l.stage_code===WON&&l.stage_entered_at&&agentOf(l))
     .filter(l=>{const d=localDay(l.stage_entered_at);return d>=AGFROM&&d<=AGTO;})
     .sort((a,b)=>String(a.stage_entered_at).localeCompare(String(b.stage_entered_at)));
+  /* admin takes a deal out of the commission with Remove (client, 5 Nov 2026) */
+  const won=inDates.filter(l=>!l.agent_excluded), removed=inDates.filter(l=>l.agent_excluded);
   const ids=won.map(l=>l.id);
   const [fins,finrows,staff]=ids.length?await Promise.all([
     repByIds(()=>sb.from('lead_financials').select('lead_id,final_sale_usd').order('lead_id'),ids),
@@ -300,15 +302,23 @@ async function renderAgentIncentive(){
     <h3 class="increfh">Incentive reference from ${esc(fmtDate(AGFROM))} to ${esc(fmtDate(AGTO))}</h3>
     ${won.length?`<div class="tablewrap"><table class="table-compact inctable incref"><thead><tr><th>Lead reference ID</th><th>Agreement sign off date</th><th>Lead received date</th>
       <th>Sales person</th><th>Referral by</th><th>Lead channel</th><th>Customer name</th><th>Contact number</th><th>System size (pcs)</th><th>Brand</th>
-      <th>Inverter size (kW)</th><th>Brand</th><th>Battery size (kWh)</th><th>Brand</th><th>Engineering name</th><th>Amount (USD)</th></tr></thead><tbody>`
+      <th>Inverter size (kW)</th><th>Brand</th><th>Battery size (kWh)</th><th>Brand</th><th>Engineering name</th><th>Amount (USD)</th>${admin?'<th data-html2canvas-ignore></th>':''}</tr></thead><tbody>`
       +won.map(l=>`<tr class="rowlink" onclick="openLead('${l.id}')"><td class="refid">${esc(l.ref_id||'')}</td><td class="nowrap">${fmtDate(l.stage_entered_at)}</td>
         <td class="nowrap">${fmtDate(l.lead_date||l.created_at)}</td><td class="nowrap">${esc(nameOf(l.assigned_to))}</td><td class="nowrap">${esc(agentOf(l))}</td>
         <td class="nowrap">${esc(l.lead_channel||'')}</td><td><b class="nm">${esc(l.customer_name||'')}</b></td><td class="nowrap">${esc(l.phone||'')}</td>
         <td>${l.panel_pcs??''}</td><td class="nowrap">${esc([l.panel_brand,l.panel_watt?'('+l.panel_watt+'W)':''].filter(Boolean).join(' '))}</td>
         <td>${l.inverter_kw??''}</td><td class="nowrap">${esc(l.inverter_brand||'')}</td><td>${l.battery_kwh??''}</td><td class="nowrap">${esc(l.battery_brand||'')}</td>
-        <td class="nowrap">${esc(nameOf(l.site_engineer_id))}</td><td class="nowrap">${cash2(amt[l.id]||0)}</td></tr>`).join('')
-      +`</tbody><tfoot><tr class="srtotal"><td colspan="15"><b>Total</b></td><td><b>${cash2(won.reduce((a,l)=>a+(amt[l.id]||0),0))}</b></td></tr></tfoot></table></div>`:''}
+        <td class="nowrap">${esc(nameOf(l.site_engineer_id))}</td><td class="nowrap">${cash2(amt[l.id]||0)}</td>${admin?`<td data-html2canvas-ignore onclick="event.stopPropagation()"><button class="btn-line lgq" onclick="agRemove('${l.id}',true)">Remove</button></td>`:''}</tr>`).join('')
+      +`</tbody><tfoot><tr class="srtotal"><td colspan="15"><b>Total</b></td><td><b>${cash2(won.reduce((a,l)=>a+(amt[l.id]||0),0))}</b></td>${admin?'<td data-html2canvas-ignore></td>':''}</tr></tfoot></table></div>`:''}
+    ${admin&&removed.length?`<div data-html2canvas-ignore style="margin-top:10px"><button class="btn-line" onclick="AG_SHOWREM=!AG_SHOWREM;renderIncentive()">${AG_SHOWREM?'Hide removed':'Show removed ('+removed.length+')'}</button>
+      ${AG_SHOWREM?removed.map(l=>`<div class="offrow"><span class="refid">${esc(l.ref_id||'')}</span><span>${esc(l.customer_name||'')} · ${esc(agentOf(l))}</span><button class="btn-line lgq" onclick="agRemove('${l.id}',false)">Bring back</button></div>`).join(''):''}</div>`:''}
     </div>`;
+}
+let AG_SHOWREM=false;
+async function agRemove(id,out){
+  const {error}=await sb.from('leads').update({agent_excluded:out}).eq('id',id);
+  if(error){toast('Could not save. '+why(error));return;}
+  toast(out?'Removed':'Brought back');renderIncentive();
 }
 async function agSaveRate(name,v){
   const {error}=await sb.from('agent_details').upsert({name,rate:v===''?null:Number(v),updated_at:new Date().toISOString()},{onConflict:'name'});
