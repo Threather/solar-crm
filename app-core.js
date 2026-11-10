@@ -447,7 +447,7 @@ async function boot(){
      the database behaves as a salesperson until the profile is converted. */
   if(prof.role==='engineer')prof.role='sales';
   ME=prof;
-  loadBells();watchBells();
+  loadBells();watchBells();if(typeof liveStart==='function'&&!window.LIVE_ON){window.LIVE_ON=true;liveStart();}
   setInterval(loadBells,120000);
   const [stg,stf]=await Promise.all([
     sb.from('lead_stages').select('*').eq('is_active',true).order('sort_order'),

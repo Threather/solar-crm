@@ -1447,3 +1447,5 @@ table.fintable.lgtable td.rem{max-width:240px;min-width:0}
 .edcadd input{width:105px}
 #edc-canvas .leaflet-control-attribution{background:transparent;font-size:9px;color:var(--ink-mute)}
 #edc-canvas .leaflet-control-attribution a{color:var(--ink-mute)}
+#verbar{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:500;background:var(--ink);color:#fff;padding:9px 16px;border-radius:0 0 10px 10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+#verbar button{margin-left:10px;background:#fff;color:var(--ink);border:0;border-radius:6px;padding:4px 12px;font-weight:600;cursor:pointer}
