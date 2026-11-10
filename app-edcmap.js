@@ -50,7 +50,8 @@ async function edcListsMap(){
   if(EDCMAP)EDCMAP.remove();
   EDCMARK={};EDCPICK='';
   EDCMAP=L.map('edc-canvas').setView([12.6,104.9],7);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(EDCMAP);
+  EDCMAP.attributionControl.setPrefix(false);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(EDCMAP);
   EDCMAP.on('click',e=>{if(EDCPICK)edcPlace(EDCPICK,e.latlng.lat,e.latlng.lng);});
   const placed=Object.values(EDCPINS).filter(p=>p.lat!=null);
   placed.forEach(edcMark);
