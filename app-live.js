@@ -32,6 +32,9 @@ function liveChanged(){
   clearTimeout(LIVE_T);
   LIVE_T=setTimeout(liveRedraw,1500);
 }
+/* marketing hear live only about leads they created, so a deal someone else
+   wins never reaches them; their two screens re-read every two minutes */
+setInterval(()=>{if(typeof ME!=='undefined'&&ME&&ME.role==='marketing'&&['reports','salesrep'].includes(CURVIEW)&&!document.hidden)liveChanged();},2*60*1000);
 /* a redraw held back while someone was busy happens once they are free */
 setInterval(()=>{if(LIVE_DUE&&!document.hidden&&!liveBusy())liveRedraw();},3000);
 
