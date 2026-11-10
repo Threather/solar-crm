@@ -90,13 +90,11 @@ async function renderEdc(){
         <button class="${EDCSCOPE==='sent'?'on':''}" onclick="setEdcScope('sent')">Submitted (${started.length})</button>
         <button class="${EDCSCOPE==='miss'?'on':''}" onclick="setEdcScope('miss')">Missing information (${pending.length})</button>
         <button class="${EDCSCOPE==='edit'?'on':''}" onclick="setEdcScope('edit')">Edit EDC (${rows.length})</button>
-        <button class="${EDCSCOPE==='map'?'on':''}" onclick="setEdcScope('map')">Map</button>
       </div>
     </div>
 
     ${fNote}
     ${EDCSCOPE==='edit'?drawEditDeals(rows,'edc'):''}
-    ${EDCSCOPE==='map'?'<div id="edcmapwrap"></div>':''}
 
     ${EDCSCOPE==='work'?(outstanding.length?`
       ${edcTable('Inverter ≤ 10 kWac',fSmall,EDC_SMALL)}
@@ -130,7 +128,6 @@ async function renderEdc(){
       +`</tbody></table></div>`
       :blank('Nothing missing','Every won deal has enough information to be placed.')):''}`;
   if(EDCSCOPE==='edit')drawDeals();
-  if(EDCSCOPE==='map')edcMap(outstanding,started);
 }
 
 /* a submitted EDC file, with every date and the lead's own history beside it */

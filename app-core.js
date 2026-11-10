@@ -561,7 +561,7 @@ function buildNav(){
   if(['sales','manager','admin'].includes(ME.role)) money.push(['quots','Quotations']);
   if(canFinance()) money.push(['fin','Finance']);
   /* every won deal on one row, the client's Sales Report sheet (5 Oct 2026) */
-  if(['admin','manager'].includes(ME.role)) money.push(['salesrep','Sales Report']);
+  if(['admin','manager','marketing'].includes(ME.role)) money.push(['salesrep','Sales Report']);
   /* Commissions came out on 27 Aug 2026. Sales are not paid on the value of a
      deal, they are paid by the incentive scheme, so a screen of per-deal
      commissions described a way of paying people that does not happen. The

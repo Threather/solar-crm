@@ -33,17 +33,19 @@ async function renderLists(){
   /* an agent's phone, bank account and contract date: agent_details, admin only */
   let AD={};
   if(LISTKEY==='agent'){const r=await sb.from('agent_details').select('*');(r.data||[]).forEach(x=>AD[x.name]=x);}
+  const isEdc=LISTKEY==='edc_branch';
+  if(isEdc)await edcLoadPins();
   const meta=VOCAB_LISTS.find(l=>l[0]===LISTKEY)||[];
   const live=LISTROWS.filter(r=>r.is_active).length, off=LISTROWS.length-live;
-  const extra=LISTKEY==='install_team'?'<th>Team members</th>':LISTKEY==='agent'?'<th>Phone · Contract signed</th><th>Bank</th>':'';
-  const span=3+(LISTKEY==='install_team'?1:LISTKEY==='agent'?2:0);
+  const extra=LISTKEY==='install_team'?'<th>Team members</th>':LISTKEY==='agent'?'<th>Phone · Contract signed</th><th>Bank</th>':isEdc?'<th>Contact person · Phone number</th><th>Map</th>':'';
+  const span=3+(LISTKEY==='install_team'?1:LISTKEY==='agent'||isEdc?2:0);
   $('main').innerHTML=`
     <h2 style="margin-bottom:14px">Lists</h2>
     <div class="lslayout">
       ${lsNav()}
-      <div class="lscard ${LISTKEY==='agent'?'wide':''}">
+      <div class="lscard ${LISTKEY==='agent'||isEdc?'wide':''}">
         <div class="lshead"><h3>${esc(meta[1]||LISTKEY)}</h3><span>${live} in use${off?` · ${off} hidden`:''}</span></div>
-        <div class="tablewrap"><table class="lstable ${LISTKEY==='agent'?'agtable':''}"><thead><tr>
+        <div class="tablewrap"><table class="lstable ${LISTKEY==='agent'?'agtable':''}${isEdc?' edctable':''}"><thead><tr>
           <th class="lsdrag"></th><th>Value</th>${extra}<th class="lsst">In use</th><th class="lsdel"></th>
         </tr></thead><tbody id="lsbody">`+LISTROWS.map(r=>`
           <tr data-id="${r.id}" draggable="true" ondragstart="lsDragStart(event)" ondragover="lsDragOver(event)" ondrop="lsDrop(event)" ondragend="lsDragEnd()" class="${r.is_active?'':'lsoff'}">
@@ -55,14 +57,17 @@ async function renderLists(){
             ${LISTKEY==='agent'?(()=>{const a=AD[r.value]||{},box=(f,ph,t)=>`<input class="ag-${f}" ${t?`type="${t}"`:''} placeholder="${ph}" value="${esc(a[f]||'')}" onchange="agentSave('${r.id}','${f}',this.value)">`;
               return `<td><div class="agbank">${box('phone','0898123456')}${box('contract_date','','date')}</div></td>
               <td><div class="agbank">${box('bank_name','Bank name')}${box('bank_account','Bank account number')}${box('bank_account_name','Bank account name')}</div></td>`;})():''}
+            ${isEdc?edcCells(r.id):''}
             <td class="lsst"><label class="lsswitch" title="${r.is_active?'In the dropdown':'Hidden from the dropdown'}"><input type="checkbox" ${r.is_active?'checked':''} onchange="listHide('${r.id}',this.checked)"><i></i></label></td>
             <td class="lsdel"><button class="lsx" title="Delete" onclick="listDelete('${r.id}')">✕</button></td>
           </tr>`).join('')+`</tbody>
           <tfoot><tr class="lsadd"><td class="lsdrag">+</td><td colspan="${span}"><div class="lsaddbox">
             <input id="v-new" placeholder="Add a new ${esc((meta[1]||'value').toLowerCase())}" oninput="listDupCheck()" onkeydown="if(event.key==='Enter')listAdd()">
             <button class="btn-sun" onclick="listAdd()">Add</button><span id="v-dup"></span></div></td></tr></tfoot></table></div>
+        ${isEdc?'<div class="lshead" style="margin-top:18px"><h3>Map</h3><span>Press Set on map, then click the place. Drag a pin to move it.</span></div><div id="edc-canvas"></div>':''}
       </div>
     </div>`;
+  if(isEdc)edcListsMap();
   if(LISTFLASH){const f=LISTFLASH;setTimeout(()=>{if(LISTFLASH===f){LISTFLASH=null;document.querySelectorAll('.lssaved').forEach(e=>e.remove());}},1800);}
 }
 function lsNav(){

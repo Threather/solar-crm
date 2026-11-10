@@ -13,7 +13,14 @@
    column in the client's own order, whatever is hidden on screen. */
 let SRROWS=[], SRWAIT=[], SRF={q:''}, SRCF={}, SRHIDE=new Set(), SROPEN='';
 
-const canSalesReport=()=>['admin','manager','finance'].includes(ME.role);
+const canSalesReport=()=>['admin','manager','finance','marketing'].includes(ME.role);
+/* marketing read the report without money, installation or EDC (client,
+   10 Nov 2026), from the view sr_mkt_leads: every approved win, those
+   columns only. Their own lead list is unchanged. */
+const srMkt=()=>ME.role==='marketing';
+const SR_MKT_COLS=['No','Lead Reference ID','Customer Name','Month won','Lead Received Date','Sales Person','Referral By','Lead Channel',
+  'Contact Number','Province','District','Commune','Map link','Address','Site type',
+  'System Size (Pcs)','Panel brand','Inverter Size (kW)','Inverter brand','Battery Size (kWh)','Battery brand'];
 
 async function renderWonSheet(){
   if(!canSalesReport()){
@@ -21,6 +28,14 @@ async function renderWonSheet(){
   $('main').innerHTML=SKEL;
   /* forty columns: the table needs the whole screen */
   $('main').style.maxWidth='none';
+  if(srMkt()){
+    let leads=[];
+    try{leads=await fetchAll(()=>sb.from('sr_mkt_leads').select('*').order('stage_entered_at').order('id'));}
+    catch(e){console.error(e);}
+    SRWAIT=[];
+    SRROWS=leads.map(l=>({...l,fin:null,final_sale_usd:null,payments:[],expected:[],contacts:0}));
+    return srShell();
+  }
   const leads=await fetchLeads(q=>q.eq('stage_code',WON));
   const ids=leads.map(l=>l.id);
   const [{data:fins},{data:pays},{data:sale},{data:expd},acts]=await Promise.all([
@@ -43,7 +58,9 @@ async function renderWonSheet(){
     expected:(expd||[]).filter(p=>p.lead_id===l.id),
     contacts:contacts[l.id]||0}))
     .sort((a,b)=>String(a.stage_entered_at||'').localeCompare(String(b.stage_entered_at||'')));
-
+  srShell();
+}
+function srShell(){
   $('main').innerHTML=`
     <h2 style="margin-bottom:6px">Sales Report</h2>
     <div class="srbar">
@@ -130,7 +147,7 @@ function srCols(n){
   }
   /* Location and Remark close the client's sheet, after the payments */
   c.forEach(o=>{if(o.x===999)o.x=31+n*2;if(o.x===1000)o.x=32+n*2;});
-  return c;
+  return srMkt()?c.filter(o=>SR_MKT_COLS.includes(o.h)):c;
 }
 /* money filters by band, so a list of 50 different amounts reads in four ticks */
 const srBand=v=>v===''||v==null?'(blank)':(v=Number(v))<5000?'Under $5,000':v<10000?'$5,000 - $10,000':v<20000?'$10,000 - $20,000':'$20,000 and over';
@@ -153,15 +170,15 @@ function srRows(skip){
 
 function drawSalesReport(){
   const rows=srRows(), n=srPayCols(rows), cols=srCols(n).filter(c=>c.g==='pin'||!SRHIDE.has(c.g));
-  const total=rows.reduce((a,r)=>a+finDue(r),0), left=rows.reduce((a,r)=>a+srLeft(r),0);
+  const total=srMkt()?0:rows.reduce((a,r)=>a+finDue(r),0), left=srMkt()?0:rows.reduce((a,r)=>a+srLeft(r),0);
   const on=Object.values(SRCF).filter(v=>v.length).length;
   const paidSum=rows.reduce((a,r)=>a+r.payments.reduce((x,p)=>x+Number(p.amount_usd||0),0),0);
-  $('srsum').innerHTML=[['Total won',rows.length],['Total contract value',fmtMoney(total)],
-    ['Total payment collected',fmtMoney(paidSum)],['Remaining',fmtMoney(left)]]
+  $('srsum').innerHTML=(srMkt()?[['Total won',rows.length]]:[['Total won',rows.length],['Total contract value',fmtMoney(total)],
+    ['Total payment collected',fmtMoney(paidSum)],['Remaining',fmtMoney(left)]])
     .map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('');
   $('srchips').innerHTML=hfChips(Object.entries(SRCF).map(([h,v])=>[h,v,`SRCF['${esc(h)}']=[];drawSalesReport()`]),
     'SRCF={};drawSalesReport()');
-  $('srgroups').innerHTML=SR_GROUPS.map(([k,l])=>
+  $('srgroups').innerHTML=SR_GROUPS.filter(([k])=>!srMkt()||['deal','cust','loc','addr','sys'].includes(k)).map(([k,l])=>
     `<button class="${SRHIDE.has(k)?'':'on'} srg-${k}" aria-pressed="${!SRHIDE.has(k)}" onclick="srToggle('${k}')"><i></i>${l}</button>`).join('');
   if(!rows.length){$('srwrap').innerHTML=blank('No won deal matches','Clear the filters or the search.');srSizeTop();return;}
   /* the band above the headings: one cell per run of a group */

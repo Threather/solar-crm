@@ -1439,3 +1439,9 @@ table.fintable.lgtable td.rem{max-width:240px;min-width:0}
 .srtable .srband .srg-loc,.srgroups .srg-loc i{background:#efe3ea}
 .srtable .srband .srg-addr,.srgroups .srg-addr i{background:#e6ecdd}
 .srgroups .srg-loc i{background:#a8527e}.srgroups .srg-addr i{background:#6f8a3a}
+#edc-canvas{height:520px}
+.edctable .edcpeople{background:none;padding:0;min-width:300px}
+.edcadd{display:flex;gap:6px}.edcadd input{min-width:0;flex:1}
+.edctable td:nth-child(2){white-space:nowrap}
+.edctable .edcpeople{min-width:230px}
+.edcadd input{width:105px}
