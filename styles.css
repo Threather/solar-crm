@@ -1449,3 +1449,10 @@ table.fintable.lgtable td.rem{max-width:240px;min-width:0}
 #edc-canvas .leaflet-control-attribution a{color:var(--ink-mute)}
 #verbar{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:500;background:var(--ink);color:#fff;padding:9px 16px;border-radius:0 0 10px 10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 #verbar button{margin-left:10px;background:#fff;color:var(--ink);border:0;border-radius:6px;padding:4px 12px;font-weight:600;cursor:pointer}
+.edc-next{background:none}
+.ynsw{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.ynsw button{border:0;background:var(--card);padding:5px 12px;font-size:13px;cursor:pointer;color:var(--ink-soft)}
+.ynsw button+button{border-left:1px solid var(--line)}
+.ynsw button.on{background:var(--ink);color:#fff}
+.inl2{display:flex;gap:6px;align-items:center}
+tr.edcoff td:not(:first-child):not(:nth-child(2)){opacity:.4}

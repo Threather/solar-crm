@@ -61,7 +61,7 @@ function drawDeals(){
   wrap.innerHTML=bands+`<div class="tablewrap deals"><table><thead><tr>
       <th>Customer</th>${cols.map(c=>`<th title="${esc(c.tip||'')}">${c.head}</th>`).join('')}
     </tr></thead><tbody>`
-    +rows.map(l=>`<tr id="deal-${l.id}">${dealRow(l)}</tr>`).join('')
+    +rows.map(l=>`<tr id="deal-${l.id}" class="${l.edc_needed===false&&DEALTAB==='edc'?'edcoff':''}">${dealRow(l)}</tr>`).join('')
     +`</tbody></table></div>`
     +(pages>1?`<div class="pager">
       <button class="btn-line" onclick="DEALPAGE--;drawDeals()" ${DEALPAGE?'':'disabled'}>Previous</button>
@@ -80,7 +80,7 @@ function redrawDeal(id){
   const l=DEALS.find(x=>x.id===id), tr=$('deal-'+id);
   /* a system type or inverter size can move the deal to another size band */
   if(l&&DEALTAB==='edc'&&dealBand(l)!==DEALBAND){drawDeals();return;}
-  if(l&&tr)tr.innerHTML=dealRow(l);
+  if(l&&tr){tr.innerHTML=dealRow(l);tr.classList.toggle('edcoff',l.edc_needed===false&&DEALTAB==='edc');}
 }
 
 /* the cells. `k` is the column; every input calls saveDeal with it. */
@@ -107,17 +107,19 @@ const stk=(...parts)=>`<div class="stk">${parts.map(([lab,html])=>`<label>${lab}
 const dEng=l=>`<select onchange="saveDeal('${l.id}','site_engineer_id',this.value,this)"><option value="">—</option>${
   STAFF.filter(s=>s.role==='site_engineer'&&(s.is_active||s.id===l.site_engineer_id))
     .map(s=>`<option value="${s.id}" ${s.id===l.site_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('')}</select>`;
-const dealOffice=l=>stk(['EDC submission',edcNeedSel(l)],['Branch',dSel(l,'edc_branch',EDC_BRANCHES)],['EDC price',dNum(l,'edc_fee_usd',false,90)]);
+/* branch and price side by side, so a row stays one line high (11 Nov 2026) */
+const dealOffice=l=>`<div class="inl2">${dSel(l,'edc_branch',EDC_BRANCHES,190)}${dNum(l,'edc_fee_usd',false,80)}</div>`;
+const dealSubmit={head:'Submit',tip:'Does this deal need submitting to EDC?',cell:l=>edcNeedSw(l)};
 const dealBoq=l=>stk(['BOQ',dSel(l,'boq_status',BOQ_STATUS)],['BOQ date',dDate(l,'boq_date')]);
 
 /* The EDC tab shows one size band at a time, because the two bands have
    different steps: two dates at 10 kWac or under, five above. Deals EDC cannot
    place yet get their own view with the two fields that place them. */
 const DEAL_EDC={
-  small:[{head:'Size',cell:dealEdcBand},{head:'EDC office',cell:dealOffice},
+  small:[dealSubmit,{head:'Size',cell:dealEdcBand},{head:'Branch · EDC price',cell:dealOffice},
     ...EDC_SMALL.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
   /* five dates leave no room for a size column; the size rides under the office */
-  large:[{head:'EDC office',cell:l=>dealOffice(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
+  large:[dealSubmit,{head:'Branch · EDC price',cell:l=>dealOffice(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
     ...EDC_LARGE.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
   miss:[
     {head:'Why',cell:l=>edcExempt(l)?'<span class="quiet">Off-Grid, no EDC</span>':!edcApplies(l)?'<b>No system type</b>':'<b>No inverter size</b>'},

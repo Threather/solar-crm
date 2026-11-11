@@ -335,12 +335,17 @@ const edcFields=l=>!edcApplies(l)||kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LA
 const edcCovered=l=>l.edc_needed===false;
 const edcNeedSel=(l,id)=>`<select ${id?`id="${id}" `:''}onclick="event.stopPropagation()" onchange="edcNeedSave('${l.id}',this)">
   <option value="1" ${l.edc_needed===false?'':'selected'}>Need to submit</option><option value="0" ${l.edc_needed===false?'selected':''}>Don't need to submit</option></select>`;
+/* the Yes / No switch on EDC > Edit EDC */
+const edcNeedSw=l=>{const no=l.edc_needed===false;
+  return `<div class="ynsw" role="group" aria-label="Submit to EDC"><button type="button" class="${no?'':'on'}" onclick="edcNeedSave('${l.id}',{value:'1'})">Yes</button><button type="button" class="${no?'on':''}" onclick="edcNeedSave('${l.id}',{value:'0'})">No</button></div>`;};
 async function edcNeedSave(id,el){
   if(ME.role!=='admin')return;
   const v=el.value==='1';
   const {error}=await sb.from('leads').update({edc_needed:v}).eq('id',id);
   if(error){toast('Could not save. '+why(error));return;}
   await logActivity(id,'edit',null,null,'EDC submission: '+(v?'Need to submit':"Don't need to submit"));
+  const d=typeof DEALS!=='undefined'&&DEALS.find(x=>x.id===id);
+  if(d){d.edc_needed=v;if(typeof redrawDeal==='function')redrawDeal(id);}
   toast('Saved');
 }
 const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;};
