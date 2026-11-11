@@ -43,9 +43,9 @@ async function renderOpsReport(){
   /* the two EDC boxes read the dates, not edcFields: most won deals carry no
      system type, and a submission date already proves EDC applies. Only an
      explicit Off-Grid is exempt. */
-  const edcSubmit=f.filter(l=>hasPart(l,'EDC/EAC')&&l.system_type!=='Off-Grid'&&!edcSentOn(l)
+  const edcSubmit=f.filter(l=>hasPart(l,'EDC/EAC')&&!edcCovered(l)&&l.system_type!=='Off-Grid'&&!edcSentOn(l)
     &&hasPart(l,'Installation')&&instDoneOn(l));
-  const edcInspect=f.filter(l=>hasPart(l,'EDC/EAC')&&edcSentOn(l)&&!edcSeenOn(l));
+  const edcInspect=f.filter(l=>hasPart(l,'EDC/EAC')&&!edcCovered(l)&&edcSentOn(l)&&!edcSeenOn(l));
   const today=localDay(new Date());
 
   /* The five figures the client puts at the top. "All time" asks about state,

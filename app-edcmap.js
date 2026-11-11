@@ -38,7 +38,8 @@ async function edcLoadPins(){
 /* pending and submitted per branch, worked as the EDC worklist works them */
 async function edcCounts(){
   EDCCOUNT={};
-  const rows=(await fetchLeads(q=>q.eq('stage_code',WON))).filter(l=>hasPart(l,'EDC/EAC')&&edcApplies(l));
+  const won=await fetchLeads(q=>q.eq('stage_code',WON));
+  const rows=won.filter(l=>hasPart(l,'EDC/EAC')&&edcApplies(l)&&!edcCovered(l));
   rows.forEach(l=>{const b=l.edc_branch;if(!b)return;const f=edcFields(l),d=edcDone(l);
     const c=EDCCOUNT[b]=EDCCOUNT[b]||{p:0,s:0};if(f&&d<f.length)c.p++;if(d>0)c.s++;});
 }

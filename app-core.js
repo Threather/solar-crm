@@ -328,6 +328,21 @@ const edcApplies=l=>l.system_type==='On-Grid'||l.system_type==='Hybrid';
 const edcExempt=l=>l.system_type==='Off-Grid';
 /* null means we cannot tell yet, because the inverter spec is missing */
 const edcFields=l=>!edcApplies(l)||kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LARGE);
+/* admin decides whether a won deal is submitted to EDC: Need to submit (the
+   default) or Don't need to submit - a battery added to a system EDC already
+   knows, say (client, 11 Nov 2026). Don't need leaves every EDC count and list
+   except Edit EDC; the deal stays a sale and a project everywhere else. */
+const edcCovered=l=>l.edc_needed===false;
+const edcNeedSel=(l,id)=>`<select ${id?`id="${id}" `:''}onclick="event.stopPropagation()" onchange="edcNeedSave('${l.id}',this)">
+  <option value="1" ${l.edc_needed===false?'':'selected'}>Need to submit</option><option value="0" ${l.edc_needed===false?'selected':''}>Don't need to submit</option></select>`;
+async function edcNeedSave(id,el){
+  if(ME.role!=='admin')return;
+  const v=el.value==='1';
+  const {error}=await sb.from('leads').update({edc_needed:v}).eq('id',id);
+  if(error){toast('Could not save. '+why(error));return;}
+  await logActivity(id,'edit',null,null,'EDC submission: '+(v?'Need to submit':"Don't need to submit"));
+  toast('Saved');
+}
 const edcDone=l=>{const f=edcFields(l);return f?f.filter(([k])=>l[k]).length:0;};
 /* marketing keeps ownership of these stages even after a salesperson is
    assigned — must match the leads_select / leads_update policies */

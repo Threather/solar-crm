@@ -107,7 +107,7 @@ const stk=(...parts)=>`<div class="stk">${parts.map(([lab,html])=>`<label>${lab}
 const dEng=l=>`<select onchange="saveDeal('${l.id}','site_engineer_id',this.value,this)"><option value="">—</option>${
   STAFF.filter(s=>s.role==='site_engineer'&&(s.is_active||s.id===l.site_engineer_id))
     .map(s=>`<option value="${s.id}" ${s.id===l.site_engineer_id?'selected':''}>${esc(s.full_name)}</option>`).join('')}</select>`;
-const dealOffice=l=>stk(['Branch',dSel(l,'edc_branch',EDC_BRANCHES)],['EDC price',dNum(l,'edc_fee_usd',false,90)]);
+const dealOffice=l=>stk(['EDC submission',edcNeedSel(l)],['Branch',dSel(l,'edc_branch',EDC_BRANCHES)],['EDC price',dNum(l,'edc_fee_usd',false,90)]);
 const dealBoq=l=>stk(['BOQ',dSel(l,'boq_status',BOQ_STATUS)],['BOQ date',dDate(l,'boq_date')]);
 
 /* The EDC tab shows one size band at a time, because the two bands have

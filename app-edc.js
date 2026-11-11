@@ -54,7 +54,8 @@ async function renderEdc(){
     $('main').innerHTML=blank('EDC is admin only','Ask an admin about the grid paperwork.');return;}
   $('main').innerHTML=SKEL;
   /* a service-only deal is EDC's only if it bought the EDC/EAC service */
-  const rows=(await fetchLeads(q=>q.eq('stage_code',WON))).filter(l=>hasPart(l,'EDC/EAC')||EDCSCOPE==='edit');
+  const won=await fetchLeads(q=>q.eq('stage_code',WON));
+  const rows=won.filter(l=>EDCSCOPE==='edit'||(hasPart(l,'EDC/EAC')&&!edcCovered(l)));
   const applicable=rows.filter(edcApplies);
   const small=applicable.filter(l=>edcFields(l)===EDC_SMALL);
   const large=applicable.filter(l=>edcFields(l)===EDC_LARGE);
