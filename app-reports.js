@@ -54,6 +54,8 @@ function exportLeads(){
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,
     l.monthly_bill_usd,staffName(l.assigned_to),
     l.next_follow_up,qualText(l),
+    /* Aging, as the table shows it (12 Nov 2026) */
+    l.created_at?daysIn(l.created_at):'',l.stage_entered_at?daysIn(l.stage_entered_at):'',
     ...(money?[l.final_sale_usd]:[]),
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
     l.inverter_brand,l.inverter_kw,l.inverter_pcs,l.inverter_kw_total,
@@ -70,7 +72,7 @@ function exportLeads(){
     'Channel','Sub-channel','Referred by','Event name','Event date',
     'Address','Commune','District','Province','Type of site',
     'Monthly bill (USD)','Sale engineer',
-    'Next follow-up','Qualification',
+    'Next follow-up','Qualification','Days old','Days in stage',
     ...(money?['Final sale (USD)']:[]),
     'Roof type','System type','Ampere & phase','Panel brand','Panel watt','Panel pcs','Panel kWp',
     'Inverter brand','Inverter kW each','Inverter pcs','Inverter total kW',
