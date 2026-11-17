@@ -593,6 +593,15 @@ async function addQuot(leadId){
   }).select().single();
   if(error){toast('Could not save quotation. '+why(error));console.error(error);return;}
   await logActivity(leadId,'note',null,null,'Quotation released: $'+price);
+  /* the first quotation issues the lead's ref ID (client, 17 Nov 2026) - the
+     database does it on insert (trg_quot_ref); read it back so the header and
+     the document show it without re-rendering the lead */
+  const head=document.querySelector('#lead-modal h2 .refid');
+  if(head&&!head.textContent.trim()&&ME.role!=='marketing'){
+    const {data:rl}=await sb.from('leads').select('ref_id').eq('id',leadId).maybeSingle();
+    if(rl&&rl.ref_id){head.textContent=rl.ref_id;
+      const c=(LEADS||[]).find(x=>x.id===leadId);if(c)c.ref_id=rl.ref_id;}
+  }
   /* the card goes in where it stands. Re-rendering the lead here would throw
      away specification edits not yet saved, which is the whole point of
      keying in and quoting in the one box. */
