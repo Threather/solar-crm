@@ -20,7 +20,7 @@ const instDoneOn=l=>{
 };
 
 async function renderOpsReport(){
-  const rows=await fetchLeads(q=>q.eq('stage_code',WON));
+  const rows=await fetchWon();
   const offs=offByLead(await offRows());
   /* installation duration is days actually worked: rest days and days not
      worked come off, a whole day counts 1 and a Saturday 0.5 (4 Nov 2026) */

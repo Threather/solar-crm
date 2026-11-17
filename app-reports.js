@@ -48,7 +48,7 @@ function exportLeads(){
      export can never leak what the screen hides */
   const money=canSeeMoney();
   const rows=filteredLeads().map(l=>[
-    l.lead_date||localDay(l.created_at),l.ref_id,l.customer_name,l.phone,l.customer_type,stageName(l.stage_code),
+    l.lead_date||localDay(l.created_at),l.ref_id,l.customer_name,l.phone,l.customer_type,l.won_wait?WAIT_LABEL:stageName(l.stage_code),
     l.stage_code===WON?localDay(l.stage_entered_at):'',dealWord(l),
     l.lead_channel,l.lead_sub_channel,refWho(l),l.event_name,l.event_date,
     l.site_address,l.commune,l.district,l.province||l.city_province,l.site_type,

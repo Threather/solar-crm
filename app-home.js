@@ -153,7 +153,7 @@ function homeSite(rows){
 /* finance counts money, not leads, so it asks the finance tables directly —
    the same three the Finance page reads */
 async function homeFinance(){
-  const leads=await fetchLeads(q=>q.eq('stage_code',WON));
+  const leads=await fetchWon();
   const [{data:fins},{data:pays},{data:sale}]=await Promise.all([
     rowsOf(()=>sb.from('lead_finance').select('*').order('lead_id')),
     rowsOf(()=>sb.from('lead_payments').select('lead_id,amount_usd').order('id')),

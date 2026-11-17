@@ -53,7 +53,7 @@ async function renderFinance(){
     $('main').innerHTML=blank('Finance is not open to your role','Ask an admin if you need a contract or a payment recorded.');return;}
   $('main').style.maxWidth='none';
   $('main').innerHTML=SKEL;
-  const leads=await fetchLeads(q=>q.eq('stage_code',WON));
+  const leads=await fetchWon();
   const ids=leads.map(l=>l.id);
   const [{data:fins},{data:pays},{data:sale},{data:expd}]=await Promise.all([
     rowsOf(()=>sb.from('lead_finance').select('*').order('lead_id')),

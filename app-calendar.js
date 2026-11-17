@@ -127,7 +127,7 @@ async function renderCalendar(){
   /* the whole width of the screen (client, 23 Oct 2026) */
   $('main').style.maxWidth='none';
   $('main').innerHTML='<div class="sub">Loading…</div>';
-  const rows=(await fetchLeads(q=>q.eq('stage_code','closed_won')))||[];
+  const rows=(await fetchWon())||[];
   const offs=offByLead(await offRows());
   const all=rows.filter(l=>l.installation_start&&hasPart(l,'Installation')).map(l=>({
     id:l.id, ref:l.ref_id||'', name:l.customer_name||'(no name)', team:l.installation_team||'',

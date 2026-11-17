@@ -1456,3 +1456,6 @@ table.fintable.lgtable td.rem{max-width:240px;min-width:0}
 .ynsw button.on{background:var(--ink);color:#fff}
 .inl2{display:flex;gap:6px;align-items:center}
 tr.edcoff td:not(:first-child):not(:nth-child(2)){opacity:.4}
+
+/* a won deal waiting for admin approval (17 Nov 2026) */
+.waitline{margin-top:6px;font-size:12px;font-weight:600;color:#7a5a12}

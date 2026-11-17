@@ -102,12 +102,12 @@ async function openLead(id){
   /* each role opens on the part of the lead that is theirs to fill in */
   const workHtml=isMkt?mktWorkHtml:canSales?`<div class="section sec-sales"><h4>Working</h4>
       <div class="grid2">
-        <div><label>Stage</label><select id="d-stage">${stgOpts}</select></div>
+        <div><label>Stage</label><select id="d-stage">${stgOpts}</select>${wonWaiting(l)?`<div class="waitline">Waiting for admin approval</div>`:''}</div>
         <div><label>Next follow-up</label><input id="d-follow" type="date" value="${l.next_follow_up||''}"></div>
         ${canMoney?`<div id="d-salewrap" style="display:${(l.stage_code===WON||fin?.final_sale_usd!=null)?'block':'none'}">
           <label>Final sale value (USD)</label>${numBox('d-sale',fin?.final_sale_usd)}</div>`:''}
         ${canMoney&&fin?.loan_from?`<div><label>Loan</label><div class="loanline ${fin.loan_paid_on?'paid':''}">${fin.loan_from==='Han'?'Han personal loan · '+(fin.loan_paid_on?'ended '+esc(fmtDate(fin.loan_paid_on)):'running'):'Han company loan · '+(fin.loan_paid_on?'paid in full '+esc(fmtDate(fin.loan_paid_on)):'still paying')}</div></div>`:''}
-        ${isAdmin&&l.stage_code===WON?`<div><label>EDC submission</label>${edcNeedSel(l,'d-edcneed')}</div>`:''}
+        ${isAdmin&&l.stage_code===WON&&!wonWaiting(l)?`<div><label>EDC submission</label>${edcNeedSel(l,'d-edcneed')}</div>`:''}
         ${seeEng?`<div><label>Deal type</label><select id="d-dtype" onchange="dDealType()" ${canEng?'':'disabled'}>
           <option value="full" ${isService(l)?'':'selected'}>Full package</option><option value="service" ${isService(l)?'selected':''}>Service only</option></select></div>
         <div id="d-svcwrap" ${isService(l)?'':'style="display:none"'}><label>Services</label>
@@ -257,9 +257,9 @@ async function openLead(id){
 
     ${engFirst?'':engHtml}
 
-    ${(l.stage_code===WON&&!isSiteEng&&seeInstall)?siteBox(l,canSite,false,isAdmin):''}
+    ${(l.stage_code===WON&&!wonWaiting(l)&&!isSiteEng&&seeInstall)?siteBox(l,canSite,false,isAdmin):''}
 
-    ${(l.stage_code===WON&&(canQuote||ME.role==='manager'))?`<div class="modal-actions">
+    ${(l.stage_code===WON&&!wonWaiting(l)&&(canQuote||ME.role==='manager'))?`<div class="modal-actions">
       <button class="btn-line" onclick="newDealFrom('${l.id}')" title="Start a second deal for this customer — more panels, a battery — with their details and current system already filled in">New deal for this customer</button>
     </div>`:''}
 
@@ -461,7 +461,7 @@ async function saveLead(id,oldStage,oldAssign,oldEng,keepOpen){
     const who=$('d-name')?$('d-name').value:'a customer';
     await notify('won',id,`Deal won: ${who}, by ${staffName(ME.id)}`);
   }
-  toast(newStage===WON&&oldStage!==WON?'Saved. Commissions created for this deal.'
+  toast(newStage===WON&&oldStage!==WON?'Saved. Waiting for admin approval.'
        :upd.stage_code==='telling_price'&&oldStage!=='telling_price'?'Saved. This lead is now qualified.'
        :'Saved');
   /* saving is not leaving: the lead stays open, locked, showing what was saved */

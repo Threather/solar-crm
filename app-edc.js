@@ -54,7 +54,7 @@ async function renderEdc(){
     $('main').innerHTML=blank('EDC is admin only','Ask an admin about the grid paperwork.');return;}
   $('main').innerHTML=SKEL;
   /* a service-only deal is EDC's only if it bought the EDC/EAC service */
-  const won=await fetchLeads(q=>q.eq('stage_code',WON));
+  const won=await fetchWon();
   const rows=won.filter(l=>EDCSCOPE==='edit'||(hasPart(l,'EDC/EAC')&&!edcCovered(l)));
   const applicable=rows.filter(edcApplies);
   const small=applicable.filter(l=>edcFields(l)===EDC_SMALL);
@@ -181,7 +181,7 @@ async function edcReview(id){
 async function renderProjects(){
   if(ME.role!=='admin'){$('main').innerHTML=blank('Projects is admin only','');return;}
   $('main').innerHTML=SKEL;
-  const rows=await fetchLeads(q=>q.eq('stage_code',WON));
+  const rows=await fetchWon();
   if(VIEW!=='proj')return;
   $('main').innerHTML=`<h2 style="margin-bottom:14px">Projects</h2>`+drawEditDeals(rows,'proj');
   drawDeals();

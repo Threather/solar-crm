@@ -242,5 +242,5 @@ async function srApprove(id){
   if(ME.role!=='admin')return;
   const {data,error}=await sb.from('leads').update({sr_approved_at:new Date().toISOString(),sr_approved_by:ME.id}).eq('id',id).select('id');
   if(error||!data||!data.length){toast('Could not approve. '+(error?why(error):''));return;}
-  toast('Approved - now in the Sales Report');renderWonSheet();
+  toast('Approved');renderWonSheet();
 }

@@ -402,7 +402,8 @@ function qualPill(l){
   if(t==='Disqualified')return '<span class="badge b-off">disqualified</span>';
   return '<span class="days" style="display:inline">not yet</span>';
 }
-function stagePill(code){
+function stagePill(code,l){
+  if(l&&l.won_wait)return `<span class="stagepill" style="background:#f3e6c4;color:#7a5a12">${esc(WAIT_LABEL)}</span>`;
   const st=STAGES.find(s=>s.stage_code===code)||{stage_name:code};
   const [bg,fg]=(STAGE_COLORS[code]||'#eee|#555').split('|');
   return `<span class="stagepill" style="background:${bg};color:${fg}">${esc(st.stage_name)}</span>`;
@@ -494,7 +495,7 @@ async function followUpToday(){
     mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code')
       .eq('is_deleted',false).eq('next_follow_up',today)),
     mine(sb.from('leads').select('id,ref_id,customer_name,phone,stage_code,boq_status,stage_entered_at,deal_type')
-      .eq('is_deleted',false).eq('stage_code',WON).or('boq_status.is.null,boq_status.neq.Done'))
+      .eq('is_deleted',false).eq('stage_code',WON).not('sr_approved_at','is',null).or('boq_status.is.null,boq_status.neq.Done'))
   ]);
   /* a service-only deal has no BOQ to release */
   boq=(boq||[]).filter(l=>!isService(l));
@@ -842,13 +843,28 @@ async function fetchLeads(extra){
      date, so hundreds share one timestamp, and paging on it alone would shuffle
      them between pages - dropping some and repeating others */
   try{
-    return await fetchAll(()=>{
+    return gateWon(await fetchAll(()=>{
       const q=sb.from('leads').select('*').eq('is_deleted',false)
         .order('created_at',{ascending:false}).order('id');
       return extra?extra(q):q;
-    });
+    }));
   }catch(error){toast('Could not load leads');console.error(error);return[];}
 }
+/* A won deal waits for admin's Approve before anything after the win may start
+   (client, 17 Nov 2026): BOQ, installation, EDC, Finance, and every count of a
+   win. Until then every list reads it as one step short of won - Agreement
+   Sign-off, flagged won_wait - so no screen has to remember the rule. The
+   lead window reads the lead itself and shows the real stage. Finance and the
+   site engineer work only on approved deals, so they are not handed it at all.
+   Once approved it counts on the day it was closed (stage_entered_at). */
+const WAIT_STAGE='agreement_signoff', WAIT_LABEL='Won · waiting for approval';
+const wonWaiting=l=>l.stage_code===WON&&!l.sr_approved_at;
+function gateWon(rows){
+  rows.forEach(l=>{if(wonWaiting(l)){l.won_wait=true;l.stage_code=WAIT_STAGE;}});
+  return ['finance','site_engineer'].includes(ME.role)?rows.filter(l=>!l.won_wait):rows;
+}
+/* the won deals work may start on: approved ones only */
+async function fetchWon(){return (await fetchLeads(q=>q.eq('stage_code',WON))).filter(l=>!l.won_wait);}
 /* A repeat purchase takes the first deal's ref plus a count - 202605-00047-2,
    then -3 - so the number itself says which customer it follows (28 Sep 2026).
    Any suffix on the parent is stripped first, so a third deal opened from the

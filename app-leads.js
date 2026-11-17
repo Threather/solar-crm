@@ -220,7 +220,7 @@ const LV_LEADS={name:'leads',src:()=>toolbarLeads(),rows:()=>filteredLeads(),dra
 let LV=LV_LEADS;
 const fuWord=l=>!l.next_follow_up?'No date':FU_TEST.overdue(l)?'Overdue':FU_TEST.today(l)?'Today':'Later';
 const COLSPEC={
-  stage:l=>(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code||'—',
+  stage:l=>l.won_wait?WAIT_LABEL:(STAGES.find(s=>s.stage_code===l.stage_code)||{}).stage_name||l.stage_code||'—',
   qual:l=>qualText(l),
   eng:l=>l.assigned_to?staffName(l.assigned_to):'Not assigned',
   site:l=>l.site_engineer_id?staffName(l.site_engineer_id):'None',
@@ -596,7 +596,7 @@ function drawActiveTable(rows){
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${refCell(l)}</td>
       <td>${chanCell(l)}</td>
-      <td>${stagePill(l.stage_code)}</td>
+      <td>${stagePill(l.stage_code,l)}</td>
       <td>${qualPill(l)}</td>
       <td>${ME.role==='sales'
         ?(l.last_quot?`<b>${fmtMoney(l.last_quot.price_usd)}</b><span class="days">${fmtDate(l.last_quot.created_at)}</span>`:'—')
@@ -801,7 +801,7 @@ function drawPool(){
       <td class="cust"><b>${esc(l.customer_name)}</b><span class="days">${esc(l.customer_type||'')}</span></td>
       <td class="phone">${l.phone?phoneCell(l.phone):'<span class="pooltag">NO PHONE</span>'}</td>
       <td>${esc((l.lead_channel||l.lead_source||'—').replace(/_/g,' '))}${l.lead_sub_channel?`<span class="days">${esc(l.lead_sub_channel)}</span>`:''}</td>
-      <td>${stagePill(l.stage_code)}</td>
+      <td>${stagePill(l.stage_code,l)}</td>
       <td class="nowrap">${daysIn(l.created_at)}d</td>
       <td><span class="nm">${esc(staffName(l.created_by))}</span></td>
     </tr>`).join('')+`</tbody></table>`+pager(all.length,pages);
