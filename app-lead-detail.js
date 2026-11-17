@@ -573,6 +573,18 @@ function quotCard(q,leadId,canUse,inUse,canDelete){
       ${canDelete?`<button class="btn-mini qdel" onclick="delQuot('${q.id}','${leadId}')" title="Remove this option. A quotation has no undo.">Delete</button>`:''}
     </div><div class="qdocs" data-q="${q.id}" data-lead="${leadId}"></div></div>`;
 }
+/* the ref ID a first quotation has just issued, shown so sales see it
+   (client, 17 Nov 2026). Its own layer: the lead window stays open beneath. */
+function refPop(ref){
+  const w=document.createElement('div');w.className='refpopbg';
+  w.innerHTML=`<div class="refpop" role="dialog" aria-label="Ref ID issued"><div class="rl">Ref ID issued</div>
+    <div class="rv">${esc(ref)}</div><button class="btn-sun">OK</button></div>`;
+  const close=()=>{w.remove();document.removeEventListener('keydown',key,true);};
+  const key=e=>{if(e.key==='Escape'||e.key==='Enter'){e.stopPropagation();e.preventDefault();close();}};
+  w.onclick=e=>{if(e.target===w||e.target.tagName==='BUTTON')close();};
+  document.addEventListener('keydown',key,true);
+  document.body.appendChild(w);w.querySelector('button').focus();
+}
 async function addQuot(leadId){
   const price=$('q-price').value;
   if(!price){toast('Price is required');return;}
@@ -600,7 +612,8 @@ async function addQuot(leadId){
   if(head&&!head.textContent.trim()&&ME.role!=='marketing'){
     const {data:rl}=await sb.from('leads').select('ref_id').eq('id',leadId).maybeSingle();
     if(rl&&rl.ref_id){head.textContent=rl.ref_id;
-      const c=(LEADS||[]).find(x=>x.id===leadId);if(c)c.ref_id=rl.ref_id;}
+      const c=(LEADS||[]).find(x=>x.id===leadId);if(c)c.ref_id=rl.ref_id;
+      refPop(rl.ref_id);}
   }
   /* the card goes in where it stands. Re-rendering the lead here would throw
      away specification edits not yet saved, which is the whole point of

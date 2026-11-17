@@ -1472,3 +1472,9 @@ tr.edcoff td:not(:first-child):not(:nth-child(2)){opacity:.4}
 
 /* Projects is read only for procurement (17 Nov 2026) */
 .readdeals .deals table input,.readdeals .deals table select,.readdeals .deals table textarea,.readdeals .deals table button{pointer-events:none;background:transparent}
+
+/* the ref ID a first quotation issued (17 Nov 2026) */
+.refpopbg{position:fixed;inset:0;z-index:300;background:rgba(40,34,24,.28);display:flex;align-items:center;justify-content:center}
+.refpop{background:var(--card);border-radius:var(--r);box-shadow:var(--lift);padding:22px 28px;text-align:center;min-width:240px}
+.refpop .rl{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-mute);font-weight:600}
+.refpop .rv{font-size:26px;font-weight:700;color:var(--ink);margin:8px 0 16px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
