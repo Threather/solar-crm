@@ -65,7 +65,7 @@ async function incLoadSettings(){
 }
 
 async function renderIncentive(){
-  if(!['admin','manager'].includes(ME.role)){
+  if(!['admin','manager'].includes(ME.role)&&!finMgr()){
     $('main').innerHTML=blank('Incentive is admin and manager only','Ask an admin if you need the figures.');return;}
   $('main').innerHTML=SKEL;$('main').style.maxWidth='none';
   await incLoadSettings();

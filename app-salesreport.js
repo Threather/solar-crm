@@ -13,7 +13,12 @@
    column in the client's own order, whatever is hidden on screen. */
 let SRROWS=[], SRWAIT=[], SRF={q:''}, SRCF={}, SRHIDE=new Set(), SROPEN='';
 
-const canSalesReport=()=>['admin','manager','finance','marketing'].includes(ME.role);
+const canSalesReport=()=>['admin','manager','finance','marketing','procurement','site_engineer'].includes(ME.role);
+/* procurement and the site engineer read the report without EDC or money
+   (client, 17 Nov 2026); only the procurement manager gets the Deal group.
+   null = every group. */
+const srGroups=()=>procMgr()?['pin','cust','deal','addr','loc','sys','inst']
+  :['procurement','site_engineer'].includes(ME.role)?['pin','cust','addr','loc','sys','inst']:null;
 /* marketing read the report without money, installation or EDC (client,
    10 Nov 2026), from the view sr_mkt_leads: every approved win, those
    columns only. Their own lead list is unchanged. */
@@ -147,7 +152,8 @@ function srCols(n){
   }
   /* Location and Remark close the client's sheet, after the payments */
   c.forEach(o=>{if(o.x===999)o.x=31+n*2;if(o.x===1000)o.x=32+n*2;});
-  return srMkt()?c.filter(o=>SR_MKT_COLS.includes(o.h)):c;
+  const g=srGroups();
+  return srMkt()?c.filter(o=>SR_MKT_COLS.includes(o.h)):g?c.filter(o=>g.includes(o.g)):c;
 }
 /* money filters by band, so a list of 50 different amounts reads in four ticks */
 const srBand=v=>v===''||v==null?'(blank)':(v=Number(v))<5000?'Under $5,000':v<10000?'$5,000 - $10,000':v<20000?'$10,000 - $20,000':'$20,000 and over';
@@ -178,7 +184,7 @@ function drawSalesReport(){
     .map(([l,v])=>`<div><span>${l}</span><b>${v}</b></div>`).join('');
   $('srchips').innerHTML=hfChips(Object.entries(SRCF).map(([h,v])=>[h,v,`SRCF['${esc(h)}']=[];drawSalesReport()`]),
     'SRCF={};drawSalesReport()');
-  $('srgroups').innerHTML=SR_GROUPS.filter(([k])=>!srMkt()||['deal','cust','loc','addr','sys'].includes(k)).map(([k,l])=>
+  $('srgroups').innerHTML=SR_GROUPS.filter(([k])=>(!srMkt()||['deal','cust','loc','addr','sys'].includes(k))&&(!srGroups()||srGroups().includes(k))).map(([k,l])=>
     `<button class="${SRHIDE.has(k)?'':'on'} srg-${k}" aria-pressed="${!SRHIDE.has(k)}" onclick="srToggle('${k}')"><i></i>${l}</button>`).join('');
   if(!rows.length){$('srwrap').innerHTML=blank('No won deal matches','Clear the filters or the search.');srSizeTop();return;}
   /* the band above the headings: one cell per run of a group */

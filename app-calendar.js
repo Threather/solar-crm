@@ -93,6 +93,7 @@ async function offDel(rowId,id){
 let CALJOBS={};
 function calOpen(id){
   const j=CALJOBS[id];
+  if(viewOnly())return;
   if(ME.role!=='admin'||!j){openLead(id);return;}
   const w=document.createElement('div');
   w.id='calpop';w.className='calpopbg';
@@ -121,7 +122,7 @@ async function calSaveDates(id){
 }
 
 async function renderCalendar(){
-  if(!['site_engineer','sales','manager','admin'].includes(ME.role)){
+  if(!['site_engineer','sales','manager','admin','finance','procurement'].includes(ME.role)){
     $('main').innerHTML=blank('No calendar for your role','');return;}
   if(!CALMONTH){const t=new Date();CALMONTH=new Date(t.getFullYear(),t.getMonth(),1);}
   /* the whole width of the screen (client, 23 Oct 2026) */

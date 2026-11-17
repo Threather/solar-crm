@@ -6,6 +6,8 @@ async function renderLeads(scope){
   /* finance work won deals and their money, from their own screen */
   if(ME.role==='finance'){
     $('main').innerHTML=blank('Leads are not open to your role','Won deals and their payments are under Finance.');return;}
+  if(['procurement','site_engineer'].includes(ME.role)){
+    $('main').innerHTML=blank('Leads are not open to your role','Won deals are on the Sales Report.');return;}
   LEADSCOPE=scope||LEADSCOPE;
   /* coming back from Unassigned: its column ticks mean nothing here */
   if(LV!==LV_LEADS){LV=LV_LEADS;COLF={};SEL.clear();LEADPAGE=0;}

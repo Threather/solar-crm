@@ -16,7 +16,10 @@ async function renderUsers(){
         <div><label>Role</label><select id="u-role">
           <option value="marketing">marketing</option><option value="sales">sale engineer</option>
           <option value="site_engineer">site_engineer (installation)</option>
-          <option value="finance">finance</option>
+          <option value="finance:manager">finance manager</option>
+          <option value="finance">finance executive</option>
+          <option value="procurement:manager">procurement manager</option>
+          <option value="procurement">procurement executive</option>
           <option value="manager">sales manager (sales + marketing)</option><option value="admin">admin</option></select></div>
       </div>
       <div class="modal-actions"><button class="btn-sun" onclick="createProfile()">Create profile</button></div>
@@ -24,7 +27,7 @@ async function renderUsers(){
     <div class="tablewrap"><table><thead><tr>
       <th>Name</th><th>Email</th><th>Staff ID</th><th>Role</th><th>Joined</th><th>Status</th><th></th>
     </tr></thead><tbody>`+(users||[]).map(u=>`
-      <tr><td><b>${esc(u.full_name)}</b></td><td>${esc(u.email)}</td><td>${esc(u.staff_id)}</td><td>${esc(u.role)}</td>
+      <tr><td><b>${esc(u.full_name)}</b></td><td>${esc(u.email)}</td><td>${esc(u.staff_id)}</td><td>${esc(roleWord(u))}</td>
       <td><input type="date" style="min-width:140px" value="${u.joined_date||''}" onchange="setJoined('${u.id}',this.value)" title="Drives the 90-day probation rate on the incentive"></td>
       <td>${u.is_active?'<span class="badge b-on">active</span>':'<span class="badge b-off">inactive</span>'}</td>
       <td>${u.id===ME.id?'':`<button class="btn-line" onclick="toggleUser('${u.id}',${!u.is_active})">${u.is_active?'Deactivate':'Reactivate'}</button>`}</td>
@@ -32,10 +35,12 @@ async function renderUsers(){
 }
 async function createProfile(){
   const email=$('u-email').value.trim().toLowerCase();
-  const staff=$('u-staff').value.trim(),name=$('u-name').value.trim(),role=$('u-role').value;
+  const staff=$('u-staff').value.trim(),name=$('u-name').value.trim(),[role,sub]=$('u-role').value.split(':');
   if(!email||!staff||!name){toast('All fields are required');return;}
   const {error}=await sb.rpc('admin_create_profile',{p_email:email,p_staff_id:staff,p_full_name:name,p_role:role});
   if(error){toast(error.message.includes('not found')?'No auth user with that email. Do step 1 first.':'Create failed');console.error(error);return;}
+  if(sub){const r=await sb.from('profiles').update({sub_role:sub}).eq('email',email);
+    if(r.error){toast('Profile created, but the manager level did not save. '+why(r.error));renderUsers();return;}}
   toast('Profile created');renderUsers();
 }
 /* the joining date is what puts somebody on the probation rate, so it is

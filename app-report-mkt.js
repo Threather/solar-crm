@@ -44,7 +44,9 @@ async function mktRows(){
   if(ME.role!=='marketing')return fetchLeads(q=>q);
   try{
     const rows=await fetchAll(()=>sb.from('mkt_dash_leads').select('*').order('created_at',{ascending:false}).order('id'));
-    return rows.map(l=>({...l,phone:l.has_phone?'yes':null}));
+    /* a win still waiting for approval is not a win here either; the view
+       carries sr_approved_at from 17 Nov 2026, and without it nothing waits */
+    return gateWon(rows.map(l=>({...l,phone:l.has_phone?'yes':null,sr_approved_at:'sr_approved_at' in l?l.sr_approved_at:'x'})));
   }catch(e){console.error(e);return fetchLeads(q=>q);}
 }
 async function renderMktReport(){

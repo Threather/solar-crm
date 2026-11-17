@@ -179,7 +179,7 @@ async function edcReview(id){
 
 /* Projects (29 Oct 2026): the installation side of every won deal, out of EDC */
 async function renderProjects(){
-  if(ME.role!=='admin'){$('main').innerHTML=blank('Projects is admin only','');return;}
+  if(!['admin','procurement'].includes(ME.role)){$('main').innerHTML=blank('Projects is not open to your role','');return;}
   $('main').innerHTML=SKEL;
   const rows=await fetchWon();
   if(VIEW!=='proj')return;

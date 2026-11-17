@@ -38,6 +38,7 @@ function pipePanel(rows){
 }
 
 async function renderHome(){
+  if(homeRoute()!=='home')return go(homeRoute());
   $('main').innerHTML=SKEL;
   if(ME.role==='finance')return homeFinance();
   const rows=await fetchLeads(q=>{

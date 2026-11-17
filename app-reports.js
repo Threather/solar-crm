@@ -126,9 +126,9 @@ const REP_RENDER={mgmt:'renderMgmtReport',sales:'renderSalesReport',ops:'renderO
 function repScopes(){
   const s=[];
   /* the management board leads, and only for the two roles it is drawn for */
-  if(['manager','admin'].includes(ME.role))s.push(['mgmt','Management']);
+  if(['manager','admin'].includes(ME.role)||finMgr()||procMgr())s.push(['mgmt','Management']);
   if(['sales','manager','admin'].includes(ME.role))s.push(['sales','Sales']);
-  if(['site_engineer','admin'].includes(ME.role))s.push(['ops','Operations']);
+  if(ME.role==='admin'||procMgr())s.push(['ops','Operations']);
   /* the sales manager runs marketing as well as sales, so they get both
      dashboards; operations is a different team and stays out */
   if(['marketing','manager','admin'].includes(ME.role))s.push(['mkt','Marketing']);
@@ -1109,7 +1109,7 @@ function stageTable(){
 async function renderQuots(){
   /* the log carries price_usd on every row, so it follows quotations_select
      rather than being a wider list that happens to look harmless */
-  if(!['sales','manager','admin'].includes(ME.role)){
+  if(!['sales','manager','admin','finance'].includes(ME.role)){
     $('main').innerHTML=blank('The quotation log is not open to your role','Quotations are on the lead they belong to.');return;}
   $('main').innerHTML=SKEL;
   /* name the foreign key: since leads.chosen_quotation_id was added there are

@@ -166,6 +166,7 @@ const dealCols=()=>DEALTAB==='edc'?DEAL_EDC[DEALBAND]:DEAL_COLS[DEALTAB];
    save - panel kWp, battery total, inverter total - are worked out here too,
    or EDC would read a stale kWac. */
 async function saveDeal(id,k,raw,el){
+  if(ME.role!=='admin')return;
   const l=DEALS.find(x=>x.id===id); if(!l)return;
   let v=String(raw==null?'':raw).trim()||null;
   const NUM=['edc_fee_usd','panel_watt','panel_pcs','inverter_kw','inverter_pcs','battery_kwh_each','battery_pcs'];

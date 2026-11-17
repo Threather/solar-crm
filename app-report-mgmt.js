@@ -438,7 +438,7 @@ async function mgmtCompute(P,R,PW){
 }
 
 async function renderMgmtReport(){
-  if(!['manager','admin'].includes(ME.role)){
+  if(!['manager','admin'].includes(ME.role)&&!finMgr()&&!procMgr()){
     $('main').innerHTML=blank('Not your report','The management dashboard is for the manager and admin.');
     return;
   }

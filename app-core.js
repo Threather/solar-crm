@@ -303,6 +303,17 @@ function addMonths(d,n){
    this just keeps the interface honest about it */
 const canSeeMoney=()=>['admin','manager','sales'].includes(ME.role);
 const canFinance=()=>['admin','finance'].includes(ME.role);
+/* 17 Nov 2026: finance and procurement each have a manager and an executive.
+   The database role stays finance / procurement, so every existing policy
+   still applies; profiles.sub_role = 'manager' is what tells the two apart. */
+const finMgr=()=>ME.role==='finance'&&ME.sub_role==='manager';
+const procMgr=()=>ME.role==='procurement'&&ME.sub_role==='manager';
+const roleWord=p=>({finance:p.sub_role==='manager'?'finance manager':'finance executive',
+  procurement:p.sub_role==='manager'?'procurement manager':'procurement executive'})[p.role]||p.role;
+/* roles that read and never work a lead: no lead window from a list */
+const viewOnly=()=>['finance','procurement','site_engineer'].includes(ME.role);
+/* where a role lands when it has no Today page */
+const homeRoute=()=>['procurement','site_engineer'].includes(ME.role)?'salesrep':'home';
 
 /* EDC paperwork. Which form applies is decided by the inverter's AC output,
    not by anyone choosing: 10 kWac or under takes the short form, above it
@@ -503,9 +514,10 @@ async function boot(){
   STAGES=stg.data||[];STAFF=stf.data||[];
   await loadVocab();
   $('login-view').style.display='none';$('app-view').style.display='flex';
-  $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(ME.role)} · ${esc(ME.staff_id)}`;
+  $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(roleWord(ME))} · ${esc(ME.staff_id)}`;
   if(ME.role==='site_engineer')LEADSCOPE='won';
-  buildNav();go(routeRead()||'home');followUpToday();
+  document.body.classList.toggle('readdeals',ME.role==='procurement');
+  buildNav();go(routeRead()||homeRoute());followUpToday();
 }
 
 /* What is waiting on you, shown once at login: leads due for follow-up today,
@@ -585,13 +597,20 @@ const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
    click to save the nine-item one some room, which is the wrong trade. */
 function buildNav(){
   /* the site engineer only ever works won deals, so that is all they get */
+  /* the site engineer reads the Sales Report and the Calendar (client, 17 Nov 2026) */
   if(ME.role==='site_engineer'){
-    $('nav').innerHTML=[['home','Today'],['leads','My jobs'],['cal','Calendar'],['aftersale','After-sale'],['reports','Reports']].map(navBtn).join('');
+    $('nav').innerHTML=[['salesrep','Sales Report'],['cal','Calendar']].map(navBtn).join('');
+    return;
+  }
+  /* procurement reads; the manager also gets the two dashboards */
+  if(ME.role==='procurement'){
+    $('nav').innerHTML=[['salesrep','Sales Report'],['cal','Calendar'],['proj','Projects'],...(procMgr()?[['reports','Reports']]:[])].map(navBtn).join('');
     return;
   }
   /* finance only ever works won deals and their money */
   if(ME.role==='finance'){
-    $('nav').innerHTML=[['home','Today'],['fin','Finance'],['salesrep','Sales Report']].map(navBtn).join('');
+    $('nav').innerHTML=[['home','Today'],['quots','Quotations'],['fin','Finance'],['salesrep','Sales Report'],
+      ...(finMgr()?[['inc','Incentive']]:[]),['cal','Calendar'],...(finMgr()?[['reports','Reports']]:[])].map(navBtn).join('');
     return;
   }
   const work=[['home','Today'],['leads','Leads']];

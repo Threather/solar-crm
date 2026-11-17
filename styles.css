@@ -1459,3 +1459,6 @@ tr.edcoff td:not(:first-child):not(:nth-child(2)){opacity:.4}
 
 /* a won deal waiting for admin approval (17 Nov 2026) */
 .waitline{margin-top:6px;font-size:12px;font-weight:600;color:#7a5a12}
+
+/* Projects is read only for procurement (17 Nov 2026) */
+.readdeals .deals table input,.readdeals .deals table select,.readdeals .deals table textarea,.readdeals .deals table button{pointer-events:none;background:transparent}
