@@ -515,6 +515,7 @@ async function boot(){
   await loadVocab();
   $('login-view').style.display='none';$('app-view').style.display='flex';
   $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(roleWord(ME))} · ${esc(ME.staff_id)}`;
+  $('foot-pw').innerHTML=icon('key');$('foot-out').innerHTML=icon('out');
   if(ME.role==='site_engineer')LEADSCOPE='won';
   document.body.classList.toggle('readdeals',ME.role==='procurement');
   buildNav();go(routeRead()||homeRoute());followUpToday();
@@ -589,10 +590,19 @@ const ICON={
   targets:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M12 12h.01',
   inc:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
   /* a ledger: one ruled row per won deal */
-  salesrep:'M4 4h16v16H4zM4 9h16M4 14h16M9 4v16'
+  salesrep:'M4 4h16v16H4zM4 9h16M4 14h16M9 4v16',
+  /* two sheets, one over the other: the same customer twice */
+  dups:'M8 8h11v12H8zM5 16V4h11',
+  cal:'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5',
+  /* bullets and rules: the editable dropdown lists */
+  lists:'M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01',
+  key:'M14.5 4a5.5 5.5 0 1 1-4.9 8L4 17.6V20h3v-2h2v-2h2l1.5-1.5A5.5 5.5 0 0 1 14.5 4M16 8h.01',
+  out:'M10 4H5v16h5M15 8l4 4-4 4M19 12H9'
 };
+/* every item draws its own glyph (17 Nov 2026): the house stood in for four */
+const icon=k=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]||ICON.home}"/></svg>`;
 const navBtn=([k,l])=>`<button id="nav-${k}" onclick="go('${k}')">`
-  +`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICON[k]||ICON.home}"/></svg>${l}</button>`;
+  +icon(k)+`${l}</button>`;
 /* Grouped rather than folded away. Nesting would cost the four-item roles a
    click to save the nine-item one some room, which is the wrong trade. */
 function buildNav(){
