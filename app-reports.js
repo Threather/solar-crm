@@ -22,6 +22,14 @@ const stageName=c=>(STAGES.find(s=>s.stage_code===c)||{}).stage_name||c||'';
 
 /* who sent a Third Party customer, as the Leads table's Referred by column */
 const refWho=l=>l.lead_channel==='Third_Party'?(l.agent_name||l.referrer_name||''):'';
+/* the Quotations group of the Leads table, for the export (17 Nov 2026):
+   how many, the package, the latest price and date, the range, the one in use */
+function quotCells(l){
+  const qs=l.quots||[]; if(!qs.length)return ['','','','','','',''];
+  const ps=qs.map(q=>Number(q.price_usd||0)), use=qs.find(q=>qUse(q,l));
+  return [qs.length,qPack(use||qs[0]),qs[0].price_usd,localDay(qs[0].released_date||qs[0].created_at),
+    Math.min(...ps),Math.max(...ps),use?use.price_usd:''];
+}
 function exportLeads(){
   /* an export must not hand back what the screen withholds, so marketing gets
      the same columns their table shows and nothing else - date first, as on
@@ -56,7 +64,7 @@ function exportLeads(){
     l.next_follow_up,qualText(l),
     /* Aging, as the table shows it (12 Nov 2026) */
     l.created_at?daysIn(l.created_at):'',l.stage_entered_at?daysIn(l.stage_entered_at):'',
-    ...(money?[l.final_sale_usd]:[]),
+    ...(money?[l.final_sale_usd,...quotCells(l)]:[]),
     l.roof_type,l.system_type,l.phase_type,l.panel_brand,l.panel_watt,l.panel_pcs,l.panel_kwp,
     l.inverter_brand,l.inverter_kw,l.inverter_pcs,l.inverter_kw_total,
     l.battery_brand,l.battery_kwh,l.site_link,
@@ -73,7 +81,7 @@ function exportLeads(){
     'Address','Commune','District','Province','Type of site',
     'Monthly bill (USD)','Sale engineer',
     'Next follow-up','Qualification','Days old','Days in stage',
-    ...(money?['Final sale (USD)']:[]),
+    ...(money?['Final sale (USD)','Quotations','Package','Latest quotation (USD)','Latest quotation date','Lowest quotation (USD)','Highest quotation (USD)','In use (USD)']:[]),
     'Roof type','System type','Ampere & phase','Panel brand','Panel watt','Panel pcs','Panel kWp',
     'Inverter brand','Inverter kW each','Inverter pcs','Inverter total kW',
     'Battery brand','Battery kWh','Location link',
