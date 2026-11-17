@@ -418,6 +418,30 @@ async function doLogin(){
   boot();
 }
 async function doLogout(){await sb.auth.signOut();location.reload();}
+/* Change password (17 Nov 2026): anyone signed in sets their own. It goes
+   straight to Supabase auth for the session in hand - nobody else sees it and
+   no email is needed, which matters because .local addresses receive none. */
+function pwOpen(){
+  $('lead-modal').innerHTML=`
+    <h2>Change password</h2>
+    <div class="sub">${esc(ME.full_name||'')}</div>
+    <div class="section"><div class="grid2">
+      <div><label>New password</label><input id="pw-new" type="password" autocomplete="new-password"></div>
+      <div><label>Type it again</label><input id="pw-again" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')pwSave()"></div>
+    </div></div>
+    <div class="modal-actions"><button class="btn-line" onclick="closeLead()">Cancel</button>
+      <button class="btn-sun" onclick="pwSave()">Save password</button></div>`;
+  $('lead-overlay').classList.add('open');
+  $('pw-new').focus();
+}
+async function pwSave(){
+  const a=$('pw-new').value, b=$('pw-again').value;
+  if(a.length<8){needField('pw-new','At least 8 characters');return;}
+  if(a!==b){needField('pw-again','The two do not match');return;}
+  const {error}=await sb.auth.updateUser({password:a});
+  if(error){toast('Could not change it. '+(error.message||''));return;}
+  closeLead();toast('Password changed');
+}
 
 /* AN EXPIRED SESSION LOOKS EXACTLY LIKE A REFUSED ROLE, AND IT IS NOT ONE.
    ME is read once at boot, so the interface carries on looking signed in long
