@@ -34,7 +34,7 @@ async function renderOpsReport(){
 
   /* a project is a Full package deal; a service deal never counts as one
      (client, 14 Oct 2026). EDC Pending Submit counts installed jobs only (client, 14 Oct 2026). */
-  const job=l=>!isService(l);
+  const job=l=>isProject(l);
   const jobs=f.filter(job);
   const done=jobs.filter(l=>instDoneOn(l));
   const active=jobs.filter(l=>!instDoneOn(l));
@@ -69,7 +69,7 @@ async function renderOpsReport(){
   const pWait=f.filter(l=>hasPart(l,'EDC/EAC')&&edcSentOn(l)&&!edcSeenOn(l)&&inW(edcSentOn(l)));
   const pSeen=f.filter(l=>hasPart(l,'EDC/EAC')&&edcSeenOn(l)&&inW(edcSeenOn(l)));
   const pMax=Math.max(1,pBoq.length,pSched.length,pRun.length,pDone.length,pWait.length,pSeen.length);
-  const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&!isService(l)&&inPeriod(l.boq_date));
+  const boqInPeriod=f.filter(l=>l.boq_status==='Done'&&isProject(l)&&inPeriod(l.boq_date));
 
   /* the four turnaround targets the manager sets each month, in days. Read for
      the month being shown, like every other target in the app. */
@@ -216,7 +216,7 @@ async function renderOpsReport(){
     </div>
 
     <div class="homegrid level mgrid opwide">
-      ${(()=>{const S=teamSummary(f,windowed?wS:null,windowed?wE:null);
+      ${(()=>{const S=teamSummary(f.filter(isProject),windowed?wS:null,windowed?wE:null);
         xrows({Installations:S.jobs.map(l=>({...xl(l),Team:l.installation_team||'No team yet',Start:localDay(l.installation_start),
           Status:{wait:'Not started',run:'In progress',done:'Finished'}[S.st(l)]}))});
         return repPanel('Installation by team',teamSummaryHtml(S));})()}

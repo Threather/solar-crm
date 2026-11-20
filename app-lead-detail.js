@@ -108,7 +108,7 @@ async function openLead(id){
           <label>Final sale value (USD)</label>${numBox('d-sale',fin?.final_sale_usd)}</div>`:''}
         ${canMoney&&fin?.loan_from?`<div><label>Loan</label><div class="loanline ${fin.loan_paid_on?'paid':''}">${fin.loan_from==='Han'?'Han personal loan · '+(fin.loan_paid_on?'ended '+esc(fmtDate(fin.loan_paid_on)):'running'):'Han company loan · '+(fin.loan_paid_on?'paid in full '+esc(fmtDate(fin.loan_paid_on)):'still paying')}</div></div>`:''}
         ${seeEng?`<div><label>Deal type</label><select id="d-dtype" onchange="dDealType()" ${canEng?'':'disabled'}>
-          <option value="full" ${isService(l)?'':'selected'}>Full package</option><option value="service" ${isService(l)?'selected':''}>Service only</option></select></div>
+          <option value="full" ${isService(l)||isAddon(l)?'':'selected'}>Full package</option><option value="addon" ${isAddon(l)?'selected':''}>Add-on</option><option value="service" ${isService(l)?'selected':''}>Service only</option></select></div>
         <div id="d-svcwrap" ${isService(l)?'':'style="display:none"'}><label>Services</label>
           <div class="svcticks">${DEAL_SERVICES.map(v=>`<label><input type="checkbox" class="d-svc" value="${esc(v)}" ${(l.deal_services||[]).includes(v)?'checked':''} ${canEng?'':'disabled'} onchange="dSvcSync()"> ${esc(v)}</label>`).join('')}</div>
           <input type="hidden" id="d-svcs" value="${esc((l.deal_services||[]).join(','))}"></div>
@@ -536,7 +536,7 @@ async function newDealFrom(leadId){
     /* the person who sold the first system keeps the relationship */
     assigned_to:l.assigned_to,assigned_at:l.assigned_to?new Date().toISOString():null,
     site_engineer_id:l.site_engineer_id,
-    lead_channel:'Existing_Customer',lead_sub_channel:'Expansion',
+    lead_channel:'Existing_Customer',lead_sub_channel:'Expansion',deal_type:'addon',
     parent_lead_id:l.id,created_by:ME.id,
     ref_id:await repeatRef(l.ref_id)
   };

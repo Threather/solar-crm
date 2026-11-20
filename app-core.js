@@ -282,7 +282,13 @@ const asPicList=()=>AS_PICS.length?AS_PICS:STAFF.filter(s=>s.is_active).map(s=>s
 const DEAL_SERVICES=['EDC/EAC','Installation','Technical check'];
 const isService=l=>l&&l.deal_type==='service';
 const hasPart=(l,s)=>!isService(l)||(l.deal_services||[]).includes(s);
-const dealWord=l=>isService(l)?'Service only'+((l.deal_services||[]).length?' · '+l.deal_services.join(', '):''):'Full package';
+/* Add-on (client, 20 Nov 2026; full council): something added to a system the
+   customer already has - one more battery. It is bought, ordered and installed
+   like a full package (BOQ, Calendar), so isService and hasPart leave it alone;
+   it is simply not a PROJECT on Operations. isProject is that one test. */
+const isAddon=l=>l&&l.deal_type==='addon';
+const isProject=l=>!isService(l)&&!isAddon(l);
+const dealWord=l=>isService(l)?'Service only'+((l.deal_services||[]).length?' · '+l.deal_services.join(', '):''):isAddon(l)?'Add-on':'Full package';
 const CONTRACT_STATUS=['Not signed','Pending','Signed'];
 let ACCOUNT_TYPES=['SWN','SWT'];
 const BOQ_STATUS=['Pending','Done'];
@@ -343,7 +349,15 @@ const edcFields=l=>!edcApplies(l)||kwac(l)<=0?null:(kwac(l)<=10?EDC_SMALL:EDC_LA
    default) or Don't need to submit - a battery added to a system EDC already
    knows, say (client, 11 Nov 2026). Don't need leaves every EDC count and list
    except Edit EDC; the deal stays a sale and a project everywhere else. */
-const edcCovered=l=>l.edc_needed===false;
+/* An add-on goes to EDC only when it makes the inverter bigger than the deal
+   it adds to (council, 20 Nov 2026: New deal copies the installed inverter, so
+   "has an inverter" says nothing). With no first deal on record, only an
+   add-on carrying an inverter goes. Admin's Don't need still wins. */
+const KWAC_BY_ID={};
+const addonNoEdc=l=>{if(!isAddon(l))return false;const own=kwac(l);
+  const base=l.parent_lead_id&&KWAC_BY_ID[l.parent_lead_id]!=null?KWAC_BY_ID[l.parent_lead_id]:0;
+  return !(own>base);};
+const edcCovered=l=>l.edc_needed===false||addonNoEdc(l);
 const edcNeedSel=(l,id)=>`<select ${id?`id="${id}" `:''}onclick="event.stopPropagation()" onchange="edcNeedSave('${l.id}',this)">
   <option value="1" ${l.edc_needed===false?'':'selected'}>Need to submit</option><option value="0" ${l.edc_needed===false?'selected':''}>Don't need to submit</option></select>`;
 /* the Yes / No switch on EDC > Edit EDC */
@@ -914,7 +928,7 @@ async function fetchLeads(extra){
 const WAIT_STAGE='agreement_signoff', WAIT_LABEL='Won · waiting for approval';
 const wonWaiting=l=>l.stage_code===WON&&!l.sr_approved_at;
 function gateWon(rows){
-  rows.forEach(l=>{if(wonWaiting(l)){l.won_wait=true;l.stage_code=WAIT_STAGE;}});
+  rows.forEach(l=>{KWAC_BY_ID[l.id]=kwac(l);if(wonWaiting(l)){l.won_wait=true;l.stage_code=WAIT_STAGE;}});
   return ['finance','site_engineer'].includes(ME.role)?rows.filter(l=>!l.won_wait):rows;
 }
 /* the won deals work may start on: approved ones only */

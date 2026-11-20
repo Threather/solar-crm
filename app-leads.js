@@ -226,7 +226,7 @@ const COLSPEC={
   qual:l=>qualText(l),
   eng:l=>l.assigned_to?staffName(l.assigned_to):'Not assigned',
   site:l=>l.site_engineer_id?staffName(l.site_engineer_id):'None',
-  boq:l=>isService(l)?'Service only':l.boq_status||'Not set',
+  boq:l=>isService(l)?'Service only':(isAddon(l)?'Add-on · ':'')+(l.boq_status||'Not set'),
   sched:l=>l.installation_start||l.installation_end?'Scheduled':'Not scheduled',
   fu:fuWord,
   rem:l=>FU_TEST.quiet(l)?'No remark in 7 days':'Remark in last 7 days',
