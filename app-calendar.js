@@ -140,7 +140,7 @@ function teamSummary(rows,a,b){
 function teamSummaryHtml(S){
   if(!S.jobs.length)return '<div class="sub">No installation starts in this period.</div>';
   const c=s=>`<td>${s.n}</td><td>${s.wait}</td><td>${s.run}</td><td>${s.done}</td>`;
-  return `<div class="tablewrap"><table class="table-compact"><thead><tr><th>Team</th><th>Total</th><th>Not started</th><th>In progress</th><th>Finished</th></tr></thead>
+  return `<div class="tablewrap"><table class="table-compact teamsum"><thead><tr><th>Team</th><th>Total</th><th>Not started</th><th>In progress</th><th>Finished</th></tr></thead>
     <tbody>${S.per.map(([t,s])=>`<tr><td><b class="nm">${esc(t)}</b></td>${c(s)}</tr>`).join('')}</tbody>
     <tfoot><tr class="srtotal"><td><b>Total</b></td>${c(S.total)}</tr></tfoot></table></div>`;
 }
