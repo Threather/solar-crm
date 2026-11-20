@@ -121,7 +121,8 @@ const DEAL_EDC={
   /* five dates leave no room for a size column; the size rides under the office */
   large:[dealSubmit,{head:'Branch · EDC price',cell:l=>dealOffice(l)+`<div class="days" style="margin-top:4px">${kwac(l)} kWac · ${edcDone(l)} of 5 done</div>`},
     ...EDC_LARGE.map(([k,s,f])=>({head:s,tip:f,cell:l=>dEdc(l,k)}))],
-  miss:[
+  /* the Submit switch here too: a battery-only deal never gets an inverter size (20 Nov 2026) */
+  miss:[dealSubmit,
     {head:'Why',cell:l=>edcExempt(l)?'<span class="quiet">Off-Grid, no EDC</span>':!edcApplies(l)?'<b>No system type</b>':'<b>No inverter size</b>'},
     {head:'System type',cell:l=>dSel(l,'system_type',SYSTEM_TYPES)},
     {head:'Inverter',cell:l=>`<div class="inl">${dNum(l,'inverter_kw',false,60)}<span>kW ×</span>${dNum(l,'inverter_pcs',true,48)}<span>pcs</span></div>`},

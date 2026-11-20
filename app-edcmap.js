@@ -20,7 +20,7 @@ function edcCells(id){
   const b=edcRowName(id), p=EDCPINS[b], people=edcPeople(p), placed=p&&p.lat!=null;
   return `<td id="edcp-${id}"><div class="edcpeople">${people.map((x,i)=>`<div class="offrow"><span>${esc(x.name)}</span><a href="tel:${esc(x.phone)}">${esc(x.phone)}</a><button class="lsx" title="Remove" onclick="edcPerson('${id}',${i})">×</button></div>`).join('')}
       <div class="edcadd"><input id="edcpn-${id}" placeholder="Contact person"><input id="edcpp-${id}" placeholder="Phone number"><button class="btn-line" onclick="edcPerson('${id}')">Save</button></div></div></td>
-    <td id="edcm-${id}" class="nowrap">${placed?`<button class="btn-line lgq" onclick="edcFly('${id}')">On the map</button> <button class="lsx" title="Remove pin" onclick="edcRemove('${id}')">×</button>`
+    <td id="edcm-${id}" class="nowrap">${edcLinkCell(id,b,p)}${placed?`<button class="btn-line lgq" onclick="edcFly('${id}')">On the map</button> <button class="lsx" title="Remove pin" onclick="edcRemove('${id}')">×</button>`
       :`<button class="btn-line lgq${EDCPICK===b?' on':''}" onclick="edcPickFor('${id}')">${EDCPICK===b?'Click the map…':'Set on map'}</button>`}</td>`;
 }
 function edcRefresh(id){
@@ -65,7 +65,7 @@ function edcMark(p){
   if(EDCMARK[p.branch])EDCMARK[p.branch].remove();
   const m=L.marker([p.lat,p.lng],{draggable:true,icon:L.divIcon({className:'edcpin',html:'<i></i>',iconSize:[22,22],iconAnchor:[11,22],popupAnchor:[0,-20]})}).addTo(EDCMAP);
   m.bindTooltip(esc(p.branch),{direction:'top',offset:[0,-20]});
-  m.bindPopup(`<b>${esc(p.branch)}</b><br>${edcWord(p.branch)}${edcPeople(p).map(x=>`<br>${esc(x.name)} · <a href="tel:${esc(x.phone)}">${esc(x.phone)}</a>`).join('')}`);
+  m.bindPopup(`<b>${esc(p.branch)}</b><br>${edcWord(p.branch)}${edcPeople(p).map(x=>`<br>${esc(x.name)} · <a href="tel:${esc(x.phone)}">${esc(x.phone)}</a>`).join('')}${edcLinkOf(p)?`<br><a href="${esc(edcLinkOf(p))}" target="_blank" rel="noopener">Open in Google Maps</a>`:''}`);
   m.on('dragend',()=>{const q=m.getLatLng();edcPlace(p.branch,q.lat,q.lng);});
   EDCMARK[p.branch]=m;
 }
@@ -81,10 +81,30 @@ function edcFly(id){
   EDCMAP.flyTo([p.lat,p.lng],13);EDCMARK[b]?.openPopup();
 }
 async function edcPlace(branch,lat,lng){
-  const row={branch,lat,lng,contacts:edcPeople(EDCPINS[branch]),updated_by:ME.id,updated_at:new Date().toISOString()};
+  const row={branch,lat,lng,contacts:edcPeople(EDCPINS[branch]),map_link:edcLinkOf(EDCPINS[branch])||null,updated_by:ME.id,updated_at:new Date().toISOString()};
   const {error}=await sb.from('edc_branch_pins').upsert(row,{onConflict:'branch'});
   if(error){toast('Could not save. '+why(error));return;}
   EDCPINS[branch]=row;edcMark(row);EDCPICK='';$('edc-canvas')?.classList.remove('picking');toast('Saved');edcRefreshAll();
+}
+/* the branch's Google Maps link, pasted by admin (client, 20 Nov 2026):
+   saved, it reads as an Open link that wins over the pin when clicked */
+const edcLinkOf=p=>(p&&p.map_link)||'';
+function edcLinkCell(id,b,p){
+  const u=edcLinkOf(p);
+  return u?`<div class="edcadd"><a class="btn-line lgq" href="${esc(u)}" target="_blank" rel="noopener">Open map</a><button class="lsx" title="Remove link" onclick="edcLink('${id}',true)">×</button></div>`
+    :`<div class="edcadd"><input id="edcml-${id}" placeholder="Paste Google Maps link"><button class="btn-line" onclick="edcLink('${id}')">Save</button></div>`;
+}
+async function edcLink(id,clear){
+  const b=edcRowName(id);let u='';
+  if(!clear){u=$('edcml-'+id).value.trim();
+    if(!/^https?:\/\//i.test(u)){needField('edcml-'+id,'Paste the full link, starting with https://');return;}}
+  const {error}=EDCPINS[b]
+    ?await sb.from('edc_branch_pins').update({map_link:u||null,updated_by:ME.id,updated_at:new Date().toISOString()}).eq('branch',b)
+    :await sb.from('edc_branch_pins').insert({branch:b,lat:null,lng:null,contacts:[],map_link:u||null,updated_by:ME.id});
+  if(error){toast('Could not save. '+why(error));return;}
+  EDCPINS[b]={...(EDCPINS[b]||{branch:b,lat:null,lng:null,contacts:[]}),map_link:u||null};
+  if(EDCPINS[b].lat!=null&&EDCMAP)edcMark(EDCPINS[b]);
+  toast(clear?'Link removed':'Saved');edcRefresh(id);
 }
 /* with an index it removes that person; without one it adds from the boxes.
    A branch with no pin yet keeps its people on a row with no place */

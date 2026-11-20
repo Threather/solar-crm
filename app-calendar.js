@@ -121,6 +121,30 @@ async function calSaveDates(id){
   toast('Saved');offFill(id);
 }
 
+/* Team summary (client, 20 Nov 2026): per installer team, the jobs that
+   START in the period - total, not started, in progress, finished, as of
+   today. Finished reads instDoneOn, the same test as Operations, so the two
+   screens agree. Shared by Calendar > Installation details and Operations. */
+function teamSummary(rows,a,b){
+  const today=localDay(new Date());
+  const js=rows.filter(l=>hasPart(l,'Installation')&&l.installation_start)
+    .filter(l=>{const d=localDay(l.installation_start);return (!a||d>=a)&&(!b||d<=b);});
+  const st=l=>instDoneOn(l)?'done':localDay(l.installation_start)>today?'wait':'run';
+  const names=[...new Set([...INSTALL_TEAMS.filter(t=>js.some(l=>l.installation_team===t)),
+    ...js.map(l=>l.installation_team).filter(Boolean)])];
+  if(js.some(l=>!l.installation_team))names.push('');
+  const row=set=>({n:set.length,wait:set.filter(l=>st(l)==='wait').length,run:set.filter(l=>st(l)==='run').length,done:set.filter(l=>st(l)==='done').length});
+  const per=names.map(t=>[t||'No team yet',row(js.filter(l=>(l.installation_team||'')===t))]);
+  return {per,total:row(js),jobs:js,st};
+}
+function teamSummaryHtml(S){
+  if(!S.jobs.length)return '<div class="sub">No installation starts in this period.</div>';
+  const c=s=>`<td>${s.n}</td><td>${s.wait}</td><td>${s.run}</td><td>${s.done}</td>`;
+  return `<div class="tablewrap"><table class="table-compact"><thead><tr><th>Team</th><th>Total</th><th>Not started</th><th>In progress</th><th>Finished</th></tr></thead>
+    <tbody>${S.per.map(([t,s])=>`<tr><td><b class="nm">${esc(t)}</b></td>${c(s)}</tr>`).join('')}</tbody>
+    <tfoot><tr class="srtotal"><td><b>Total</b></td>${c(S.total)}</tr></tfoot></table></div>`;
+}
+
 async function renderCalendar(){
   if(!['site_engineer','sales','manager','admin','finance','procurement'].includes(ME.role)){
     $('main').innerHTML=blank('No calendar for your role','');return;}
@@ -188,6 +212,7 @@ async function renderCalendar(){
       :`<div class="sub">No installation in ${esc(monthWord)}.</div>`;
     body=`<div class="caldet">
       <div class="section calsec"><div class="calwrap"><div class="caltitle">${esc(monthWord)}</div>${calGrid(jobs,y,m,false)}<div class="calteams">${legend}</div></div></div>
+      <div class="section"><h4>Team summary · ${esc(monthWord)}</h4>${teamSummaryHtml(teamSummary(rows,first,last))}</div>
       <div class="section"><h4>${esc(monthWord)}</h4>${list}</div></div>`;
   }
   $('main').innerHTML=`<h2 style="margin-bottom:12px">Calendar</h2>${bar}${body}`;

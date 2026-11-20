@@ -215,6 +215,13 @@ async function renderOpsReport(){
           :blank('No team picked yet','A team is set on a won deal by the site engineer.')))}
     </div>
 
+    <div class="homegrid level mgrid opwide">
+      ${(()=>{const S=teamSummary(f,windowed?wS:null,windowed?wE:null);
+        xrows({Installations:S.jobs.map(l=>({...xl(l),Team:l.installation_team||'No team yet',Start:localDay(l.installation_start),
+          Status:{wait:'Not started',run:'In progress',done:'Finished'}[S.st(l)]}))});
+        return repPanel('Installation by team',teamSummaryHtml(S));})()}
+    </div>
+
     <div class="homegrid level mgrid">
       ${repPanel('Turn Around Time Vs Target',xrows({
         'BOQ to delivery':xstep(l=>l.delivery_date&&localDay(l.delivery_date)<=today&&inW(l.delivery_date),l=>l.boq_date,l=>l.delivery_date),

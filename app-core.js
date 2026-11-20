@@ -514,7 +514,8 @@ async function boot(){
   STAGES=stg.data||[];STAFF=stf.data||[];
   await loadVocab();
   $('login-view').style.display='none';$('app-view').style.display='flex';
-  $('who').innerHTML=`<b>${esc(ME.full_name)}</b>${esc(roleWord(ME))} · ${esc(ME.staff_id)}`;
+  /* the name only (client, 20 Nov 2026) */
+  $('who').innerHTML=`<b>${esc(ME.full_name)}</b>`;
   $('foot-pw').innerHTML=icon('key');$('foot-out').innerHTML=icon('out');
   if(ME.role==='site_engineer')LEADSCOPE='won';
   document.body.classList.toggle('readdeals',ME.role==='procurement');

@@ -119,9 +119,10 @@ function srCols(n){
     {x:9,h:'Contact Number',g:'cust',v:r=>r.phone||'',f:1},
     {x:9.1,h:'Site type',g:'addr',v:r=>r.site_type||'',f:1},
     {x:9.2,h:'Address',g:'addr',v:r=>r.site_address||'',t:'cut'},
-    {x:9.3,h:'Province',g:'loc',v:r=>r.province||r.city_province||'',f:1},
+    /* smallest place first: Commune, District, Province (client, 20 Nov 2026) */
+    {x:9.3,h:'Commune',g:'loc',v:r=>r.commune||'',f:1},
     {x:9.4,h:'District',g:'loc',v:r=>r.district||'',f:1},
-    {x:9.5,h:'Commune',g:'loc',v:r=>r.commune||'',f:1},
+    {x:9.5,h:'Province',g:'loc',v:r=>r.province||r.city_province||'',f:1},
     {x:999,h:'Map link',g:'loc',v:r=>r.site_link||'',t:'cut'},
     {x:10,h:'System Size (Pcs)',g:'sys',v:r=>r.panel_pcs??'',t:'n',f:1},
     {x:11,h:'Panel brand',g:'sys',v:r=>[r.panel_brand,r.panel_watt?r.panel_watt+'W':''].filter(Boolean).join(' '),f:1},
