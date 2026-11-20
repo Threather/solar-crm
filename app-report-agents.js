@@ -72,7 +72,7 @@ async function thirdPartyHtml(MONTHS){
   pays.forEach(p=>paid[p.lead_id]=(paid[p.lead_id]||0)+Number(p.amount_usd||0));
   const won=l=>l.stage_code===WON;
   const sum=set=>({n:set.length,q:set.filter(l=>qualText(l)==='Qualified').length,won:set.filter(won).length,
-    lost:set.filter(isClosedLost).length,
+    lost:set.filter(isClosedLost).length,disq:set.filter(isDisqualified).length,
     value:set.filter(won).reduce((a,l)=>a+(contract[l.id]??sale[l.id]??0),0),
     paid:set.reduce((a,l)=>a+(paid[l.id]||0),0)});
   const cells=s=>`<td>${s.n}</td><td>${s.q}</td><td>${s.won}</td>
@@ -92,16 +92,16 @@ async function thirdPartyHtml(MONTHS){
   const nameOf=l=>l.agent_name||'(no agent picked)';
   const names=[...new Set(ag.map(nameOf))].sort();
   /* the agent tables carry Closed-Lost as well (qualified, then lost) */
-  const cellsA=s=>`<td>${s.n}</td><td>${s.q}</td><td>${s.won}</td><td>${s.lost}</td>
+  const cellsA=s=>`<td>${s.n}</td><td>${s.q}</td><td>${s.won}</td><td>${s.lost}</td><td>${s.disq}</td>
     <td class="nowrap">${repCash(s.value)}</td><td class="nowrap">${repCash(s.paid)}</td>`;
-  const headA=`<th>Lead received</th><th>Qualified</th><th>Closed-Won</th><th>Closed-Lost</th><th>Contract value</th><th>Payment collection</th>`;
+  const headA=`<th>Lead received</th><th>Qualified</th><th>Closed-Won</th><th>Closed-Lost</th><th>Disqualified</th><th>Contract value</th><th>Payment collection</th>`;
   /* one row per agent, every lead they ever sent, most leads first */
   const per=[...new Set(agAll.map(nameOf))].map(a=>[a,sum(agAll.filter(l=>nameOf(l)===a))])
     .sort((x,y)=>y[1].n-x[1].n||x[0].localeCompare(y[0]));
   const tAll=sum(agAll);
   const money=v=>Math.round(v*100)/100;
-  xpend('Per agent, all time',['Agent name','Lead received','Qualified','Closed-Won','Closed-Lost','Contract value','Payment collection'],
-    [...per,['Total',tAll]].map(([a,s])=>[a,s.n,s.q,s.won,s.lost,money(s.value),money(s.paid)]));
+  xpend('Per agent, all time',['Agent name','Lead received','Qualified','Closed-Won','Closed-Lost','Disqualified','Contract value','Payment collection'],
+    [...per,['Total',tAll]].map(([a,s])=>[a,s.n,s.q,s.won,s.lost,s.disq,money(s.value),money(s.paid)]));
   xrows({'Agent leads, all time':xl(agAll)});
   const agentSum=repPanel('Agent summary — all time',agAll.length?`<div class="tablewrap"><table class="table-compact"><thead><tr><th>Agent name</th>${headA}</tr></thead>
     <tbody>${per.map(([a,s])=>`<tr><td><b class="nm">${esc(a)}</b></td>${cellsA(s)}</tr>`).join('')}</tbody>
